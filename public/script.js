@@ -1907,6 +1907,17 @@ export function appendMediaToMessage(mes, messageElement) {
         text.toggleClass('displayNone', !isInline);
     }
 
+    if (mes.extra?.audio) {
+        const audioContainer = messageElement.find('.mes_audio_container');
+        audioContainer.show(); // Make the container visible
+        const audioElement = $('<audio>', {
+            class: 'mes_audio',
+            controls: true,
+            style: 'width: 100%; padding-top: 15px;'
+        }).attr('src', mes.extra.audio);
+        audioContainer.empty().append(audioElement);
+    }
+
     // Add file to message
     if (mes.extra?.file) {
         messageElement.find('.mes_file_container').remove();
