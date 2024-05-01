@@ -1,4 +1,8 @@
 import { POPUP_TYPE, Popup } from '../../../popup.js';
+import { setSlashCommandAutoComplete } from '../../../slash-commands.js';
+import { SlashCommandAbortController } from '../../../slash-commands/SlashCommandAbortController.js';
+import { SlashCommandParserError } from '../../../slash-commands/SlashCommandParserError.js';
+import { SlashCommandScope } from '../../../slash-commands/SlashCommandScope.js';
 import { getSortableDelay } from '../../../utils.js';
 import { log, warn } from '../index.js';
 import { QuickReplyContextLink } from './QuickReplyContextLink.js';
@@ -47,9 +51,14 @@ export class QuickReply {
     /**@type {Popup}*/ editorPopup;
 
     /**@type {HTMLElement}*/ editorExecuteBtn;
+    /**@type {HTMLElement}*/ editorExecuteBtnPause;
+    /**@type {HTMLElement}*/ editorExecuteBtnStop;
+    /**@type {HTMLElement}*/ editorExecuteProgress;
     /**@type {HTMLElement}*/ editorExecuteErrors;
+    /**@type {HTMLElement}*/ editorExecuteResult;
     /**@type {HTMLInputElement}*/ editorExecuteHide;
     /**@type {Promise}*/ editorExecutePromise;
+    /**@type {SlashCommandAbortController}*/ abortController;
 
 
     get hasContext() {
@@ -253,8 +262,9 @@ export class QuickReply {
             message.addEventListener('input', () => {
                 this.updateMessage(message.value);
             });
+            setSlashCommandAutoComplete(message, true);
             //TODO move tab support for textarea into its own helper(?) and use for both this and .editor_maximize
-            message.addEventListener('keydown', (evt) => {
+            message.addEventListener('keydown', async(evt) => {
                 if (evt.key == 'Tab' && !evt.shiftKey && !evt.ctrlKey && !evt.altKey) {
                     evt.preventDefault();
                     const start = message.selectionStart;
@@ -286,7 +296,15 @@ export class QuickReply {
                     evt.stopPropagation();
                     evt.preventDefault();
                     if (executeShortcut.checked) {
-                        this.executeFromEditor();
+                        const selectionStart = message.selectionStart;
+                        const selectionEnd = message.selectionEnd;
+                        message.blur();
+                        await this.executeFromEditor();
+                        if (document.activeElement != message) {
+                            message.focus();
+                            message.selectionStart = selectionStart;
+                            message.selectionEnd = selectionEnd;
+                        }
                     }
                 }
             });
@@ -415,8 +433,14 @@ export class QuickReply {
             });
 
             /**@type {HTMLElement}*/
+            const executeProgress = dom.querySelector('#qr--modal-executeProgress');
+            this.editorExecuteProgress = executeProgress;
+            /**@type {HTMLElement}*/
             const executeErrors = dom.querySelector('#qr--modal-executeErrors');
             this.editorExecuteErrors = executeErrors;
+            /**@type {HTMLElement}*/
+            const executeResult = dom.querySelector('#qr--modal-executeResult');
+            this.editorExecuteResult = executeResult;
             /**@type {HTMLInputElement}*/
             const executeHide = dom.querySelector('#qr--modal-executeHide');
             this.editorExecuteHide = executeHide;
@@ -425,6 +449,26 @@ export class QuickReply {
             this.editorExecuteBtn = executeBtn;
             executeBtn.addEventListener('click', async()=>{
                 await this.executeFromEditor();
+            });
+            /**@type {HTMLElement}*/
+            const executeBtnPause = dom.querySelector('#qr--modal-pause');
+            this.editorExecuteBtnPause = executeBtnPause;
+            executeBtnPause.addEventListener('click', async()=>{
+                if (this.abortController) {
+                    if (this.abortController.signal.paused) {
+                        this.abortController.continue('Continue button clicked');
+                        this.editorExecuteProgress.classList.remove('qr--paused');
+                    } else {
+                        this.abortController.pause('Pause button clicked');
+                        this.editorExecuteProgress.classList.add('qr--paused');
+                    }
+                }
+            });
+            /**@type {HTMLElement}*/
+            const executeBtnStop = dom.querySelector('#qr--modal-stop');
+            this.editorExecuteBtnStop = executeBtnStop;
+            executeBtnStop.addEventListener('click', async()=>{
+                this.abortController?.abort('Stop button clicked');
             });
 
             await popupResult;
@@ -436,19 +480,52 @@ export class QuickReply {
     async executeFromEditor() {
         if (this.editorExecutePromise) return;
         this.editorExecuteBtn.classList.add('qr--busy');
+        this.editorExecuteProgress.style.setProperty('--prog', '0');
+        this.editorExecuteErrors.classList.remove('qr--hasErrors');
+        this.editorExecuteResult.classList.remove('qr--hasResult');
+        this.editorExecuteProgress.classList.remove('qr--error');
+        this.editorExecuteProgress.classList.remove('qr--success');
+        this.editorExecuteProgress.classList.remove('qr--paused');
+        this.editorExecuteProgress.classList.remove('qr--aborted');
         this.editorExecuteErrors.innerHTML = '';
+        this.editorExecuteResult.innerHTML = '';
         if (this.editorExecuteHide.checked) {
             this.editorPopup.dom.classList.add('qr--hide');
         }
         try {
-            this.editorExecutePromise = this.execute();
-            await this.editorExecutePromise;
+            this.editorExecutePromise = this.execute({}, true);
+            const result = await this.editorExecutePromise;
+            if (this.abortController?.signal?.aborted) {
+                this.editorExecuteProgress.classList.add('qr--aborted');
+            } else {
+                this.editorExecuteResult.textContent = result?.toString();
+                this.editorExecuteResult.classList.add('qr--hasResult');
+                this.editorExecuteProgress.classList.add('qr--success');
+            }
+            this.editorExecuteProgress.classList.remove('qr--paused');
         } catch (ex) {
-            this.editorExecuteErrors.textContent = ex.message;
+            this.editorExecuteErrors.classList.add('qr--hasErrors');
+            this.editorExecuteProgress.classList.add('qr--error');
+            this.editorExecuteProgress.classList.remove('qr--paused');
+            if (ex instanceof SlashCommandParserError) {
+                this.editorExecuteErrors.innerHTML = `
+                    <div>${ex.message}</div>
+                    <div>Line: ${ex.line} Column: ${ex.column}</div>
+                    <pre style="text-align:left;">${ex.hint}</pre>
+                `;
+            } else {
+                this.editorExecuteErrors.innerHTML = `
+                    <div>${ex.message}</div>
+                `;
+            }
         }
         this.editorExecutePromise = null;
         this.editorExecuteBtn.classList.remove('qr--busy');
         this.editorPopup.dom.classList.remove('qr--hide');
+    }
+
+    updateEditorProgress(done, total) {
+        this.editorExecuteProgress.style.setProperty('--prog', `${done / total * 100}`);
     }
 
 
@@ -526,12 +603,22 @@ export class QuickReply {
     }
 
 
-    async execute(args = {}) {
+    async execute(args = {}, isEditor = false, isRun = false) {
         if (this.message?.length > 0 && this.onExecute) {
-            const message = this.message.replace(/\{\{arg::([^}]+)\}\}/g, (_, key) => {
-                return args[key] ?? '';
+            const scope = new SlashCommandScope();
+            for (const key of Object.keys(args)) {
+                scope.setMacro(`arg::${key}`, args[key]);
+            }
+            if (isEditor) {
+                this.abortController = new SlashCommandAbortController();
+            }
+            return await this.onExecute(this, {
+                message:this.message,
+                isAutoExecute: args.isAutoExecute ?? false,
+                isEditor,
+                isRun,
+                scope,
             });
-            return await this.onExecute(this, message, args.isAutoExecute ?? false);
         }
     }
 

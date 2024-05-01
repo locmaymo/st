@@ -423,7 +423,7 @@ function restoreUserInput() {
 
     const userInput = LoadLocal('userInput');
     if (userInput) {
-        $('#send_textarea').val(userInput).trigger('input');
+        $('#send_textarea').val(userInput)[0].dispatchEvent(new Event('input', { bubbles:true }));
     }
 }
 
@@ -701,7 +701,7 @@ const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
  */
 function autoFitSendTextArea() {
     const originalScrollBottom = chatBlock.scrollHeight - (chatBlock.scrollTop + chatBlock.offsetHeight);
-    if (sendTextArea.scrollHeight == sendTextArea.offsetHeight) {
+    if (sendTextArea.scrollHeight + 2 == sendTextArea.offsetHeight) {
         // Needs to be pulled dynamically because it is affected by font size changes
         const sendTextAreaMinHeight = window.getComputedStyle(sendTextArea).getPropertyValue('min-height');
         sendTextArea.style.height = sendTextAreaMinHeight;

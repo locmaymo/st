@@ -7,6 +7,9 @@ import { onlyUnique, debounce, getCharaFilename, trimToEndSentence, trimToStartS
 import { hideMutedSprites } from '../../group-chats.js';
 import { isJsonSchemaSupported } from '../../textgen-settings.js';
 import { debounce_timeout } from '../../constants.js';
+import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';
+import { SlashCommand } from '../../slash-commands/SlashCommand.js';
+import { ARGUMENT_TYPE, SlashCommandArgument } from '../../slash-commands/SlashCommandArgument.js';
 export { MODULE_NAME };
 
 const MODULE_NAME = 'expressions';
@@ -906,8 +909,10 @@ async function setSpriteSetCommand(_, folder) {
 
     $('#expression_override').val(folder.trim());
     onClickExpressionOverrideButton();
-    removeExpression();
-    moduleWorker();
+    // removeExpression();
+    // moduleWorker();
+    const vnMode = isVisualNovelMode();
+    await sendExpressionCall(folder, lastExpression, true, vnMode);
 }
 
 async function classifyCommand(_, text) {
@@ -1967,9 +1972,69 @@ function migrateSettings() {
     });
     eventSource.on(event_types.MOVABLE_PANELS_RESET, updateVisualNovelModeDebounced);
     eventSource.on(event_types.GROUP_UPDATED, updateVisualNovelModeDebounced);
-    registerSlashCommand('sprite', setSpriteSlashCommand, ['emote'], '<span class="monospace">(spriteId)</span> – force sets the sprite for the current character', true, true);
-    registerSlashCommand('spriteoverride', setSpriteSetCommand, ['costume'], '<span class="monospace">(optional folder)</span> – sets an override sprite folder for the current character. If the name starts with a slash or a backslash, selects a sub-folder in the character-named folder. Empty value to reset to default.', true, true);
-    registerSlashCommand('lastsprite', (_, value) => lastExpression[value.trim()] ?? '', [], '<span class="monospace">(charName)</span> – Returns the last set sprite / expression for the named character.', true, true);
-    registerSlashCommand('th', toggleTalkingHeadCommand, ['talkinghead'], '– Character Expressions: toggles <i>Image Type - talkinghead (extras)</i> on/off.', true, true);
-    registerSlashCommand('classify', classifyCommand, [], '<span class="monospace">(text)</span> – performs an emotion classification of the given text and returns a label.', true, true);
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'sprite',
+        aliases: ['emote'],
+        callback: setSpriteSlashCommand,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'spriteId', [ARGUMENT_TYPE.STRING], true,
+            ),
+        ],
+        helpString: 'Force sets the sprite for the current character.',
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'spriteoverride',
+        aliases: ['costume'],
+        callback: setSpriteSetCommand,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'optional folder', [ARGUMENT_TYPE.STRING], false,
+            ),
+        ],
+        helpString: 'Sets an override sprite folder for the current character. If the name starts with a slash or a backslash, selects a sub-folder in the character-named folder. Empty value to reset to default.',
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'lastsprite',
+        callback: (_, value) => lastExpression[value.trim()] ?? '',
+        returns: 'sprite',
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'charName', [ARGUMENT_TYPE.STRING], true,
+            ),
+        ],
+        helpString: 'Returns the last set sprite / expression for the named character.',
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'th',
+        callback: toggleTalkingHeadCommand,
+        aliases: ['talkinghead'],
+        helpString: 'Character Expressions: toggles <i>Image Type - talkinghead (extras)</i> on/off.',
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'classify',
+        callback: classifyCommand,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'text', [ARGUMENT_TYPE.STRING], true,
+            ),
+        ],
+        returns: 'emotion classification label for the given text',
+        helpString: `
+            <div>
+                Performs an emotion classification of the given text and returns a label.
+            </div>
+            <div>
+                <strong>Example:</strong>
+                <ul>
+                    <li>
+                        <pre><code>/classify I am so happy today!</code></pre>
+                    </li>
+                </ul>
+            </div>
+        `,
+    }));
 })();

@@ -34,13 +34,16 @@ import {
     selectInstructPreset,
 } from './instruct-mode.js';
 
-import { registerSlashCommand } from './slash-commands.js';
 import { tag_map, tags } from './tags.js';
 import { tokenizers } from './tokenizers.js';
 import { BIAS_CACHE } from './logit-bias.js';
 import { renderTemplateAsync } from './templates.js';
 
 import { countOccurrences, debounce, delay, download, getFileText, isOdd, resetScrollHeight, shuffle, sortMoments, stringToRange, timestampToMoment } from './utils.js';
+import { PARSER_FLAG, SlashCommandParser } from './slash-commands/SlashCommandParser.js';
+import { SlashCommand } from './slash-commands/SlashCommand.js';
+import { ARGUMENT_TYPE, SlashCommandArgument } from './slash-commands/SlashCommandArgument.js';
+import { AUTOCOMPLETE_WIDTH } from './autocomplete/AutoComplete.js';
 
 export {
     loadPowerUserSettings,
@@ -251,6 +254,20 @@ let power_user = {
     zoomed_avatar_magnification: false,
     show_tag_filters: false,
     aux_field: 'character_version',
+    stscript: {
+        matching: 'fuzzy',
+        autocomplete: {
+            style: 'theme',
+            width: {
+                left: AUTOCOMPLETE_WIDTH.CHAT,
+                right: AUTOCOMPLETE_WIDTH.CHAT,
+            },
+        },
+        parser: {
+            /**@type {Object.<PARSER_FLAG,boolean>} */
+            flags: {},
+        },
+    },
     restore_user_input: true,
     reduced_motion: false,
     compact_input_area: true,
@@ -1428,9 +1445,25 @@ function getExampleMessagesBehavior() {
 }
 
 function loadPowerUserSettings(settings, data) {
+    const defaultStscript = JSON.parse(JSON.stringify(power_user.stscript));
     // Load from settings.json
     if (settings.power_user !== undefined) {
         Object.assign(power_user, settings.power_user);
+    }
+
+    if (power_user.stscript === undefined) {
+        power_user.stscript = defaultStscript;
+    } else {
+        if (power_user.stscript.autocomplete === undefined) {
+            power_user.stscript.autocomplete = defaultStscript.autocomplete;
+        } else if (power_user.stscript.autocomplete.width === undefined) {
+            power_user.stscript.autocomplete.width = defaultStscript.autocomplete.width;
+        }
+        if (power_user.stscript.parser === undefined) {
+            power_user.stscript.parser = defaultStscript.parser;
+        } else if (power_user.stscript.parser.flags === undefined) {
+            power_user.stscript.parser.flags = defaultStscript.parser.flags;
+        }
     }
 
     if (data.themes !== undefined) {
@@ -1574,6 +1607,17 @@ function loadPowerUserSettings(settings, data) {
     $('#chat_width_slider').val(power_user.chat_width);
     $('#token_padding').val(power_user.token_padding);
     $('#aux_field').val(power_user.aux_field);
+
+    $('#stscript_matching').val(power_user.stscript.matching ?? 'fuzzy');
+    $('#stscript_autocomplete_style').val(power_user.stscript.autocomplete_style ?? 'theme');
+    document.body.setAttribute('data-stscript-style', power_user.stscript.autocomplete_style);
+    $('#stscript_parser_flag_strict_escaping').prop('checked', power_user.stscript.parser.flags[PARSER_FLAG.STRICT_ESCAPING] ?? false);
+    $('#stscript_parser_flag_replace_getvar').prop('checked', power_user.stscript.parser.flags[PARSER_FLAG.REPLACE_GETVAR] ?? false);
+    $('#stscript_autocomplete_width_left').val(power_user.stscript.autocomplete.width.left ?? AUTOCOMPLETE_WIDTH.CHAT);
+    document.querySelector('#stscript_autocomplete_width_left').dispatchEvent(new Event('input', { bubbles:true }));
+    $('#stscript_autocomplete_width_right').val(power_user.stscript.autocomplete.width.right ?? AUTOCOMPLETE_WIDTH.CHAT);
+    document.querySelector('#stscript_autocomplete_width_right').dispatchEvent(new Event('input', { bubbles:true }));
+
     $('#restore_user_input').prop('checked', power_user.restore_user_input);
 
     $('#chat_truncation').val(power_user.chat_truncation);
@@ -3530,6 +3574,47 @@ $(document).ready(() => {
         saveSettingsDebounced();
     });
 
+    $('#stscript_matching').on('change', function () {
+        const value = $(this).find(':selected').val();
+        power_user.stscript.matching = String(value);
+        saveSettingsDebounced();
+    });
+
+    $('#stscript_autocomplete_style').on('change', function () {
+        const value = $(this).find(':selected').val();
+        power_user.stscript.autocomplete_style = String(value);
+        document.body.setAttribute('data-stscript-style', power_user.stscript.autocomplete_style);
+        saveSettingsDebounced();
+    });
+
+    $('#stscript_autocomplete_width_left').on('input', function () {
+        const value = $(this).val();
+        power_user.stscript.autocomplete.width.left = String(value);
+        this.closest('.doubleRangeInputContainer').style.setProperty('--value', value);
+        window.dispatchEvent(new Event('resize', { bubbles:true }));
+        saveSettingsDebounced();
+    });
+
+    $('#stscript_autocomplete_width_right').on('input', function () {
+        const value = $(this).val();
+        power_user.stscript.autocomplete.width.right = String(value);
+        this.closest('.doubleRangeInputContainer').style.setProperty('--value', value);
+        window.dispatchEvent(new Event('resize', { bubbles:true }));
+        saveSettingsDebounced();
+    });
+
+    $('#stscript_parser_flag_strict_escaping').on('click', function () {
+        const value = $(this).prop('checked');
+        power_user.stscript.parser.flags[PARSER_FLAG.STRICT_ESCAPING] = value;
+        saveSettingsDebounced();
+    });
+
+    $('#stscript_parser_flag_replace_getvar').on('click', function () {
+        const value = $(this).prop('checked');
+        power_user.stscript.parser.flags[PARSER_FLAG.REPLACE_GETVAR] = value;
+        saveSettingsDebounced();
+    });
+
     $('#restore_user_input').on('input', function () {
         power_user.restore_user_input = !!$(this).prop('checked');
         saveSettingsDebounced();
@@ -3608,13 +3693,96 @@ $(document).ready(() => {
         browser_has_focus = false;
     });
 
-    registerSlashCommand('vn', toggleWaifu, [], '– swaps Visual Novel Mode On/Off', false, true);
-    registerSlashCommand('newchat', doNewChat, [], '– start a new chat with current character', true, true);
-    registerSlashCommand('random', doRandomChat, [], '<span class="monospace">(optional tag name)</span> – start a new chat with a random character. If an argument is provided, only considers characters that have the specified tag.', true, true);
-    registerSlashCommand('delmode', doDelMode, ['del'], '<span class="monospace">(optional number)</span> – enter message deletion mode, and auto-deletes last N messages if numeric argument is provided', true, true);
-    registerSlashCommand('cut', doMesCut, [], '<span class="monospace">(number or range)</span> – cuts the specified message or continuous chunk from the chat, e.g. <tt>/cut 0-10</tt>. Ranges are inclusive! Returns the text of cut messages separated by a newline.', true, true);
-    registerSlashCommand('resetpanels', doResetPanels, ['resetui'], '– resets UI panels to original state.', true, true);
-    registerSlashCommand('bgcol', setAvgBG, [], '– WIP test of auto-bg avg coloring', true, true);
-    registerSlashCommand('theme', setThemeCallback, [], '<span class="monospace">(name)</span> – sets a UI theme by name', true, true);
-    registerSlashCommand('movingui', setmovingUIPreset, [], '<span class="monospace">(name)</span> – activates a movingUI preset by name', true, true);
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'vn',
+        callback: toggleWaifu,
+        helpString: 'Swaps Visual Novel Mode On/Off',
+        interruptsGeneration: false,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'newchat',
+        callback: doNewChat,
+        helpString: 'Start a new chat with the current character',
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'random',
+        callback: doRandomChat,
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'optional tag name', [ARGUMENT_TYPE.STRING], false,
+            ),
+        ],
+        helpString: 'Start a new chat with a random character. If an argument is provided, only considers characters that have the specified tag.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'delmode',
+        callback: doDelMode,
+        aliases: ['del'],
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'optional number', [ARGUMENT_TYPE.NUMBER], false,
+            ),
+        ],
+        helpString: 'Enter message deletion mode, and auto-deletes last N messages if numeric argument is provided.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'cut',
+        callback: doMesCut,
+        returns: 'the text of cut messages separated by a newline',
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'number or range', [ARGUMENT_TYPE.NUMBER, ARGUMENT_TYPE.RANGE], true,
+            ),
+        ],
+        helpString: `
+            <div>
+                Cuts the specified message or continuous chunk from the chat.
+            </div>
+            <div>
+                Ranges are inclusive!
+            </div>
+            <div>
+                <strong>Example:</strong>
+                <ul>
+                    <li>
+                        <pre><code>/cut 0-10</code></pre>
+                    </li>
+                </ul>
+            </div>
+        `,
+        aliases: [],
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'resetpanels',
+        callback: doResetPanels,
+        helpString: 'resets UI panels to original state',
+        aliases: ['resetui'],
+        interruptsGeneration: true,
+        purgeFromMessage: true,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'bgcol',
+        callback: setAvgBG,
+        helpString: '– WIP test of auto-bg avg coloring',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'theme',
+        callback: setThemeCallback,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'name', [ARGUMENT_TYPE.STRING], true,
+            ),
+        ],
+        helpString: 'sets a UI theme by name',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'movingui',
+        callback: setmovingUIPreset,
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'name', [ARGUMENT_TYPE.STRING], true,
+            ),
+        ],
+        helpString: 'activates a movingUI preset by name',
+    }));
 });
