@@ -36,6 +36,31 @@ function switchPersonaGridView() {
 }
 
 /**
+ * @typedef {object} Persona - A persona
+ * @property {string} id - The id of the persona - currently same as avatar
+ * @property {string} name - The name of the persona
+ * @property {string} avatar - the avatar / avatar id representing the persona
+ * @property {boolean} fav - Whether this persona is favorited
+ * @property {{description: string, position: number}} description - The persona description, containing its text and the position where its placed
+ * */
+
+/**
+ * Builds an object represting the given persona
+ * @param {string} avatar - The avatar id
+ * @returns {Persona} The persona object, wit all its data
+ */
+export function getPersona(avatar) {
+    const persona = {
+        id: avatar,
+        name: power_user.personas[avatar],
+        avatar: avatar,
+        fav: false,
+        description: power_user.persona_descriptions[avatar]
+    };
+    return persona;
+}
+
+/**
  * Returns the URL of the avatar for the given user avatar Id.
  * @param {string} avatarImg User avatar Id
  * @returns {string} User avatar URL

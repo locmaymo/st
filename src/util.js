@@ -233,6 +233,69 @@ async function getImageBuffers(zipFilePath) {
 }
 
 /**
+ * Reads the contents of a .jsonl file and returns the lines parsed as json as an array
+ *
+ * @param {string} filepath - The path of the file to be read
+ * @returns {object[]} - The lines in the file
+ * @throws Will throw an error if the file cannot be read
+ */
+function readAndParseJsonlFile(filepath) {
+    try {
+        // Copied from /chat/get endpoint
+        const data = fs.readFileSync(filepath, 'utf8');
+        const lines = data.split('\n');
+
+        // Iterate through the array of strings and parse each line as JSON
+        const jsonData = lines.map((l) => { try { return JSON.parse(l); } catch (_) { return; } }).filter(x => x);
+        return jsonData;
+    } catch (error) {
+        console.error(`Error reading file at ${filepath}: ${error}`);
+        return [];
+    }
+}
+
+/**
+ * Parse JSON data with optional reviver function.
+ * Converts date strings back to Date objects if found.
+ *
+ * @param {string} json - The JSON data to parse
+ * @param {object} [options] - Optional parameters
+ * @param {Reviver?} [options.reviver=null] - Custom reviver function to customize parsing
+ * @param {boolean} [options.disableDefaultReviver=false] - Flag to disable the default date parsing reviver
+ * @returns {object} - The parsed JSON object
+ */
+function parseJson(json, { reviver = null, disableDefaultReviver = false } = {}) {
+    /**
+     * @typedef {((this: any, key: string, value: any) => any)} Reviver
+     * @param {object} this -
+     * @param {string} key - The key of the current property being processed
+     * @param {*} value - The value of the current property being processed
+     * @returns {*} - The processed value
+     */
+
+    /** @type {Reviver} The default reviver, that converts Date strings to Date objects */
+    function defaultReviver(key, value) {
+        // Check if the value is a string and can be converted to a Date
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(value)) {
+            return new Date(value);
+        }
+        // Return the original value if it's not a date string
+        return value;
+    }
+
+    // The actual reviver based on the ones given
+    /** @type {Reviver} */
+    function actualReviver(key, value) {
+        if (reviver) value = reviver(key, value);
+        if (!disableDefaultReviver) value = defaultReviver(key, value);
+        return value;
+    };
+
+    // Parse the JSON data using the specified or custom reviver function
+    return JSON.parse(json, actualReviver);
+}
+
+/**
  * Gets all chunks of data from the given readable stream.
  * @param {any} readableStream Readable stream to read from
  * @returns {Promise<Buffer[]>} Array of chunks
@@ -548,6 +611,162 @@ function trimV1(str) {
 }
 
 /**
+ * Convert a timestamp to an integer timestamp.
+ * (sorry, it's momentless for now, didn't want to add a package just for this)
+ * This function can handle several different timestamp formats:
+ * 1. Unix timestamps (the number of seconds since the Unix Epoch)
+ * 2. ST "humanized" timestamps, formatted like "YYYY-MM-DD &#64;HHh MMm SSs ms"
+ * 3. Date strings in the format "Month DD, YYYY H:MMam/pm"
+ *
+ * The function returns the timestamp as the number of milliseconds since
+ * the Unix Epoch, which can be converted to a JavaScript Date object with new Date().
+ *
+ * @param {string|number} timestamp - The timestamp to convert.
+ * @returns {number|null} The timestamp in milliseconds since the Unix Epoch, or null if the input cannot be parsed.
+ *
+ * @example
+ * // Unix timestamp
+ * timestampToMoment(1609459200);
+ * // ST humanized timestamp
+ * timestampToMoment("2021-01-01 &#64;00h 00m 00s 000ms");
+ * // Date string
+ * timestampToMoment("January 1, 2021 12:00am");
+ */
+function timestampToMoment(timestamp) {
+    if (!timestamp) {
+        return null;
+    }
+
+    if (typeof timestamp === 'number') {
+        return timestamp;
+    }
+
+    const pattern1 =
+        /(\d{4})-(\d{1,2})-(\d{1,2}) ?@(\d{1,2})h ?(\d{1,2})m ?(\d{1,2})s ?(?:(\d{1,3})ms)?/;
+    const replacement1 = (
+        match,
+        year,
+        month,
+        day,
+        hour,
+        minute,
+        second,
+        millisecond,
+    ) => {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(
+            2,
+            '0',
+        )}T${hour.padStart(2, '0')}:${minute.padStart(
+            2,
+            '0',
+        )}:${second.padStart(2, '0')}.${(millisecond ?? '0').padStart(3, '0')}Z`;
+    };
+    const isoTimestamp1 = timestamp.replace(pattern1, replacement1);
+    if (!isNaN(Date.parse(isoTimestamp1))) {
+        return new Date(isoTimestamp1).getTime();
+    }
+
+    const pattern2 = /(\w+)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{1,2})(am|pm)/i;
+    const replacement2 = (match, month, day, year, hour, minute, meridiem) => {
+        const monthNames = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+        ];
+        const monthNum = monthNames.indexOf(month) + 1;
+        const hour24 =
+            meridiem.toLowerCase() === 'pm'
+                ? (parseInt(hour, 10) % 12) + 12
+                : parseInt(hour, 10) % 12;
+        return `${year}-${monthNum.toString().padStart(2, '0')}-${day.padStart(
+            2,
+            '0',
+        )}T${hour24.toString().padStart(2, '0')}:${minute.padStart(
+            2,
+            '0',
+        )}:00Z`;
+    };
+    const isoTimestamp2 = timestamp.replace(pattern2, replacement2);
+    if (!isNaN(Date.parse(isoTimestamp2))) {
+        return new Date(isoTimestamp2).getTime();
+    }
+
+    return null;
+}
+
+/**
+ * Calculates the time difference between two dates.
+ *
+ * @param {Date|string} startTime - The start time in ISO 8601 format, or as a Date object
+ * @param {Date|string} endTime - The finish time in ISO 8601 format, or as a Date object
+ * @returns {number} - The difference in time in milliseconds, or 0 if invalid dates are provided or if start date is after end date.
+ */
+function calculateDuration(startTime, endTime) {
+    const startDate = startTime instanceof Date ? startTime : new Date(startTime);
+    const endDate = endTime instanceof Date ? endTime : new Date(endTime);
+
+    return startDate > endDate ? 0 : Math.max(endDate.getTime() - startDate.getTime(), 0);
+}
+
+/** @param {string} timestamp @returns {Date|null} */
+function humanizedToDate(timestamp) {
+    const moment = timestampToMoment(timestamp);
+    return moment ? new Date(moment) : null;
+}
+
+/**
+ * Returns the maximum from all supplied dates
+ * @param  {...Date} dates
+ * @returns {Date?}
+ */
+function maxDate(...dates) {
+    dates = dates.flat(Infinity);
+    if (dates.length == 0) return null;
+    /** @type {Date?} */
+    let max = null;
+    for (const date of dates) {
+        if (max === null || date > max) {
+            max = date;
+        }
+    }
+    return max;
+}
+
+/**
+ * Returns the minimum from all supplied dates
+ * @param  {...Date} dates
+ * @returns {Date?}
+ */
+function minDate(...dates) {
+    dates = dates.flat(Infinity);
+    if (dates.length == 0) return null;
+    /** @type {Date?} */
+    let min = null;
+    for (const date of dates) {
+        if (min === null || date < min) {
+            min = date;
+        }
+    }
+    return min;
+}
+
+/**
+ * Returns the current date and time
+ * (Why the fuck is `Date.now()` returning a timestamp and no date... I don't get it)
+ * @returns {Date}
+ */
+function now() { return new Date(Date.now()); }
+
+/**
  * Simple TTL memory cache.
  */
 class Cache {
@@ -610,6 +829,8 @@ module.exports = {
     getBasicAuthHeader,
     extractFileFromZipBuffer,
     getImageBuffers,
+    readAndParseJsonlFile,
+    parseJson,
     readAllChunks,
     delay,
     deepMerge,
@@ -627,6 +848,12 @@ module.exports = {
     mergeObjectWithYaml,
     excludeKeysByYaml,
     trimV1,
+    timestampToMoment,
+    calculateDuration,
+    humanizedToDate,
+    maxDate,
+    minDate,
+    now,
     Cache,
     makeHttp2Request,
 };
