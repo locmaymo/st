@@ -1187,9 +1187,9 @@ select:focus {
     outline: none;
 }
 
-input[type="file"] {
+/* input[type="file"] {
     display: none;
-}
+} */
 
 #right-nav-panel-tabs {
     display: flex;
@@ -4036,3 +4036,17 @@ body:not(.movingUI) .drawer-content.maximized {
         z-index: 9999;
     }
 }
+
+.youtube-embed {
+    position: relative;
+    padding-bottom: 56%;
+    width: 100%;
+    text-align: left;
+  }
+  
+  .youtube-embed iframe {
+    width: 100%;
+    position: absolute;
+    height: 100%;
+    overflow: hidden;
+  }

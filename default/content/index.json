@@ -12,6 +12,18 @@
         "type": "theme"
     },
     {
+        "filename": "themes/Discord Inspired.json",
+        "type": "theme"
+    },
+    {
+        "filename": "themes/ProxyAI.me.json",
+        "type": "theme"
+    },
+    {
+        "filename": "themes/Theme C.ai.json",
+        "type": "theme"
+    },
+    {
         "filename": "backgrounds/__transparent.png",
         "type": "background"
     },
@@ -21,6 +33,10 @@
     },
     {
         "filename": "backgrounds/_white.jpg",
+        "type": "background"
+    },
+    {
+        "filename": "backgrounds/proxyai.jpg",
         "type": "background"
     },
     {
@@ -102,6 +118,10 @@
     {
         "filename": "backgrounds/tavern day.jpg",
         "type": "background"
+    },
+    {
+        "filename": "Bot Hướng Dẫn SillyTavern Việt Nam.png",
+        "type": "character"
     },
     {
         "filename": "default_Seraphina.png",

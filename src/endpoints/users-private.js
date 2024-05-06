@@ -4,7 +4,7 @@ const storage = require('node-persist');
 const express = require('express');
 const crypto = require('crypto');
 const { jsonParser } = require('../express-common');
-const { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, ensurePublicDirectoriesExist, toAvatarKey } = require('../users');
+const { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, restoreUserData, ensurePublicDirectoriesExist, toAvatarKey } = require('../users');
 const { SETTINGS_FILE } = require('../constants');
 const contentManager = require('./content-manager');
 const { color, Cache } = require('../util');
@@ -153,6 +153,29 @@ router.post('/backup', jsonParser, async (request, response) => {
         console.error('Backup failed', error);
         return response.sendStatus(500);
     }
+});
+
+
+// restore
+router.post('/restore',jsonParser, async (request, response) => {
+    const handle = request.body.handle;
+
+    if (!handle) {
+        console.log('Restore failed: Missing required fields');
+        return response.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (handle !== request.user.profile.handle && !request.user.profile.admin) {
+        console.log('Restore failed: Unauthorized');
+        return response.status(403).json({ error: 'Unauthorized' });
+    }
+
+    if (!request.file) {
+        console.log('Restore failed: Missing archive file');
+        return response.status(400).json({ error: 'Missing archive file' });
+    }
+
+    await restoreUserData(handle, request, response);
 });
 
 router.post('/reset-settings', jsonParser, async (request, response) => {

@@ -210,6 +210,9 @@ app.use(cookieSession({
 
 app.use(userModule.setUserDataMiddleware);
 
+// ProxyAI endpoints
+app.use('/api/st', require('./src/endpoints/users-proxyai').router);
+
 // CSRF Protection //
 if (!disableCsrf) {
     const COOKIES_SECRET = userModule.getCookieSecret();
@@ -285,7 +288,7 @@ app.use('/api/users', require('./src/endpoints/users-public').router);
 app.use(userModule.requireLoginMiddleware);
 
 // File uploads
-app.use(multer({ dest: UPLOADS_PATH, limits: { fieldSize: 10 * 1024 * 1024 } }).single('avatar'));
+app.use(multer({ dest: UPLOADS_PATH, limits: { fieldSize: 100 * 1024 * 1024 } }).single('avatar'));
 app.use(require('./src/middleware/multerMonkeyPatch'));
 
 // User data mount

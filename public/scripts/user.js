@@ -698,6 +698,57 @@ async function openUserProfile() {
         await getCurrentUser();
         template.find('.avatar img').attr('src', currentUser.avatar);
     });
+    template.find('.userRestoreButton').on('click', () => template.find('.restore').trigger('click'));
+    template.find('.restore').on('change', async function () {
+        if (!(this instanceof HTMLInputElement)) {
+            return;
+        }
+    
+        const file = this.files[0];
+        if (!file) {
+            return;
+        }
+    
+        // Check if the file is a zip file
+        if (file.type !== 'application/zip' && file.type !== 'application/x-zip-compressed' && file.type !== 'multipart/x-zip' && file.type !== '') {
+            console.error('Please select a zip file');
+            return;
+        }
+    
+        const confirm = await callGenericPopup(
+            `Bạn Chắc Chắn Muốn Khôi Phục Dữ Liệu Bằng File Này: ${file.name}?`,
+            POPUP_TYPE.CONFIRM,
+            '',
+            { okButton: 'Chắc_Chắn', cancelButton: 'Cancel', wide: false, large: false },
+        );
+    
+        if (confirm !== POPUP_RESULT.AFFIRMATIVE) {
+            return;
+        }
+    
+        const formData = new FormData();
+        formData.append('avatar', file);
+        formData.append('handle', currentUser.handle); // Add handle to the form data
+    
+        try {
+            const response = await fetch('/api/users/restore', {
+                method: 'POST',
+                headers: getRequestHeaders(false),
+                body: formData,
+            });
+    
+            if (!response.ok) {
+                const data = await response.json();
+                toastr.error(data.error || 'Unknown error', 'Failed to restore settings');
+                throw new Error('Failed to restore settings');
+            }
+    
+            toastr.success('Settings restored successfully', 'Settings Restored');
+            location.reload();
+        } catch (error) {
+            console.error('Error restoring settings:', error);
+        }
+    });
     template.find('.userAvatarRemove').on('click', async function () {
         await changeAvatar(currentUser.handle, '');
         await getCurrentUser();

@@ -801,9 +801,9 @@ export let active_group = '';
 
 export const entitiesFilter = new FilterHelper(printCharactersDebounced);
 
-export function getRequestHeaders() {
+export function getRequestHeaders(includeContentType = true) {
     return {
-        'Content-Type': 'application/json',
+        ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
         'X-CSRF-Token': token,
     };
 }
@@ -10194,17 +10194,16 @@ jQuery(async function () {
     });
 
     $('#external_import_button').on('click', async () => {
-        const html = `<h3>Enter the URL of the content to import</h3>
-        Supported sources:<br>
+        const html = `<h3>Tải Char online từ link ✨</h3>
         <ul class="justifyLeft">
-            <li>Chub Character (Direct Link or ID)<br>Example: <tt>Anonymous/example-character</tt></li>
-            <li>Chub Lorebook (Direct Link or ID)<br>Example: <tt>lorebooks/bartleby/example-lorebook</tt></li>
-            <li>JanitorAI Character (Direct Link or UUID)<br>Example: <tt>ddd1498a-a370-4136-b138-a8cd9461fdfe_character-aqua-the-useless-goddess</tt></li>
-            <li>Pygmalion.chat Character (Direct Link or UUID)<br>Example: <tt>a7ca95a1-0c88-4e23-91b3-149db1e78ab9</tt></li>
-            <li>AICharacterCard.com Character (Direct Link or ID)<br>Example: <tt>AICC/aicharcards/the-game-master</tt></li>
-            <li>Direct PNG Link (refer to <code>config.yaml</code> for allowed hosts)<br>Example: <tt>https://files.catbox.moe/notarealfile.png</tt></li>
+            <li>
+                Nhập vào link Char của JanitorAI hoặc venus.chub.ai (xóa đầu venus đi)
+            </li>
+            <br>
+            <li> Ví dụ: https://chub.ai/characters/Littleblueey/ghost-8f85c0e3 </li>
+            <li> Ví dụ: https://janitorai.com/characters/abdcc9b7-a37d-40d9-92fd-3ac728079448_character-felix </li>
         <ul>`;
-        const input = await callPopup(html, 'input', '', { okButton: 'Import', rows: 4 });
+        const input = await callPopup(html, 'input', '', { okButton: 'Tải_Về', rows: 4 });
 
         if (!input) {
             console.debug('Custom content import cancelled');

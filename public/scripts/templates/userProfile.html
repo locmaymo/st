@@ -76,6 +76,22 @@
                     <i class="fa-fw fa-solid fa-download"></i>
                     <span data-i18n="Download Backup">Download Backup</span>
                 </div>
+                <!-- <div class="userRestoreButton menu_button menu_button_icon" title="Restore a backup of your user data.">
+                    <i class="fa-fw fa-solid fa-upload"></i>
+                    <span>Khôi Phục Dữ Liệu</span>
+                    <input type="file">
+                </div> -->
+                <div class="flex-container flexFlowColumn alignItemsCenter flexNoGap">
+                    <div class="flex-container alignItemsCenter">
+                        <div class="userRestoreButton menu_button menu_button_icon" title="Restore a backup of your user data.">
+                            <i class="fa-fw fa-solid fa-upload"></i>
+                            <span>Khôi Phục Dữ Liệu</span>
+                        </div>
+                    </div>
+                    <form>
+                        <input type="file" class="restore" accept="application/zip" hidden>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

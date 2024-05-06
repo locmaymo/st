@@ -788,6 +788,39 @@ router.post('/bias', jsonParser, async function (request, response) {
     }
 });
 
+// mysql connection
+const connection = require('../../DBConnection');
+// middleware to check request.session.handle and console.log it
+router.use((req, res, next) => {
+    const handle = req.session.handle;
+    // console.log('handle:', handle);
+    const now = new Date();
+    now.setHours(now.getHours() + 7);
+    const formattedNow = now.toISOString().slice(0, 19).replace('T', ' ');
+    // console.log('now:', formattedNow);
+    
+    connection.query(
+        `SELECT * FROM sillytavern WHERE email = ? AND expiration_date < ?`,
+        [handle, formattedNow],
+        (error, results) => {
+            if (error) {
+                console.error(error);
+                return res.sendStatus(500);
+            }
+            
+            if (results.length > 0) {
+                return res.status(403).json({
+                    error: {
+                        message: '🔰 Tài Khoản SillyTavern đã hết thời hạn sử dụng. Vui lòng gia hạn trên web https://ProxyAI.me để tiếp tục sử dụng app SillyTavernVN',
+                        code: 403
+                    }
+                });
+            }
+            
+            next();
+        }
+    );
+});
 
 router.post('/generate', jsonParser, function (request, response) {
     if (!request.body) return response.status(400).send({ error: true });

@@ -3,12 +3,12 @@
 dataRoot: ./data
 # -- SERVER CONFIGURATION --
 # Listen for incoming connections
-listen: false
+listen: true
 # Server port
 port: 8000
 # -- SECURITY CONFIGURATION --
 # Toggle whitelist mode
-whitelistMode: true
+whitelistMode: false
 # Whitelist will also verify IP in X-Forwarded-For / X-Real-IP headers
 enableForwardedWhitelist: true
 # Whitelist of allowed IP addresses
@@ -21,20 +21,20 @@ basicAuthUser:
   username: "user"
   password: "password"
 # Enables CORS proxy middleware
-enableCorsProxy: false
+enableCorsProxy: true
 # Enable multi-user mode
-enableUserAccounts: false
+enableUserAccounts: true
 # Enable discreet login mode: hides user list on the login screen
-enableDiscreetLogin: false
+enableDiscreetLogin: true
 # Used to sign session cookies. Will be auto-generated if not set
 cookieSecret: ''
 # Disable CSRF protection - NOT RECOMMENDED
 disableCsrfProtection: false
 # Disable startup security checks - NOT RECOMMENDED
-securityOverride: false
+securityOverride: true
 # -- ADVANCED CONFIGURATION --
 # Open the browser automatically
-autorun: true
+autorun: false
 # Disable thumbnail generation
 disableThumbnails: false
 # Thumbnail quality (0-100)
@@ -93,3 +93,12 @@ deepl:
   formality: default
 # -- SERVER PLUGIN CONFIGURATION --
 enableServerPlugins: false
+# API key for server-to-server communication
+API_KEY: ""
+# Database connection settings
+API_KEY: ""
+DB_HOST: "localhost"
+DB_PORT: 3306
+DB_NAME: ""
+DB_USERNAME: ""
+DB_PASSWORD: ""

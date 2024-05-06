@@ -16,10 +16,29 @@ const {
     ensurePublicDirectoriesExist,
 } = require('../users');
 const { DEFAULT_USER } = require('../constants');
+const { getConfigValue } = require('../util.js');
 
 const router = express.Router();
 
-router.post('/get', requireAdminMiddleware, jsonParser, async (_request, response) => {
+// API key
+const apiKey = getConfigValue('API_KEY');
+
+// Middleware để kiểm tra API key
+const checkApiKey = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Invalid or missing Authorization header' });
+    }
+
+    const providedApiKey = authHeader.split(' ')[1];
+    if (providedApiKey !== apiKey) {
+      return res.status(401).json({ error: 'Invalid API key' });
+    }
+  
+    next();
+};
+
+router.post('/get', checkApiKey, jsonParser, async (_request, response) => {
     try {
         /** @type {import('../users').User[]} */
         const users = await storage.values(x => x.key.startsWith(KEY_PREFIX));
@@ -49,16 +68,11 @@ router.post('/get', requireAdminMiddleware, jsonParser, async (_request, respons
     }
 });
 
-router.post('/disable', requireAdminMiddleware, jsonParser, async (request, response) => {
+router.post('/disable', checkApiKey, jsonParser, async (request, response) => {
     try {
         if (!request.body.handle) {
             console.log('Disable user failed: Missing required fields');
             return response.status(400).json({ error: 'Missing required fields' });
-        }
-
-        if (request.body.handle === request.user.profile.handle) {
-            console.log('Disable user failed: Cannot disable yourself');
-            return response.status(400).json({ error: 'Cannot disable yourself' });
         }
 
         /** @type {import('../users').User} */
@@ -78,7 +92,7 @@ router.post('/disable', requireAdminMiddleware, jsonParser, async (request, resp
     }
 });
 
-router.post('/enable', requireAdminMiddleware, jsonParser, async (request, response) => {
+router.post('/enable', checkApiKey, jsonParser, async (request, response) => {
     try {
         if (!request.body.handle) {
             console.log('Enable user failed: Missing required fields');
@@ -102,60 +116,7 @@ router.post('/enable', requireAdminMiddleware, jsonParser, async (request, respo
     }
 });
 
-router.post('/promote', requireAdminMiddleware, jsonParser, async (request, response) => {
-    try {
-        if (!request.body.handle) {
-            console.log('Promote user failed: Missing required fields');
-            return response.status(400).json({ error: 'Missing required fields' });
-        }
-
-        /** @type {import('../users').User} */
-        const user = await storage.getItem(toKey(request.body.handle));
-
-        if (!user) {
-            console.log('Promote user failed: User not found');
-            return response.status(404).json({ error: 'User not found' });
-        }
-
-        user.admin = true;
-        await storage.setItem(toKey(request.body.handle), user);
-        return response.sendStatus(204);
-    } catch (error) {
-        console.error('User promote failed:', error);
-        return response.sendStatus(500);
-    }
-});
-
-router.post('/demote', requireAdminMiddleware, jsonParser, async (request, response) => {
-    try {
-        if (!request.body.handle) {
-            console.log('Demote user failed: Missing required fields');
-            return response.status(400).json({ error: 'Missing required fields' });
-        }
-
-        if (request.body.handle === request.user.profile.handle) {
-            console.log('Demote user failed: Cannot demote yourself');
-            return response.status(400).json({ error: 'Cannot demote yourself' });
-        }
-
-        /** @type {import('../users').User} */
-        const user = await storage.getItem(toKey(request.body.handle));
-
-        if (!user) {
-            console.log('Demote user failed: User not found');
-            return response.status(404).json({ error: 'User not found' });
-        }
-
-        user.admin = false;
-        await storage.setItem(toKey(request.body.handle), user);
-        return response.sendStatus(204);
-    } catch (error) {
-        console.error('User demote failed:', error);
-        return response.sendStatus(500);
-    }
-});
-
-router.post('/create', requireAdminMiddleware, jsonParser, async (request, response) => {
+router.post('/create', checkApiKey, jsonParser, async (request, response) => {
     try {
         if (!request.body.handle || !request.body.name) {
             console.log('Create user failed: Missing required fields');
@@ -202,16 +163,11 @@ router.post('/create', requireAdminMiddleware, jsonParser, async (request, respo
     }
 });
 
-router.post('/delete', requireAdminMiddleware, jsonParser, async (request, response) => {
+router.post('/delete', checkApiKey, jsonParser, async (request, response) => {
     try {
         if (!request.body.handle) {
             console.log('Delete user failed: Missing required fields');
             return response.status(400).json({ error: 'Missing required fields' });
-        }
-
-        if (request.body.handle === request.user.profile.handle) {
-            console.log('Delete user failed: Cannot delete yourself');
-            return response.status(400).json({ error: 'Cannot delete yourself' });
         }
 
         if (request.body.handle === DEFAULT_USER.handle) {
@@ -234,7 +190,7 @@ router.post('/delete', requireAdminMiddleware, jsonParser, async (request, respo
     }
 });
 
-router.post('/slugify', requireAdminMiddleware, jsonParser, async (request, response) => {
+router.post('/slugify', checkApiKey, jsonParser, async (request, response) => {
     try {
         if (!request.body.text) {
             console.log('Slugify failed: Missing required fields');
