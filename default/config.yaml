@@ -96,7 +96,6 @@ enableServerPlugins: false
 # API key for server-to-server communication
 API_KEY: ""
 # Database connection settings
-API_KEY: ""
 DB_HOST: "localhost"
 DB_PORT: 3306
 DB_NAME: ""
