@@ -2,16 +2,20 @@ const { get } = require('lodash');
 const { getConfigValue } = require('./util');
 const mysql = require("mysql2");
 
-let connection = mysql.createConnection({
+const pool = mysql.createPool({
     host: getConfigValue('DB_HOST'),
     user: getConfigValue('DB_USERNAME'),
     password: getConfigValue('DB_PASSWORD'),
     database: getConfigValue('DB_NAME'),
 });
 
-connection.connect(function(err) {
-    if (err) throw err;
+pool.getConnection((err, connection) => {
+    if(err) throw err;  // not connected!
+
     console.log("Database connected!");
+
+    // When done with the connection, release it.
+    connection.release();
 });
 
-module.exports = connection;
+module.exports = pool;
