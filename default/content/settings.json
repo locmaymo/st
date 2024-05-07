@@ -464,10 +464,10 @@
         },
         "chromadb": {},
         "translate": {
-            "target_language": "en",
+            "target_language": "vi",
             "internal_language": "en",
             "provider": "google",
-            "auto_mode": "none"
+            "auto_mode": "responses"
         },
         "objective": {
             "customPrompts": {
@@ -918,19 +918,14 @@
     },
     "proxies": [
         {
-            "name": "None",
-            "url": "",
-            "password": ""
-        },
-        {
-            "name": "ProxyAI.me Proxy GPT 3.5",
-            "url": "https://ProxyAI.me/v1",
-            "password": "tutoihoc@1"
+            "name": "Free Proxy Gemini của ProxyAI.me. Model xịn hơn vui lòng lên web xem",
+            "url": "http://localhost:3000/v1",
+            "password": "nothing"
         }
     ],
     "selected_proxy": {
-        "name": "ProxyAI.me Proxy GPT 3.5",
-        "url": "https://ProxyAI.me/v1",
-        "password": "tutoihoc@1"
+        "name": "Free Proxy Gemini của ProxyAI.me. Model xịn hơn vui lòng lên web xem",
+        "url": "http://localhost:3000/v1",
+        "password": "nothing"
     }
 }

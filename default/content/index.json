@@ -476,6 +476,22 @@
         "type": "openai_preset"
     },
     {
+        "filename": "presets/openai/Ebmy21-1 (Claude 2).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/Karu claude (Claude 2).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/pixi bots (Claude 3).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/PROMPT CLAUDE 2.0 (Claude 2).json",
+        "type": "openai_preset"
+    },
+    {
         "filename": "presets/context/Adventure.json",
         "type": "context"
     },
