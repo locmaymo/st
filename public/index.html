@@ -1701,8 +1701,9 @@
                                     <div class="range-block" data-source="makersuite">
                                         <label for="use_makersuite_sysprompt" class="checkbox_label widthFreeExpand">
                                             <input id="use_makersuite_sysprompt" type="checkbox" />
-                                            <span data-i18n="Use system prompt (Gemini 1.5 pro+ only)">
-                                                Use system prompt (Gemini 1.5 pro+ only)
+                                            <span>
+                                                <span data-i18n="Use system prompt">Use system prompt</span><br>
+                                                <small data-i18n="(Gemini 1.5 Pro/Flash only)">(Gemini 1.5 Pro/Flash only)</small>
                                             </span>
                                         </label>
                                         <div class="toggle-description justifyLeft marginBot5">
@@ -2616,6 +2617,7 @@
                                 <select id="model_google_select">
                                     <optgroup label="Latest">
                                         <!-- Points to 1.0, no default 1.5 endpoint -->
+                                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash</option>
                                         <option value="gemini-pro">Gemini Pro</option>
                                         <option value="gemini-pro-vision">Gemini Pro Vision</option>
                                         <option value="gemini-ultra">Gemini Ultra</option>
