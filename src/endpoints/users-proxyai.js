@@ -206,6 +206,43 @@ router.post('/slugify', checkApiKey, jsonParser, async (request, response) => {
     }
 });
 
+router.post('/change-password', checkApiKey, jsonParser, async (request, response) => {
+    try {
+        if (!request.body.handle) {
+            console.log('Change password failed: Missing required fields');
+            return response.status(400).json({ error: 'Missing required fields' });
+        }
+
+        /** @type {import('../users').User} */
+        const user = await storage.getItem(toKey(request.body.handle));
+
+        if (!user) {
+            console.log('Change password failed: User not found');
+            return response.status(404).json({ error: 'User not found' });
+        }
+
+        if (!user.enabled) {
+            console.log('Change password failed: User is disabled');
+            return response.status(403).json({ error: 'User is disabled' });
+        }
+
+        if (request.body.newStPassword) {
+            const salt = getPasswordSalt();
+            user.password = getPasswordHash(request.body.newStPassword, salt);
+            user.salt = salt;
+        } else {
+            user.password = '';
+            user.salt = '';
+        }
+
+        await storage.setItem(toKey(request.body.handle), user);
+        return response.sendStatus(204);
+    } catch (error) {
+        console.error(error);
+        return response.sendStatus(500);
+    }
+});
+
 module.exports = {
     router,
 };

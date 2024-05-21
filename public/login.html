@@ -79,4 +79,11 @@
         </div>
 </body>
 
+<script>
+    // input for #userHandle always un capitalizes
+    $('#userHandle').on('input', function () {
+        $(this).val($(this).val().toLowerCase());
+    });
+</script>
+
 </html>
