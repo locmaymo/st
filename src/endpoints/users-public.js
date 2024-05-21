@@ -72,7 +72,7 @@ router.post('/login', jsonParser, async (request, response) => {
 
         if (!user.enabled) {
             console.log('Login failed: User is disabled');
-            return response.status(403).json({ error: 'User is disabled' });
+            return response.status(403).json({ error: 'Tài khoản tạm đóng băng do hết hạn sử dụng. Vui lòng gia hạn thêm để tiếp tục sử dụng' });
         }
 
         if (user.password && user.password !== getPasswordHash(request.body.password, user.salt)) {

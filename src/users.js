@@ -679,6 +679,59 @@ async function createBackupArchive(handle, response) {
     archive.finalize();
 }
 
+// extractArchive function
+const extractArchive = require('extract-zip');
+const AdmZip = require('adm-zip');
+/**
+ * Upload an archive of the user's data root directory then extract it to restore the user's data.
+ * @param {string} handle User handle
+ * @param {import('express').Request} request Express request object containing the uploaded file
+ * @param {import('express').Response} response Express response object
+ * @returns {Promise<void>} Promise that resolves when the data is restored
+ */
+async function restoreUserData(handle, request, response) {
+    try {
+        // Check if the uploaded file exists
+        if (!request.file) {
+            throw new Error('No file uploaded');
+        }
+        const path = require('path');
+        // Get the path of the uploaded file
+        const filePath = request.file.path;
+        
+        const directories = path.resolve(getUserDirectories(handle).root);
+
+        // check in the zip file have correct folder structure
+        const zip = new AdmZip(filePath);
+        const zipEntries = zip.getEntries();
+
+        const allowedFoldersAndFiles = ['assets/', 'backgrounds/', 'characters/', 'chats/', 'context/', 'extensions/', 'group chats/', 'groups/', 'instruct/', 'KoboldAI Settings/', 'movingUI/', 'NovelAI Settings/', 'OpenAI Settings/', 'QuickReplies/', 'TextGen Settings/', 'themes/', 'thumbnails/', 'user/', 'User Avatars/', 'vectors/', 'worlds/', 'content.log', 'secrets.json', 'settings.json', 'stats.json'];
+
+        const zipFoldersAndFiles = zipEntries.map(entry => entry.entryName);
+
+        const disallowedFoldersAndFiles = zipFoldersAndFiles.filter(entry => !allowedFoldersAndFiles.some(allowed => entry.startsWith(allowed)));
+
+        if (disallowedFoldersAndFiles.length > 0) {
+            // clean up the uploaded file
+            fs.unlinkSync(filePath);
+            throw new Error(`File Tải lên không hợp lệ. Hãy xem video hướng dẫn ở trang chủ`);
+        }
+
+        // Extract the archive to the user's data root directory
+        await extractArchive(filePath, { dir: directories });
+
+        // clean up the uploaded file
+        fs.unlinkSync(filePath);
+
+        // Send a success response
+        response.status(200).json({ message: 'User data restored successfully' });
+    } catch (error) {
+        // Send an error response
+        console.error('Error restoring user data:', error.message);
+        response.status(500).json({ error: error.message });
+    }
+}
+
 /**
  * Checks if any admin users are not password protected. If so, logs a warning.
  * @returns {Promise<void>}
@@ -736,6 +789,7 @@ module.exports = {
     getUserAvatar,
     shouldRedirectToLogin,
     createBackupArchive,
+    restoreUserData,
     tryAutoLogin,
     checkAccountsProtection,
     router,

@@ -1934,9 +1934,9 @@ select:focus {
     outline: none;
 }
 
-input[type="file"] {
+/* input[type="file"] {
     display: none;
-}
+} */
 
 #right-nav-panel-tabs {
     display: flex;
@@ -4901,3 +4901,17 @@ body:not(.movingUI) .drawer-content.maximized {
 .regex-flags { color: #98FB98; } /* Pale Green */
 .regex-delimiter { font-weight: bold; color: #FF6961; } /* Pastel Red */
 .regex-highlight { color: #FAF8F6; } /* Pastel White */
+
+.youtube-embed {
+    position: relative;
+    padding-bottom: 56%;
+    width: 100%;
+    text-align: left;
+  }
+  
+  .youtube-embed iframe {
+    width: 100%;
+    position: absolute;
+    height: 100%;
+    overflow: hidden;
+  }

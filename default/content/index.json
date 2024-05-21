@@ -12,6 +12,14 @@
         "type": "theme"
     },
     {
+        "filename": "themes/ProxyAI.me.json",
+        "type": "theme"
+    },
+    {
+        "filename": "themes/Theme C.ai.json",
+        "type": "theme"
+    },
+    {
         "filename": "backgrounds/__transparent.png",
         "type": "background"
     },
@@ -21,6 +29,10 @@
     },
     {
         "filename": "backgrounds/_white.jpg",
+        "type": "background"
+    },
+    {
+        "filename": "backgrounds/proxyai.jpg",
         "type": "background"
     },
     {
@@ -102,6 +114,10 @@
     {
         "filename": "backgrounds/tavern day.jpg",
         "type": "background"
+    },
+    {
+        "filename": "Bot SillyTavern Việt Nam.png",
+        "type": "character"
     },
     {
         "filename": "default_Seraphina.png",
@@ -449,6 +465,22 @@
     },
     {
         "filename": "presets/openai/Default.json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/Ebmy21-1 (Claude 2).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/Karu claude (Claude 2).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/pixi bots (Claude 3).json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/PROMPT CLAUDE 2.0 (Claude 2).json",
         "type": "openai_preset"
     },
     {
