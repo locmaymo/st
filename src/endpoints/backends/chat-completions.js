@@ -563,12 +563,12 @@ async function sendCohereRequest(request, response) {
             seed: request.body.seed,
             stop_sequences: request.body.stop,
             frequency_penalty: request.body.frequency_penalty,
-            presence_penalty: request.body.presence_penalty,
+            // presence_penalty: request.body.presence_penalty,
             prompt_truncation: 'AUTO_PRESERVE_ORDER',
             connectors: connectors,
             documents: [],
             tools: [],
-            tool_results: [],
+            // tool_results: [],
             search_queries_only: false,
         };
 
