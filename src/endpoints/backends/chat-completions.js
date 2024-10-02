@@ -794,22 +794,32 @@ const connection = require('../../DBConnection');
 // middleware to check request.session.handle and console.log it
 router.use((req, res, next) => {
     const handle = req.session.handle;
-    // console.log('handle:', handle);
     const now = new Date();
     now.setHours(now.getHours() + 7);
     const formattedNow = now.toISOString().slice(0, 19).replace('T', ' ');
-    // console.log('now:', formattedNow);
-    
+
     connection.query(
-        `SELECT * FROM sillytavern WHERE email = ? AND expiration_date < ?`,
-        [handle, formattedNow],
+        `SELECT * FROM sillytavern WHERE email = ?`,
+        [handle],
         (error, results) => {
             if (error) {
                 console.error(error);
                 return res.sendStatus(500);
             }
-            
-            if (results.length > 0) {
+
+            if (results.length === 0) {
+                return res.status(403).json({
+                    error: {
+                        message: '🔰 Tài Khoản SillyTavern không tồn tại.',
+                        code: 403
+                    }
+                });
+            }
+
+            const user = results[0];
+            const expirationDate = new Date(user.expiration_date);
+
+            if (expirationDate < now) {
                 return res.status(403).json({
                     error: {
                         message: '🔰 Tài Khoản SillyTavern đã hết thời hạn sử dụng. Vui lòng gia hạn trên web https://ProxyAI.me để tiếp tục sử dụng app SillyTavernVN',
@@ -817,8 +827,24 @@ router.use((req, res, next) => {
                     }
                 });
             }
-            
-            next();
+
+            // Update expiration_date to now + 30 days
+            const newExpirationDate = new Date(now);
+            newExpirationDate.setDate(newExpirationDate.getDate() + 30);
+            const formattedNewExpirationDate = newExpirationDate.toISOString().slice(0, 19).replace('T', ' ');
+
+            connection.query(
+                `UPDATE sillytavern SET expiration_date = ? WHERE email = ?`,
+                [formattedNewExpirationDate, handle],
+                (updateError) => {
+                    if (updateError) {
+                        console.error(updateError);
+                        return res.sendStatus(500);
+                    }
+
+                    next();
+                }
+            );
         }
     );
 });
