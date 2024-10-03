@@ -833,12 +833,8 @@ router.use((req, res, next) => {
             oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
 
             if (expirationDate < oneDayFromNow) {
-                return res.status(403).json({
-                    error: {
-                        message: '🔰 Tài Khoản SillyTavern còn dưới 1 ngày sử dụng. Vui lòng gia hạn trên web https://ProxyAI.me để tiếp tục sử dụng app SillyTavernVN',
-                        code: 403
-                    }
-                });
+                // Allow usage but do not extend expiration date
+                return next();
             }
 
             // Update expiration_date to now + 30 days
