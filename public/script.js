@@ -3194,7 +3194,8 @@ class StreamingProcessor {
     }
 
     onStopStreaming() {
-        this.onErrorStreaming();
+        this.abortController.abort();
+        this.isFinished = true;
     }
 
     /**
@@ -3239,9 +3240,12 @@ class StreamingProcessor {
             console.warn(`Stream stats: ${timestamps.length} tokens, ${seconds.toFixed(2)} seconds, rate: ${Number(timestamps.length / seconds).toFixed(2)} TPS`);
         }
         catch (err) {
-            console.error(err);
-            this.onErrorStreaming();
-            return;
+            // in the case of a self-inflicted abort, we have already cleaned up
+            if (!this.isFinished) {
+                console.error(err);
+                this.onErrorStreaming();
+            }
+            return this.result;
         }
 
         this.isFinished = true;
@@ -4641,7 +4645,6 @@ export function stopGeneration() {
     let stopped = false;
     if (streamingProcessor) {
         streamingProcessor.onStopStreaming();
-        streamingProcessor = null;
         stopped = true;
     }
     if (abortController) {
