@@ -3241,8 +3241,7 @@ class StreamingProcessor {
         }
         catch (err) {
             // in the case of a self-inflicted abort, we have already cleaned up
-            if (!this.isFinished)
-            {
+            if (!this.isFinished) {
                 console.error(err);
                 this.onErrorStreaming();
             }
