@@ -699,20 +699,26 @@ const chatBlock = document.getElementById('chat');
 const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
 /**
- * this makes the chat input text area resize vertically to match the text size (limited by CSS at 50% window height)
+ * Auto-resizes the send message textarea to fit its content, up to a maximum height defined by CSS.
+ * This function preserves chat scroll position, resets the textarea height for accurate measurement,
+ * calculates the required height, sets the new height, and then restores the chat scroll position.
+ * Firefox-specific scrolling adjustments are included for smoother behavior.
  */
 function autoFitSendTextArea() {
-    const originalScrollBottom = chatBlock.scrollHeight - (chatBlock.scrollTop + chatBlock.offsetHeight);
-    if (Math.ceil(sendTextArea.scrollHeight + 3) >= Math.floor(sendTextArea.offsetHeight)) {
-        const sendTextAreaMinHeight = '0px';
-        sendTextArea.style.height = sendTextAreaMinHeight;
-    }
-    const newHeight = sendTextArea.scrollHeight + 3;
+    const originalScrollTop = chatBlock.scrollTop;
+    const originalScrollHeight = chatBlock.scrollHeight;
+
+    sendTextArea.style.height = '1px';
+
+    const newHeight = sendTextArea.scrollHeight; 
+
     sendTextArea.style.height = `${newHeight}px`;
 
+    // Restore chat scroll position (Firefox-specific adjustment for smoothness).
     if (!isFirefox) {
-        const newScrollTop = Math.round(chatBlock.scrollHeight - (chatBlock.offsetHeight + originalScrollBottom));
-        chatBlock.scrollTop = newScrollTop;
+        chatBlock.scrollTop = originalScrollTop + (chatBlock.scrollHeight - originalScrollHeight);
+    } else {
+       chatBlock.scrollTo({ top: chatBlock.scrollHeight, behavior: 'auto' }); 
     }
 }
 export const autoFitSendTextAreaDebounced = debounce(autoFitSendTextArea, debounce_timeout.short);
