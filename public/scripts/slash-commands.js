@@ -2090,12 +2090,14 @@ async function buttonsCallback(args, text) {
                     overflow-y: auto;
                     flex-shrink: 1;
                     min-height: 0;
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
                 }
                 .scrollable-buttons::-webkit-scrollbar {
                     width: 6px;
                 }
                 .scrollable-buttons::-webkit-scrollbar-thumb {
-                    background-color: rgba(0, 0, 0, 0.2);
+                    background-color: rgba(255, 255, 255, 0.3);
                     border-radius: 3px;
                 }
             `;
@@ -4304,4 +4306,3 @@ sendTextarea.addEventListener('input', () => {
         sendTextarea.style.fontFamily = null;
     }
 });
-
