@@ -1396,6 +1396,13 @@ export function initDefaultSlashCommands() {
         returns: 'popup text',
         namedArgumentList: [
             SlashCommandNamedArgument.fromProps({
+                name: 'scroll',
+                description: 'allows vertical scrolling of the content',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumList: commonEnumProviders.boolean('trueFalse')(),
+                defaultValue: 'true',
+            }),
+            SlashCommandNamedArgument.fromProps({
                 name: 'large',
                 description: 'show large popup',
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
@@ -2108,6 +2115,7 @@ async function popupCallback(args, value) {
 
     /** @type {import('./popup.js').PopupOptions} */
     const popupOptions = {
+        allowVerticalScrolling: !isFalseBoolean(args?.scroll),
         large: isTrueBoolean(args?.large),
         wide: isTrueBoolean(args?.wide),
         wider: isTrueBoolean(args?.wider),
