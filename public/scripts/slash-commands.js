@@ -2091,7 +2091,7 @@ async function buttonsCallback(args, text) {
             popupContainer.innerHTML = safeValue;
             popupContainer.appendChild(buttonContainer);
 
-            popup = new Popup(popupContainer, POPUP_TYPE.TEXT, '', { okButton: 'Cancel' });
+            popup = new Popup(popupContainer, POPUP_TYPE.TEXT, '', { okButton: 'Cancel', allowVerticalScrolling: true });
             popup.show()
                 .then((result => resolve(typeof result === 'number' ? resultToButtonMap.get(result) ?? '' : '')))
                 .catch(() => resolve(''));
