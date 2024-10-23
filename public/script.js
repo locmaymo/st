@@ -8218,6 +8218,10 @@ window['SillyTavern'].getContext = function () {
         substituteParams,
         substituteParamsExtended,
         SlashCommandParser,
+        SlashCommand,
+        SlashCommandArgument,
+        SlashCommandNamedArgument,
+        ARGUMENT_TYPE,
         executeSlashCommandsWithOptions,
         /** @deprecated Use SlashCommandParser.addCommandObject() instead */
         registerSlashCommand: registerSlashCommand,
