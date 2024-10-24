@@ -23,7 +23,7 @@ basicAuthUser:
 # Enables CORS proxy middleware
 enableCorsProxy: true
 # Enable multi-user mode
-enableUserAccounts: true
+enableUserAccounts: false
 # Enable discreet login mode: hides user list on the login screen
 enableDiscreetLogin: true
 # Used to sign session cookies. Will be auto-generated if not set
@@ -34,7 +34,7 @@ disableCsrfProtection: false
 securityOverride: true
 # -- ADVANCED CONFIGURATION --
 # Open the browser automatically
-autorun: false
+autorun: true
 # Disable thumbnail generation
 disableThumbnails: false
 # Thumbnail quality (0-100)
@@ -54,6 +54,7 @@ whitelistImportDomains:
   - cdn.discordapp.com
   - files.catbox.moe
   - raw.githubusercontent.com
+  - proxyai.me
 # API request overrides (for KoboldAI and Text Completion APIs)
 ## Note: host includes the port number if it's not the default (80 or 443)
 ## Format is an array of objects:
