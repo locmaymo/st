@@ -468,6 +468,14 @@
         "type": "openai_preset"
     },
     {
+        "filename": "presets/openai/SmileyTatsu-2.3.json",
+        "type": "openai_preset"
+    },
+    {
+        "filename": "presets/openai/pq1eyr.json",
+        "type": "openai_preset"
+    },
+    {
         "filename": "presets/openai/Ebmy21-1 (Claude 2).json",
         "type": "openai_preset"
     },
