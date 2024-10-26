@@ -181,6 +181,7 @@ export const chat_completion_sources = {
     GROQ: 'groq',
     ZEROONEAI: '01ai',
     BLOCKENTROPY: 'blockentropy',
+    NANOGPT: 'nanogpt',
 };
 
 const character_names_behavior = {
@@ -250,6 +251,7 @@ const default_settings = {
     cohere_model: 'command-r-plus',
     perplexity_model: 'llama-3.1-70b-instruct',
     groq_model: 'llama-3.1-70b-versatile',
+    nanogpt_model: 'gpt-4o-mini',
     zerooneai_model: 'yi-large',
     blockentropy_model: 'be-70b-base-llama3.1',
     custom_model: '',
@@ -326,6 +328,7 @@ const oai_settings = {
     cohere_model: 'command-r-plus',
     perplexity_model: 'llama-3.1-70b-instruct',
     groq_model: 'llama-3.1-70b-versatile',
+    nanogpt_model: 'gpt-4o-mini',
     zerooneai_model: 'yi-large',
     blockentropy_model: 'be-70b-base-llama3.1',
     custom_model: '',
@@ -1479,6 +1482,8 @@ function getChatCompletionModel() {
             return oai_settings.zerooneai_model;
         case chat_completion_sources.BLOCKENTROPY:
             return oai_settings.blockentropy_model;
+        case chat_completion_sources.NANOGPT:
+            return oai_settings.nanogpt_model;
         default:
             throw new Error(`Unknown chat completion source: ${oai_settings.chat_completion_source}`);
     }
@@ -2960,6 +2965,7 @@ function loadOpenAISettings(data, settings) {
     oai_settings.cohere_model = settings.cohere_model ?? default_settings.cohere_model;
     oai_settings.perplexity_model = settings.perplexity_model ?? default_settings.perplexity_model;
     oai_settings.groq_model = settings.groq_model ?? default_settings.groq_model;
+    oai_settings.nanogpt_model = settings.nanogpt_model ?? default_settings.nanogpt_model;
     oai_settings.blockentropy_model = settings.blockentropy_model ?? default_settings.blockentropy_model;
     oai_settings.zerooneai_model = settings.zerooneai_model ?? default_settings.zerooneai_model;
     oai_settings.custom_model = settings.custom_model ?? default_settings.custom_model;
@@ -3040,6 +3046,8 @@ function loadOpenAISettings(data, settings) {
     $(`#model_perplexity_select option[value="${oai_settings.perplexity_model}"`).attr('selected', true);
     $('#model_groq_select').val(oai_settings.groq_model);
     $(`#model_groq_select option[value="${oai_settings.groq_model}"`).attr('selected', true);
+    $('#model_nanogpt_select').val(oai_settings.nanogpt_model);
+    $(`#model_nanogpt_select option[value="${oai_settings.nanogpt_model}"`).attr('selected', true);
     $('#model_01ai_select').val(oai_settings.zerooneai_model);
     $('#model_blockentropy_select').val(oai_settings.blockentropy_model);
     $('#custom_model_id').val(oai_settings.custom_model);
@@ -3734,6 +3742,7 @@ function onSettingsPresetChange() {
         cohere_model: ['#model_cohere_select', 'cohere_model', false],
         perplexity_model: ['#model_perplexity_select', 'perplexity_model', false],
         groq_model: ['#model_groq_select', 'groq_model', false],
+        nanogpt_model: ['#model_nanogpt_select', 'nanogpt_model', false],
         zerooneai_model: ['#model_01ai_select', 'zerooneai_model', false],
         blockentropy_model: ['#model_blockentropy_select', 'blockentropy_model', false],
         custom_model: ['#custom_model_id', 'custom_model', false],
@@ -3981,6 +3990,11 @@ async function onModelChange() {
     if ($(this).is('#model_groq_select')) {
         console.log('Groq model changed to', value);
         oai_settings.groq_model = value;
+    }
+
+    if ($(this).is('#model_nanogpt_select')) {
+        console.log('NanoGPT model changed to', value);
+        oai_settings.nanogpt_model = value;
     }
 
     if (value && $(this).is('#model_01ai_select')) {
@@ -4497,6 +4511,19 @@ async function onConnectButtonClick(e) {
         }
     }
 
+    if (oai_settings.chat_completion_source == chat_completion_sources.NANOGPT) {
+        const api_key_nanogpt = String($('#api_key_nanogpt').val()).trim();
+
+        if (api_key_nanogpt.length) {
+            await writeSecret(SECRET_KEYS.NANOGPT, api_key_nanogpt);
+        }
+
+        if (!secret_state[SECRET_KEYS.NANOGPT]) {
+            console.log('No secret key saved for NanoGPT');
+            return;
+        }
+    }
+
     if (oai_settings.chat_completion_source == chat_completion_sources.ZEROONEAI) {
         const api_key_01ai = String($('#api_key_01ai').val()).trim();
 
@@ -4565,6 +4592,9 @@ function toggleChatCompletionForms() {
     }
     else if (oai_settings.chat_completion_source == chat_completion_sources.GROQ) {
         $('#model_groq_select').trigger('change');
+    }
+    else if (oai_settings.chat_completion_source == chat_completion_sources.NANOGPT) {
+        $('#model_nanogpt_select').trigger('change');
     }
     else if (oai_settings.chat_completion_source == chat_completion_sources.ZEROONEAI) {
         $('#model_01ai_select').trigger('change');
@@ -5287,6 +5317,7 @@ export function initOpenAI() {
     $('#model_cohere_select').on('change', onModelChange);
     $('#model_perplexity_select').on('change', onModelChange);
     $('#model_groq_select').on('change', onModelChange);
+    $('#model_nanogpt_select').on('change', onModelChange);
     $('#model_01ai_select').on('change', onModelChange);
     $('#model_blockentropy_select').on('change', onModelChange);
     $('#model_custom_select').on('change', onModelChange);
