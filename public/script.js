@@ -2577,7 +2577,7 @@ export function substituteParams(content, _name1, _name2, _original, _group, _re
     if (_replaceCharacterCard) {
         const fields = getCharacterCardFields();
         environment.charPrompt = fields.system || '';
-        environment.charJailbreak = fields.jailbreak || '';
+        environment.charInstruction = environment.charJailbreak = fields.jailbreak || '';
         environment.description = fields.description || '';
         environment.personality = fields.personality || '';
         environment.scenario = fields.scenario || '';
@@ -3847,7 +3847,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     if (addUserAlignment) {
         const alignmentMessage = {
             name: name1,
-            mes: power_user.instruct.user_alignment_message,
+            mes: substituteParams(power_user.instruct.user_alignment_message),
             is_user: true,
         };
         userAlignmentMessage = formatMessageHistoryItem(alignmentMessage, isInstruct, force_output_sequence.FIRST);
@@ -8225,6 +8225,10 @@ window['SillyTavern'].getContext = function () {
         substituteParams,
         substituteParamsExtended,
         SlashCommandParser,
+        SlashCommand,
+        SlashCommandArgument,
+        SlashCommandNamedArgument,
+        ARGUMENT_TYPE,
         executeSlashCommandsWithOptions,
         /** @deprecated Use SlashCommandParser.addCommandObject() instead */
         registerSlashCommand: registerSlashCommand,

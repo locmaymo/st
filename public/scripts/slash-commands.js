@@ -1398,6 +1398,13 @@ export function initDefaultSlashCommands() {
         returns: 'popup text',
         namedArgumentList: [
             SlashCommandNamedArgument.fromProps({
+                name: 'scroll',
+                description: 'allows vertical scrolling of the content',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumList: commonEnumProviders.boolean('trueFalse')(),
+                defaultValue: 'true',
+            }),
+            SlashCommandNamedArgument.fromProps({
                 name: 'large',
                 description: 'show large popup',
                 typeList: [ARGUMENT_TYPE.BOOLEAN],
@@ -2093,7 +2100,7 @@ async function buttonsCallback(args, text) {
             popupContainer.innerHTML = safeValue;
             popupContainer.appendChild(buttonContainer);
 
-            popup = new Popup(popupContainer, POPUP_TYPE.TEXT, '', { okButton: 'Cancel' });
+            popup = new Popup(popupContainer, POPUP_TYPE.TEXT, '', { okButton: 'Cancel', allowVerticalScrolling: true });
             popup.show()
                 .then((result => resolve(typeof result === 'number' ? resultToButtonMap.get(result) ?? '' : '')))
                 .catch(() => resolve(''));
@@ -2110,6 +2117,7 @@ async function popupCallback(args, value) {
 
     /** @type {import('./popup.js').PopupOptions} */
     const popupOptions = {
+        allowVerticalScrolling: !isFalseBoolean(args?.scroll),
         large: isTrueBoolean(args?.large),
         wide: isTrueBoolean(args?.wide),
         wider: isTrueBoolean(args?.wider),
