@@ -2570,7 +2570,7 @@ export function substituteParams(content, _name1, _name2, _original, _group, _re
     if (_replaceCharacterCard) {
         const fields = getCharacterCardFields();
         environment.charPrompt = fields.system || '';
-        environment.charJailbreak = fields.jailbreak || '';
+        environment.charInstruction = environment.charJailbreak = fields.jailbreak || '';
         environment.description = fields.description || '';
         environment.personality = fields.personality || '';
         environment.scenario = fields.scenario || '';
