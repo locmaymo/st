@@ -4770,6 +4770,11 @@ export function shouldAutoContinue(messageChunk, isImpersonate) {
         return false;
     }
 
+    if (abortController && abortController.signal.aborted) {
+        console.debug('Auto-continue is not triggered because the generation was stopped.');
+        return false;
+    }
+
     if (power_user.auto_continue.target_length <= 0) {
         console.log('Auto-continue target length is 0, not triggering auto-continue');
         return false;
