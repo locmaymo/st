@@ -1641,6 +1641,23 @@ function saveModelList(data) {
             }
         }
     }
+
+    if (oai_settings.chat_completion_source == chat_completion_sources.NANOGPT) {
+        $('#model_nanogpt_select').empty();
+        model_list.forEach((model) => {
+            $('#model_nanogpt_select').append(
+                $('<option>', {
+                    value: model.id,
+                    text: model.id,
+                }));
+        });
+
+        if (!oai_settings.nanogpt_model && model_list.length > 0) {
+            oai_settings.nanogpt_model = model_list[0].id;
+        }
+
+        $('#model_nanogpt_select').val(oai_settings.nanogpt_model).trigger('change');
+    }
 }
 
 function appendOpenRouterOptions(model_list, groupModels = false, sort = false) {
