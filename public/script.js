@@ -7025,99 +7025,15 @@ export async function displayPastChats() {
     $('#select_chat_div').empty();
     $('#select_chat_search').val('').off('input');
 
-    const data = await (selected_group ? getGroupPastChats(selected_group) : getPastCharacterChats());
-
-    if (!data) {
-        toastr.error(t`Could not load chat data. Try reloading the page.`);
-        return;
-    }
-
     const chatDetails = getCurrentChatDetails();
-    const group = chatDetails.group;
     const currentChat = chatDetails.sessionName;
     const displayName = chatDetails.characterName;
     const avatarImg = chatDetails.avatarImgURL;
 
-    const rawChats = await getChatsFromFiles(data, selected_group);
-
-    // Sort by last message date descending
-    data.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
-    console.log(data);
-    $('#load_select_chat_div').css('display', 'none');
-    $('#ChatHistoryCharName').text(`${displayName}'s `);
-
-    const displayChats = (searchQuery) => {
-        $('#select_chat_div').empty();  // Clear the current chats before appending filtered chats
-
-        const filteredData = data.filter(chat => {
-            const fileName = chat['file_name'];
-            const chatContent = rawChats[fileName];
-
-            // Make sure empty chats are displayed when there is no search query
-            if (Array.isArray(chatContent) && !chatContent.length && !searchQuery) {
-                return true;
-            }
-
-            // // Uncomment this to return to old behavior (classical full-substring search).
-            // return chatContent && Object.values(chatContent).some(message => message?.mes?.toLowerCase()?.includes(searchQuery.toLowerCase()));
-
-            // Fragment search a.k.a. swoop (as in `helm-swoop` in the Helm package of Emacs).
-            // Split a `query` {string} into its fragments {string[]}.
-            function makeQueryFragments(query) {
-                let fragments = query.trim().split(/\s+/).map(str => str.trim().toLowerCase()).filter(onlyUnique);
-                // fragments = fragments.filter( function(str) { return str.length >= 3; } );  // Helm does this, but perhaps better if we don't.
-                return fragments;
-            }
-            // Check whether `text` {string} includes all of the `fragments` {string[]}.
-            function matchFragments(fragments, text) {
-                if (!text || !text.toLowerCase) return false;
-                return fragments.every(item => text.toLowerCase().includes(item));
-            }
-            const fragments = makeQueryFragments(searchQuery);
-            // At least one chat message must match *all* the fragments.
-            // Currently, this doesn't match if the fragment matches are distributed across several chat messages.
-            return chatContent && Object.values(chatContent).some(message => matchFragments(fragments, message?.mes));
-        });
-
-        console.debug(filteredData);
-        for (const value of filteredData.values()) {
-            let strlen = 300;
-            let mes = value['mes'];
-
-            if (mes !== undefined) {
-                if (mes.length > strlen) {
-                    mes = '...' + mes.substring(mes.length - strlen);
-                }
-                const fileSize = value['file_size'];
-                const fileName = value['file_name'];
-                const chatItems = rawChats[fileName].length;
-                const timestamp = timestampToMoment(value['last_mes']).format('lll');
-                const template = $('#past_chat_template .select_chat_block_wrapper').clone();
-                template.find('.select_chat_block').attr('file_name', fileName);
-                template.find('.avatar img').attr('src', avatarImg);
-                template.find('.select_chat_block_filename').text(fileName);
-                template.find('.chat_file_size').text(`(${fileSize},`);
-                template.find('.chat_messages_num').text(`${chatItems}💬)`);
-                template.find('.select_chat_block_mes').text(mes);
-                template.find('.PastChat_cross').attr('file_name', fileName);
-                template.find('.chat_messages_date').text(timestamp);
-
-                if (selected_group) {
-                    template.find('.avatar img').replaceWith(getGroupAvatar(group));
-                }
-
-                $('#select_chat_div').append(template);
-
-                if (currentChat === fileName.toString().replace('.jsonl', '')) {
-                    $('#select_chat_div').find('.select_chat_block:last').attr('highlight', String(true));
-                }
-            }
-        }
-    };
-    displayChats('');  // Display all by default
+    await displayChats('', currentChat, displayName, avatarImg, selected_group);
 
     const debouncedDisplay = debounce((searchQuery) => {
-        displayChats(searchQuery);
+        displayChats(searchQuery, currentChat, displayName, avatarImg, selected_group);
     });
 
     // Define the search input listener
@@ -7133,6 +7049,48 @@ export async function displayPastChats() {
         textSearchElement.focus();
         textSearchElement.select();  // select content (if any) for easy erasing
     }, 200);
+}
+
+async function displayChats(searchQuery, currentChat, displayName, avatarImg, selected_group) {
+    try {
+        const response = await fetch('/api/chats/search', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                query: searchQuery,
+                avatar_url: selected_group ? null : characters[this_chid].avatar,
+                group_id: selected_group || null
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+
+        const filteredData = await response.json();
+        $('#select_chat_div').empty();
+
+        for (const chat of filteredData) {
+            const template = $('#past_chat_template .select_chat_block_wrapper').clone();
+            template.find('.select_chat_block').attr('file_name', chat.file_name);
+            template.find('.avatar img').attr('src', avatarImg);
+            template.find('.select_chat_block_filename').text(chat.file_name);
+            template.find('.chat_file_size').text(`(${chat.file_size},`);
+            template.find('.chat_messages_num').text(`${chat.message_count}💬)`);
+            template.find('.select_chat_block_mes').text(chat.preview_message);
+            template.find('.PastChat_cross').attr('file_name', chat.file_name);
+            template.find('.chat_messages_date').text(timestampToMoment(chat.last_mes).format('lll'));
+
+            $('#select_chat_div').append(template);
+
+            if (currentChat === chat.file_name) {
+                $('#select_chat_div').find('.select_chat_block:last').attr('highlight', String(true));
+            }
+        }
+    } catch (error) {
+        console.error('Error loading chats:', error);
+        toastr.error('Could not load chat data. Try reloading the page.');
+    }
 }
 
 export function selectRightMenuWithAnimation(selectedMenuId) {
@@ -10419,6 +10377,11 @@ jQuery(async function () {
         setTimeout(function () { $('#shadow_select_chat_popup').css('display', 'none'); }, animation_duration);
         //$("#shadow_select_chat_popup").css("display", "none");
         $('#load_select_chat_div').css('display', 'block');
+    });
+
+    // not sure what that hourglass was for
+    $('#option_select_chat').click(function () {
+        $('#load_select_chat_div').css('display', 'none');
     });
 
     if (navigator.clipboard === undefined) {
