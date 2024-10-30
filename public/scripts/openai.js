@@ -1652,7 +1652,8 @@ function saveModelList(data) {
                 }));
         });
 
-        if (!oai_settings.nanogpt_model && model_list.length > 0) {
+        const selectedModel = model_list.find(model => model.id === oai_settings.nanogpt_model);
+        if (model_list.length > 0 && (!selectedModel || !oai_settings.nanogpt_model)) {
             oai_settings.nanogpt_model = model_list[0].id;
         }
 
@@ -4010,6 +4011,11 @@ async function onModelChange() {
     }
 
     if ($(this).is('#model_nanogpt_select')) {
+        if (!value) {
+            console.debug('Null NanoGPT model selected. Ignoring.');
+            return;
+        }
+
         console.log('NanoGPT model changed to', value);
         oai_settings.nanogpt_model = value;
     }
