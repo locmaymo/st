@@ -71,7 +71,7 @@ function formatBytes(bytes) {
  * @returns {string} A truncated preview of the last message or empty string if no messages
  */
 function getPreviewMessage(messages) {
-    const strlen = 300;
+    const strlen = 400;
     const lastMessage = messages[messages.length - 1]?.mes;
 
     if (!lastMessage) {
