@@ -48,6 +48,7 @@ const API_MAKERSUITE = 'https://generativelanguage.googleapis.com';
 const API_01AI = 'https://api.01.ai/v1';
 const API_BLOCKENTROPY = 'https://api.blockentropy.ai/v1';
 const API_AI21 = 'https://api.ai21.com/studio/v1';
+const API_NANOGPT = 'https://nano-gpt.com/api/v1';
 
 /**
  * Applies a post-processing step to the generated messages.
@@ -656,6 +657,10 @@ router.post('/status', jsonParser, async function (request, response_getstatus_o
         api_url = API_BLOCKENTROPY;
         api_key_openai = readSecret(request.user.directories, SECRET_KEYS.BLOCKENTROPY);
         headers = {};
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT) {
+        api_url = API_NANOGPT;
+        api_key_openai = readSecret(request.user.directories, SECRET_KEYS.NANOGPT);
+        headers = {};
     } else {
         console.log('This chat completion source is not supported yet.');
         return response_getstatus_openai.status(400).send({ error: true });
@@ -904,6 +909,11 @@ router.post('/generate', jsonParser, function (request, response) {
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.GROQ) {
         apiUrl = API_GROQ;
         apiKey = readSecret(request.user.directories, SECRET_KEYS.GROQ);
+        headers = {};
+        bodyParams = {};
+    } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.NANOGPT) {
+        apiUrl = API_NANOGPT;
+        apiKey = readSecret(request.user.directories, SECRET_KEYS.NANOGPT);
         headers = {};
         bodyParams = {};
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.ZEROONEAI) {

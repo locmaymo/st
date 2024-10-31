@@ -2601,6 +2601,7 @@
                                 <option value="groq">Groq</option>
                                 <option value="makersuite">Google AI Studio</option>
                                 <option value="mistralai">MistralAI</option>
+                                <option value="nanogpt">NanoGPT</option>
                                 <option value="openrouter">OpenRouter</option>
                                 <option value="perplexity">Perplexity</option>
                                 <option value="scale">Scale</option>
@@ -3082,6 +3083,22 @@
                                     <option value="llava-v1.5-7b-4096-preview">llava-v1.5-7b-4096-preview</option>
                                 </optgroup>
                             </select>
+                        </div>
+                        <div id="nanogpt_form" data-source="nanogpt">
+                            <h4 data-i18n="NanoGPT API Key">NanoGPT API Key</h4>
+                            <div class="flex-container">
+                                <input id="api_key_nanogpt" name="api_key_nanogpt" class="text_pole flex1" value="" type="text" autocomplete="off">
+                                <div title="Clear your API key" data-i18n="[title]Clear your API key" class="menu_button fa-solid fa-circle-xmark clear-api-key" data-key="api_key_nanogpt"></div>
+                            </div>
+                            <div data-for="api_key_nanogpt" class="neutral_warning" data-i18n="For privacy reasons, your API key will be hidden after you reload the page.">
+                                For privacy reasons, your API key will be hidden after you reload the page.
+                            </div>
+                            <div>
+                                <h4 data-i18n="NanoGPT Model">NanoGPT Model</h4>
+                                <select id="model_nanogpt_select">
+                                    <option value="" data-i18n="-- Connect to the API --">-- Connect to the API --</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="perplexity_form" data-source="perplexity">
                             <h4 data-i18n="Perplexity API Key">Perplexity API Key</h4>
