@@ -636,7 +636,6 @@ export function initBookmarks() {
         }
 
         $('#shadow_select_chat_popup').css('display', 'none');
-        $('#load_select_chat_div').css('display', 'block');
     });
 
     $(document).on('click', '.mes_create_bookmark', async function () {

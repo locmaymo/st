@@ -10380,13 +10380,6 @@ jQuery(async function () {
             easing: animation_easing,
         });
         setTimeout(function () { $('#shadow_select_chat_popup').css('display', 'none'); }, animation_duration);
-        //$("#shadow_select_chat_popup").css("display", "none");
-        $('#load_select_chat_div').css('display', 'block');
-    });
-
-    // not sure what that hourglass was for
-    $('#option_select_chat').click(function () {
-        $('#load_select_chat_div').css('display', 'none');
     });
 
     if (navigator.clipboard === undefined) {
@@ -10786,7 +10779,6 @@ jQuery(async function () {
         var formData = new FormData($('#form_import_chat').get(0));
         formData.append('user_name', name1);
         $('#select_chat_div').html('');
-        $('#load_select_chat_div').css('display', 'block');
 
         if (selected_group) {
             await importGroupChat(formData);

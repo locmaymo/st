@@ -4273,17 +4273,6 @@ h5 {
     cursor: pointer;
 }
 
-#load_select_chat_div {
-    position: absolute;
-    bottom: 154px;
-    left: 174px;
-}
-
-#load_select_chat_div img {
-    width: 80px;
-    height: 80px;
-}
-
 #select_chat_div {
     padding: 0;
     height: min-content;
