@@ -7053,13 +7053,15 @@ export async function displayPastChats() {
 
 async function displayChats(searchQuery, currentChat, displayName, avatarImg, selected_group) {
     try {
+        const trimExtension = (fileName) => String(fileName).replace('.jsonl', '');
+
         const response = await fetch('/api/chats/search', {
             method: 'POST',
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 query: searchQuery,
                 avatar_url: selected_group ? null : characters[this_chid].avatar,
-                group_id: selected_group || null
+                group_id: selected_group || null,
             }),
         });
 
@@ -7070,7 +7072,10 @@ async function displayChats(searchQuery, currentChat, displayName, avatarImg, se
         const filteredData = await response.json();
         $('#select_chat_div').empty();
 
+        filteredData.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
+
         for (const chat of filteredData) {
+            const isSelected = trimExtension(currentChat) === trimExtension(chat.file_name);
             const template = $('#past_chat_template .select_chat_block_wrapper').clone();
             template.find('.select_chat_block').attr('file_name', chat.file_name);
             template.find('.avatar img').attr('src', avatarImg);
@@ -7081,11 +7086,11 @@ async function displayChats(searchQuery, currentChat, displayName, avatarImg, se
             template.find('.PastChat_cross').attr('file_name', chat.file_name);
             template.find('.chat_messages_date').text(timestampToMoment(chat.last_mes).format('lll'));
 
-            $('#select_chat_div').append(template);
-
-            if (currentChat === chat.file_name) {
-                $('#select_chat_div').find('.select_chat_block:last').attr('highlight', String(true));
+            if (isSelected) {
+                template.find('.select_chat_block').attr('highlight', String(true));
             }
+
+            $('#select_chat_div').append(template);
         }
     } catch (error) {
         console.error('Error loading chats:', error);
