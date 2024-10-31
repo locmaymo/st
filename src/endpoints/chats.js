@@ -73,7 +73,7 @@ function formatBytes(bytes) {
 function getPreviewMessage(messages) {
     const strlen = 300;
     const lastMessage = messages[messages.length - 1]?.mes;
-    
+
     if (!lastMessage) {
         return '';
     }
@@ -609,13 +609,13 @@ router.post('/search', jsonParser, function (request, response) {
         }
 
         const results = [];
-        
+
         // Search logic
         for (const chatFile of chatFiles) {
             const data = fs.readFileSync(chatFile.path, 'utf8');
             const messages = data.split('\n')
                 .map(line => { try { return JSON.parse(line); } catch (_) { return null; } })
-                .filter(x => x);
+                .filter(x => x && typeof x.mes === 'string');
 
             if (messages.length === 0) {
                 continue;
