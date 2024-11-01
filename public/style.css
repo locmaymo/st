@@ -4244,8 +4244,8 @@ h5 {
 }
 
 #select_chat_popup {
-    display: grid;
-    grid-template-rows: auto auto;
+    display: flex;
+    flex-direction: column;
     max-width: var(--sheldWidth);
     height: min-content;
     max-height: calc(100vh - var(--topBarBlockSize));
@@ -4265,7 +4265,7 @@ h5 {
     padding: 10px;
     background-color: var(--SmartThemeBlurTintColor);
     border-radius: 10px;
-    overflow-y: auto;
+    overflow-y: hidden;
     border: 1px solid var(--SmartThemeBorderColor);
 }
 
@@ -4275,7 +4275,8 @@ h5 {
 
 #select_chat_div {
     padding: 0;
-    height: min-content;
+    height: 100%;
+    overflow-y: auto;
 }
 
 #select_chat_div hr {
