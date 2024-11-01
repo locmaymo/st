@@ -424,13 +424,15 @@ function getTimeDiffMacro() {
  * @param {string} content - The string to substitute parameters in.
  * @param {EnvObject} env - Map of macro names to the values they'll be substituted with. If the param
  * values are functions, those functions will be called and their return values are used.
+ * @param {function(string): string} postProcessFn - Function to run on the macro value before replacing it.
  * @returns {string} The string with substituted parameters.
  */
-export function evaluateMacros(content, env) {
+export function evaluateMacros(content, env, postProcessFn) {
     if (!content) {
         return '';
     }
 
+    postProcessFn = typeof postProcessFn === 'function' ? postProcessFn : (x => x);
     const rawContent = content;
 
     /**
@@ -514,7 +516,7 @@ export function evaluateMacros(content, env) {
             break;
         }
 
-        content = content.replace(macro.regex, macro.replace);
+        content = content.replace(macro.regex, (...args) => postProcessFn(macro.replace(...args)));
     }
 
     return content;
