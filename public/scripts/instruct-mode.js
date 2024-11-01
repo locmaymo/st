@@ -565,16 +565,11 @@ function selectMatchingContextTemplate(name) {
 
 /**
  * Replaces instruct mode macros in the given input string.
- * @param {string} input Input string.
  * @param {Object<string, *>} env - Map of macro names to the values they'll be substituted with. If the param
  * values are functions, those functions will be called and their return values are used.
- * @returns {string} String with macros replaced.
+ * @returns {import('./macros.js').Macro[]} Macro objects.
  */
-export function replaceInstructMacros(input, env) {
-    if (!input) {
-        return '';
-    }
-
+export function getInstructMacros(env) {
     const syspromptMacros = {
         'systemPrompt': (power_user.prefer_character_prompt && env.charPrompt ? env.charPrompt : power_user.sysprompt.content),
         'defaultSystemPrompt|instructSystem|instructSystemPrompt': power_user.sysprompt.content,
@@ -598,20 +593,24 @@ export function replaceInstructMacros(input, env) {
         'instructLastInput|instructLastUserPrefix': power_user.instruct.last_input_sequence || power_user.instruct.input_sequence,
     };
 
+    const macros = [];
+
     for (const [placeholder, value] of Object.entries(instructMacros)) {
         const regex = new RegExp(`{{(${placeholder})}}`, 'gi');
-        input = input.replace(regex, power_user.instruct.enabled ? value : '');
+        const replace = () => power_user.instruct.enabled ? value : '';
+        macros.push({ regex, replace });
     }
 
     for (const [placeholder, value] of Object.entries(syspromptMacros)) {
         const regex = new RegExp(`{{(${placeholder})}}`, 'gi');
-        input = input.replace(regex, power_user.sysprompt.enabled ? value : '');
+        const replace = () => power_user.sysprompt.enabled ? value : '';
+        macros.push({ regex, replace });
     }
 
-    input = input.replace(/{{exampleSeparator}}/gi, power_user.context.example_separator);
-    input = input.replace(/{{chatStart}}/gi, power_user.context.chat_start);
+    macros.push({ regex: /{{exampleSeparator}}/gi, replace: () => power_user.context.example_separator });
+    macros.push({ regex: /{{chatStart}}/gi, replace: () => power_user.context.chat_start });
 
-    return input;
+    return macros;
 }
 
 jQuery(() => {
