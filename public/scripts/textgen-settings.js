@@ -944,6 +944,7 @@ export function parseTextgenLogprobs(token, logprobs) {
     }
 
     switch (settings.type) {
+        case KOBOLDCPP:
         case TABBY:
         case VLLM:
         case APHRODITE:
