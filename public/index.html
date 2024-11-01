@@ -5461,7 +5461,7 @@
                     </div>
                     <div id="selectChatPopupHeaderText" class="TxtLrgBoldCenter">
                         <span id="ChatHistoryCharName"></span><span data-i18n="Chat History">Chat History</span>
-                        <a href="https://docs.sillytavern.app/usage/core-concepts/chatfilemanagement/#chat-import" class="notes-link" target="_blank"><span class="fa-solid fa-circle-question note-link-span"></span></a>
+                        <a href="https://docs.sillytavern.app/usage/core-concepts/chatfilemanagement/" class="notes-link" target="_blank"><span class="fa-solid fa-circle-question note-link-span"></span></a>
                     </div>
                     <div id="newChatFromManageScreenButton" class="menu_button menu_button_icon">
                         <i class="fa-solid fa-plus"></i>
@@ -5471,13 +5471,10 @@
                         <i class="fa-solid fa-file-import"></i>
                         <span data-i18n="Import Chat">Import Chat</span>
                     </div>
-                    <input type="text" id="select_chat_search" class="text_pole flex1" data-i18n="[placeholder]Search..." placeholder="Search..." autocomplete="off">
+                    <input type="search" id="select_chat_search" class="text_pole flex1" data-i18n="[placeholder]Search..." placeholder="Search..." autocomplete="off">
                     <div id="select_chat_cross" class="opacity50p hoverglow fa-solid fa-circle-xmark fontsize120p" alt="Close Past Chat Popup"></div>
                 </div>
                 <div id="select_chat_div"></div>
-                <div id="load_select_chat_div">
-                    <div class="fa-solid fa-hourglass fa-spin"></div>
-                </div>
             </div>
         </div>
         <div id="background_template" class="template_element">
@@ -5550,11 +5547,11 @@
             <div class="select_chat_block_wrapper flex-container">
                 <div class="select_chat_block  wide100p flex-container" file_name="">
                     <div id="select_chat_name_wrapper" class="flex-container alignitemscenter justifySpaceBetween wide100p">
-                        <div>
+                        <div class="flex-container alignItemsCenter">
                             <small class="select_chat_block_filename select_chat_block_filename_item"></small>
-                            <div title="Rename chat file" class="renameChatButton hoverglow opacity50p fa-solid fa-pencil" data-i18n="[title]Rename chat file"></div>
+                            <div title="Rename chat file" class="renameChatButton hoverglow opacity50p fa-solid fa-pencil fa-sm" data-i18n="[title]Rename chat file"></div>
                         </div>
-                        <div class="flex-container gap10px">
+                        <div class="flex-container gap10px alignItemsCenter">
                             <div class="select_chat_info flex-container">
                                 <small class="chat_messages_date select_chat_block_filename_item"></small>
                                 <small class="chat_file_size select_chat_block_filename_item"></small>
