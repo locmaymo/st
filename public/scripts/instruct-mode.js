@@ -570,12 +570,8 @@ function selectMatchingContextTemplate(name) {
  * @returns {import('./macros.js').Macro[]} Macro objects.
  */
 export function getInstructMacros(env) {
-    const syspromptMacros = {
-        'systemPrompt': (power_user.prefer_character_prompt && env.charPrompt ? env.charPrompt : power_user.sysprompt.content),
-        'defaultSystemPrompt|instructSystem|instructSystemPrompt': power_user.sysprompt.content,
-    };
-
     const instructMacros = {
+        // Instruct template macros
         'instructSystemPromptPrefix': power_user.instruct.system_sequence_prefix,
         'instructSystemPromptSuffix': power_user.instruct.system_sequence_suffix,
         'instructInput|instructUserPrefix': power_user.instruct.input_sequence,
@@ -591,6 +587,12 @@ export function getInstructMacros(env) {
         'instructSystemInstructionPrefix': power_user.instruct.last_system_sequence,
         'instructFirstInput|instructFirstUserPrefix': power_user.instruct.first_input_sequence || power_user.instruct.input_sequence,
         'instructLastInput|instructLastUserPrefix': power_user.instruct.last_input_sequence || power_user.instruct.input_sequence,
+        // System prompt macros
+        'systemPrompt': (power_user.prefer_character_prompt && env.charPrompt ? env.charPrompt : power_user.sysprompt.content),
+        'defaultSystemPrompt|instructSystem|instructSystemPrompt': power_user.sysprompt.content,
+        // Context template macros
+        'chatSeparator': power_user.context.example_separator,
+        'chatStart': power_user.context.chat_start,
     };
 
     const macros = [];
@@ -600,15 +602,6 @@ export function getInstructMacros(env) {
         const replace = () => power_user.instruct.enabled ? value : '';
         macros.push({ regex, replace });
     }
-
-    for (const [placeholder, value] of Object.entries(syspromptMacros)) {
-        const regex = new RegExp(`{{(${placeholder})}}`, 'gi');
-        const replace = () => power_user.sysprompt.enabled ? value : '';
-        macros.push({ regex, replace });
-    }
-
-    macros.push({ regex: /{{exampleSeparator}}/gi, replace: () => power_user.context.example_separator });
-    macros.push({ regex: /{{chatStart}}/gi, replace: () => power_user.context.chat_start });
 
     return macros;
 }
