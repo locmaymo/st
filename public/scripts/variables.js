@@ -224,12 +224,11 @@ export function resolveVariable(name, scope = null) {
 }
 
 /**
+ * Returns built-in variable macros.
  * @returns {import('./macros.js').Macro[]}
  */
 export function getVariableMacros() {
-    const macros = [
-        // Replace {{getvar::name}} with the value of the variable name
-        { regex: /{{getvar::([^}]+)}}/gi, replace: (_, name) => getLocalVariable(name.trim()) },
+    return [
         // Replace {{setvar::name::value}} with empty string and set the variable name to value
         { regex: /{{setvar::([^:]+)::([^}]+)}}/gi, replace: (_, name, value) => { setLocalVariable(name.trim(), value); return ''; } },
         // Replace {{addvar::name::value}} with empty string and add value to the variable value
@@ -238,8 +237,8 @@ export function getVariableMacros() {
         { regex: /{{incvar::([^}]+)}}/gi, replace: (_, name) => incrementLocalVariable(name.trim()) },
         // Replace {{decvar::name}} with empty string and decrement the variable name by 1
         { regex: /{{decvar::([^}]+)}}/gi, replace: (_, name) => decrementLocalVariable(name.trim()) },
-        // Replace {{getglobalvar::name}} with the value of the global variable name
-        { regex: /{{getglobalvar::([^}]+)}}/gi, replace: (_, name) => getGlobalVariable(name.trim()) },
+        // Replace {{getvar::name}} with the value of the variable name
+        { regex: /{{getvar::([^}]+)}}/gi, replace: (_, name) => getLocalVariable(name.trim()) },
         // Replace {{setglobalvar::name::value}} with empty string and set the global variable name to value
         { regex: /{{setglobalvar::([^:]+)::([^}]+)}}/gi, replace: (_, name, value) => { setGlobalVariable(name.trim(), value); return ''; } },
         // Replace {{addglobalvar::name::value}} with empty string and add value to the global variable value
@@ -248,9 +247,9 @@ export function getVariableMacros() {
         { regex: /{{incglobalvar::([^}]+)}}/gi, replace: (_, name) => incrementGlobalVariable(name.trim()) },
         // Replace {{decglobalvar::name}} with empty string and decrement the global variable name by 1
         { regex: /{{decglobalvar::([^}]+)}}/gi, replace: (_, name) => decrementGlobalVariable(name.trim()) },
+        // Replace {{getglobalvar::name}} with the value of the global variable name
+        { regex: /{{getglobalvar::([^}]+)}}/gi, replace: (_, name) => getGlobalVariable(name.trim()) },
     ];
-
-    return macros;
 }
 
 async function listVariablesCallback(args) {
