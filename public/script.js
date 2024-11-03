@@ -7185,7 +7185,7 @@ export function select_rm_info(type, charId, previousCharId = null) {
     importFlashTimeout = setTimeout(function () {
         if (type === 'char_import' || type === 'char_create') {
             // Find the page at which the character is located
-            const avatarFileName = `${charId}.png`;
+            const avatarFileName = charId;
             const charData = getEntitiesList({ doFilter: true });
             const charIndex = charData.findIndex((x) => x?.item?.avatar?.startsWith(avatarFileName));
 
