@@ -484,7 +484,7 @@ async function processTtsQueue() {
     }
 
     // Remove embedded images
-    text = text.replace(/!\[alt-text]\([^)]*\)/g, ' ');
+    text = text.replace(/!\[.*?]\([^)]*\)/g, '');
 
     if (typeof ttsProvider?.processText === 'function') {
         text = await ttsProvider.processText(text);
