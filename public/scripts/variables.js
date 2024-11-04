@@ -641,9 +641,15 @@ function parseNumericSeries(value, scope = null) {
     /** @type {(string|number)[]} */
     let values = Array.isArray(value) ? value : value.split(' ');
 
-    // If a JSON array was provided as the only value, convert it to an array
-    if (values.length === 1 && typeof values[0] === 'string' && values[0].startsWith('[')) {
-        values = convertValueType(values[0], 'array');
+    // If an array of strings was provided as the only value, convert it to an array
+    if (values.length === 1 && typeof values[0] === 'string') {
+        if (values[0].startsWith('[')) {
+            // JSON-style array
+            values = convertValueType(values[0], 'array');
+        } else {
+            // Space-separated string
+            values = values[0].split(' ');
+        }
     }
 
     const array = values.map(i => typeof i === 'string' ? i.trim() : i)
