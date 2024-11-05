@@ -1813,6 +1813,10 @@ async function sendOpenAIRequest(type, messages, signal) {
         biasCache = logit_bias;
     }
 
+    if (Object.keys(logit_bias).length === 0) {
+        logit_bias = undefined;
+    }
+
     if (isScale && oai_settings.use_alt_scale) {
         return sendAltScaleRequest(messages, logit_bias, signal, type);
     }
