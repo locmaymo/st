@@ -1046,20 +1046,9 @@ router.post('/generate', jsonParser, function (request, response) {
         const responseText = await errorResponse.text();
         const errorData = tryParse(responseText);
 
-        const statusMessages = {
-            400: 'Bad request',
-            401: 'Unauthorized',
-            402: 'Credit limit reached',
-            403: 'Forbidden',
-            404: 'Not found',
-            429: 'Too many requests',
-            451: 'Unavailable for legal reasons',
-            502: 'Bad gateway',
-        };
-
-        const message = errorData?.error?.message || statusMessages[errorResponse.status] || 'Unknown error occurred';
+        const message = errorResponse.statusText || 'Unknown error occurred';
         const quota_error = errorResponse.status === 429 && errorData?.error?.type === 'insufficient_quota';
-        console.log(message);
+        console.log(message, responseText);
 
         if (!response.headersSent) {
             response.send({ error: { message }, quota_error: quota_error });
