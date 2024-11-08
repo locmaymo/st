@@ -477,6 +477,8 @@ async function sendMistralAIRequest(request, response) {
             'messages': messages,
             'temperature': request.body.temperature,
             'top_p': request.body.top_p,
+            'frequency_penalty': request.body.frequency_penalty,
+            'presence_penalty': request.body.presence_penalty,
             'max_tokens': request.body.max_tokens,
             'stream': request.body.stream,
             'safe_prompt': request.body.safe_prompt,
