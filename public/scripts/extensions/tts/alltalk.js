@@ -1,4 +1,4 @@
-import { doExtrasFetch } from '../../extensions.js';
+import { doExtrasFetch, getApiUrl, modules } from '../../extensions.js';
 import { saveTtsProviderSettings } from './index.js';
 
 export { AllTalkTtsProvider };
@@ -13,22 +13,29 @@ class AllTalkTtsProvider {
         // Initialize with default settings if they are not already set
         this.settings = {
             provider_endpoint: this.settings.provider_endpoint || 'http://localhost:7851',
+            server_version: this.settings.server_version || 'v2', 
             language: this.settings.language || 'en',
             voiceMap: this.settings.voiceMap || {},
             at_generation_method: this.settings.at_generation_method || 'standard_generation',
             narrator_enabled: this.settings.narrator_enabled || 'false',
             at_narrator_text_not_inside: this.settings.at_narrator_text_not_inside || 'narrator',
-            narrator_voice_gen: this.settings.narrator_voice_gen || 'female_01.wav',
-            finetuned_model: this.settings.finetuned_model || 'false',
+            narrator_voice_gen: this.settings.narrator_voice_gen || 'Please set a voice',
+            rvc_character_voice: this.settings.rvc_character_voice || 'Disabled',
+            rvc_character_pitch: this.settings.rvc_character_pitch || '0',
+            rvc_narrator_voice: this.settings.rvc_narrator_voice || 'Disabled',
+            rvc_narrator_pitch: this.settings.rvc_narrator_pitch || '0',
+            finetuned_model: this.settings.finetuned_model || 'false'
         };
         // Separate property for dynamically updated settings from the server
         this.dynamicSettings = {
             modelsAvailable: [],
             currentModel: '',
             deepspeed_available: false,
-            deepSpeedEnabled: false,
-            lowVramEnabled: false,
+            deepspeed_enabled: false,
+            lowvram_capable: false,
+            lowvram_enabled: false,
         };
+        this.rvcVoices = []; // Initialize rvcVoices as an empty array
     }
     ready = false;
     voices = [];
@@ -56,7 +63,7 @@ class AllTalkTtsProvider {
     };
 
     get settingsHtml() {
-        let html = '<div class="at-settings-separator">AllTalk Settings</div>';
+        let html = `<div class="at-settings-separator">AllTalk V2 Settings</div>`;
 
         html += `<div class="at-settings-row">
 
@@ -75,6 +82,7 @@ class AllTalkTtsProvider {
             <label for="at_narrator_enabled">AT Narrator</label>
                 <select id="at_narrator_enabled">
                 <option value="true">Enabled</option>
+                <option value="silent">Enabled (Silenced)</option>
                 <option value="false">Disabled</option>
         </select>
         </div>
@@ -82,8 +90,9 @@ class AllTalkTtsProvider {
         <div class="at-settings-option">
             <label for="at_narrator_text_not_inside">Text Not Inside * or " is</label>
                 <select id="at_narrator_text_not_inside">
-                <option value="narrator">Narrator</option>
                 <option value="character">Character</option>
+                <option value="narrator">Narrator</option>
+                <option value="silent">Silent</option>
         </select>
         </div>
 
@@ -110,27 +119,74 @@ class AllTalkTtsProvider {
         </div>
     </div>`;
 
+        html += `<div class="at-settings-row">
+    <div class="at-settings-option">
+        <label for="rvc_character_voice">RVC Character</label>
+        <select id="rvc_character_voice">`;
+        if (this.rvcVoices) {
+            for (let rvccharvoice of this.rvcVoices) {
+                html += `<option value="${rvccharvoice.voice_id}">${rvccharvoice.name}</option>`;
+            }
+        }
+        html += `</select>
+    </div>
+    <div class="at-settings-option">
+        <label for="rvc_narrator_voice">RVC Narrator</label>
+        <select id="rvc_narrator_voice">`;
+        if (this.rvcVoices) {
+            for (let rvcnarrvoice of this.rvcVoices) {
+                html += `<option value="${rvcnarrvoice.voice_id}">${rvcnarrvoice.name}</option>`;
+            }
+        }
+        html += `</select>
+    </div>
+</div>`;
+
+        // Add the RVC pitch control row
+        html += `<div class="at-settings-row">
+        <div class="at-settings-option">
+            <label for="rvc_character_pitch">RVC Character Pitch</label>
+            <select id="rvc_character_pitch">`;
+        for (let i = -24; i <= 24; i++) {
+            const selected = i === 0 ? 'selected="selected"' : '';
+            html += `<option value="${i}" ${selected}>${i}</option>`;
+        }
+        html += `</select>
+        </div>
+        <div class="at-settings-option">
+            <label for="rvc_narrator_pitch">RVC Narrator Pitch</label>
+            <select id="rvc_narrator_pitch">`;
+        for (let i = -24; i <= 24; i++) {
+            const selected = i === 0 ? 'selected="selected"' : '';
+            html += `<option value="${i}" ${selected}>${i}</option>`;
+        }
+        html += `</select>
+        </div>
+    </div>`;
 
         html += `<div class="at-model-endpoint-row">
-    <div class="at-model-option">
-            <label for="switch_model">Switch Model</label>
-            <select id="switch_model">
-            <option value="api_tts">API TTS</option>
-            <option value="api_local">API Local</option>
-            <option value="xttsv2_local">XTTSv2 Local</option>
+        <div class="at-model-option">
+        <label for="switch_model">Switch Model</label>
+        <select id="switch_model">
+            <!-- Options will be dynamically populated -->
         </select>
         </div>
-        </div>
-
-        <div class="at-model-endpoint-row">
 
         <div class="at-endpoint-option">
             <label for="at_server">AllTalk Endpoint:</label>
             <input id="at_server" type="text" class="text_pole" maxlength="80" value="${this.settings.provider_endpoint}"/>
-            <i><b>Important:</b> Must match IP address & port in AllTalk settings.</i>
         </div>
    </div>`;
 
+    html += `<div class="at-settings-row">
+        <div class="at-settings-option">
+            <label for="server_version">AllTalk Server Version</label>
+            <select id="server_version">
+                <option value="v1">AllTalk V1</option>
+                <option value="v2">AllTalk V2</option>
+            </select>
+        </div>
+    </div>`;
 
         html += `<div class="at-model-endpoint-row">
     <div class="at-settings-option">
@@ -152,7 +208,7 @@ class AllTalkTtsProvider {
 
         html += `<div class="at-website-row">
         <div class="at-website-option">
-        <span>AllTalk <a target="_blank" href="${this.settings.provider_endpoint}">Config & Docs</a>.</span>
+        <span>AllTalk V2<a target="_blank" href="${this.settings.provider_endpoint}">Config & Docs</a>.</span>
     </div>
 
     <div class="at-website-option">
@@ -162,7 +218,9 @@ class AllTalkTtsProvider {
 
         html += `<div class="at-website-row">
 <div class="at-website-option">
-<span><strong>Text-generation-webui</strong> users - Uncheck <strong>Enable TTS</strong> in Text-generation-webui.</span>
+<span>- If you <strong>change your TTS engine</strong> in AllTalk, you will need to <strong>Reload</strong> (button above) and re-select your voices.</span><br><br>
+<span>- Assuming the server is <strong>Status: Ready</strong>, most problems will be resolved by hitting Reload and selecting voices that match the loaded TTS engine.</span><br><br>
+<span>- <strong>Text-generation-webui</strong> users - Uncheck <strong>Enable TTS</strong> in the TGWUI interface, or you will hear 2x voices and file names being generated.</span>
 </div>
 </div>`;
 
@@ -193,35 +251,35 @@ class AllTalkTtsProvider {
         // Update UI elements to reflect the loaded settings
         $('#at_server').val(this.settings.provider_endpoint);
         $('#language_options').val(this.settings.language);
-        //$('#voicemap').val(this.settings.voiceMap);
         $('#at_generation_method').val(this.settings.at_generation_method);
         $('#at_narrator_enabled').val(this.settings.narrator_enabled);
         $('#at_narrator_text_not_inside').val(this.settings.at_narrator_text_not_inside);
         $('#narrator_voice').val(this.settings.narrator_voice_gen);
+        $('#rvc_character_voice').val(this.settings.rvc_character_voice);
+        $('#rvc_narrator_voice').val(this.settings.rvc_narrator_voice);
+        $('#rvc_character_pitch').val(this.settings.rvc_character_pitch);
+        $('#rvc_narrator_pitch').val(this.settings.rvc_narrator_pitch);        
 
         console.debug('AllTalkTTS: Settings loaded');
-        await this.initEndpoint();
-    }
-
-    async initEndpoint() {
         try {
             // Check if TTS provider is ready
-            this.setupEventListeners();
-            this.updateLanguageDropdown();
             await this.checkReady();
             await this.updateSettingsFromServer(); // Fetch dynamic settings from the TTS server
             await this.fetchTtsVoiceObjects(); // Fetch voices only if service is ready
+            await this.fetchRvcVoiceObjects(); // Fetch RVC voices
             this.updateNarratorVoicesDropdown();
+            this.updateLanguageDropdown();
+            this.setupEventListeners();
             this.applySettingsToHTML();
             updateStatus('Ready');
         } catch (error) {
-            console.error('Error loading settings:', error);
+            console.error("Error loading settings:", error);
             updateStatus('Offline');
         }
     }
 
+
     applySettingsToHTML() {
-        // Apply loaded settings or use defaults
         const narratorVoiceSelect = document.getElementById('narrator_voice');
         const atNarratorSelect = document.getElementById('at_narrator_enabled');
         const textNotInsideSelect = document.getElementById('at_narrator_text_not_inside');
@@ -229,30 +287,26 @@ class AllTalkTtsProvider {
         this.settings.narrator_voice = this.settings.narrator_voice_gen;
         // Apply settings to Narrator Voice dropdown
         if (narratorVoiceSelect && this.settings.narrator_voice) {
-            narratorVoiceSelect.value = this.settings.narrator_voice.replace('.wav', '');
+            narratorVoiceSelect.value = this.settings.narrator_voice; // Remove the parentheses
         }
         // Apply settings to AT Narrator Enabled dropdown
         if (atNarratorSelect) {
-            // Sync the state with the checkbox in index.js
-            const ttsPassAsterisksCheckbox = document.getElementById('tts_pass_asterisks'); // Access the checkbox from index.js
-            const ttsNarrateQuotedCheckbox = document.getElementById('tts_narrate_quoted'); // Access the checkbox from index.js
-            const ttsNarrateDialoguesCheckbox = document.getElementById('tts_narrate_dialogues'); // Access the checkbox from index.js
-            // Sync the state with the checkbox in index.js
+            const ttsPassAsterisksCheckbox = document.getElementById('tts_pass_asterisks');
+            const ttsNarrateQuotedCheckbox = document.getElementById('tts_narrate_quoted');
+            const ttsNarrateDialoguesCheckbox = document.getElementById('tts_narrate_dialogues');
             if (this.settings.narrator_enabled) {
                 ttsPassAsterisksCheckbox.checked = false;
-                $('#tts_pass_asterisks').click(); // Simulate a click event
+                $('#tts_pass_asterisks').click();
                 $('#tts_pass_asterisks').trigger('change');
             }
             if (!this.settings.narrator_enabled) {
                 ttsPassAsterisksCheckbox.checked = true;
-                $('#tts_pass_asterisks').click(); // Simulate a click event
+                $('#tts_pass_asterisks').click();
                 $('#tts_pass_asterisks').trigger('change');
             }
-            // Uncheck and set tts_narrate_quoted to false if narrator is enabled
-            if (this.settings.narrator_enabledd) {
+            if (this.settings.narrator_enabled) {
                 ttsNarrateQuotedCheckbox.checked = true;
                 ttsNarrateDialoguesCheckbox.checked = true;
-                // Trigger click events instead of change events
                 $('#tts_narrate_quoted').click();
                 $('#tts_narrate_quoted').trigger('change');
                 $('#tts_narrate_dialogues').click();
@@ -261,41 +315,29 @@ class AllTalkTtsProvider {
             atNarratorSelect.value = this.settings.narrator_enabled.toString();
             this.settings.narrator_enabled = this.settings.narrator_enabled.toString();
         }
-        // Apply settings to the Language dropdown
         const languageSelect = document.getElementById('language_options');
         if (languageSelect && this.settings.language) {
             languageSelect.value = this.settings.language;
         }
-        // Apply settings to Text Not Inside dropdown
         if (textNotInsideSelect && this.settings.text_not_inside) {
             textNotInsideSelect.value = this.settings.text_not_inside;
             this.settings.at_narrator_text_not_inside = this.settings.text_not_inside;
         }
-        // Apply settings to Generation Method dropdown
         if (generationMethodSelect && this.settings.at_generation_method) {
             generationMethodSelect.value = this.settings.at_generation_method;
         }
-        // Additional logic to disable/enable dropdowns based on the selected generation method
         const isStreamingEnabled = this.settings.at_generation_method === 'streaming_enabled';
         if (isStreamingEnabled) {
-            // Disable certain dropdowns when streaming is enabled
             if (atNarratorSelect) atNarratorSelect.disabled = true;
             if (textNotInsideSelect) textNotInsideSelect.disabled = true;
             if (narratorVoiceSelect) narratorVoiceSelect.disabled = true;
         } else {
-            // Enable dropdowns for standard generation
             if (atNarratorSelect) atNarratorSelect.disabled = false;
             if (textNotInsideSelect) textNotInsideSelect.disabled = !this.settings.narrator_enabled;
             if (narratorVoiceSelect) narratorVoiceSelect.disabled = !this.settings.narrator_enabled;
         }
-        const modelSelect = document.getElementById('switch_model');
-        if (this.settings.finetuned_model === 'true') {
-            const ftOption = document.createElement('option');
-            ftOption.value = 'XTTSv2 FT';
-            ftOption.textContent = 'XTTSv2 FT';
-            modelSelect.appendChild(ftOption);
-        }
     }
+
 
     //##############################//
     // Check AT Server is Available //
@@ -320,7 +362,6 @@ class AllTalkTtsProvider {
         } catch (error) {
             console.error('Error checking TTS service readiness:', error);
             this.ready = false; // Ensure ready flag is set to false in case of error
-            throw error; // Rethrow the error for further handling
         }
     }
 
@@ -336,16 +377,57 @@ class AllTalkTtsProvider {
         }
         const data = await response.json();
         const voices = data.voices.map(filename => {
-            const voiceName = filename.replace('.wav', '');
             return {
-                name: voiceName,
-                voice_id: voiceName,
+                name: filename,
+                voice_id: filename,
                 preview_url: null, // Preview URL will be dynamically generated
-                lang: 'en', // Default language
+                lang: 'en' // Default language
             };
         });
         this.voices = voices; // Assign to the class property
         return voices; // Also return this list
+    }
+
+    async fetchRvcVoiceObjects() {
+        if (this.settings.server_version !== 'v2') {
+            console.log('Skipping RVC voices fetch for V1 server');
+            return [];
+        }
+    
+        console.log('Fetching RVC Voices');
+        try {
+            const response = await fetch(`${this.settings.provider_endpoint}/api/rvcvoices`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error text:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+    
+            const data = await response.json();
+            if (!data || !data.rvcvoices) {
+                console.error('Invalid data format:', data);
+                throw new Error('Invalid data format received from /api/rvcvoices');
+            }
+    
+            const voices = data.rvcvoices.map(filename => {
+                return {
+                    name: filename,
+                    voice_id: filename,
+                };
+            });
+    
+            console.log('RVC voices:', voices);
+            this.rvcVoices = voices; // Assign to the class property
+            this.updateRvcVoiceDropdowns(); // Update UI after fetching voices
+            return voices; // Also return this list
+        } catch (error) {
+            console.error('Error fetching RVC voices:', error);
+            this.rvcVoices = [{ name: 'Disabled', voice_id: 'Disabled' }]; // Set default on error
+            throw error;
+        } finally {
+            // Ensure dropdowns are updated even if there was an error
+            this.updateRvcVoiceDropdowns();
+        }
     }
 
     //##########################################//
@@ -354,24 +436,87 @@ class AllTalkTtsProvider {
 
     async updateSettingsFromServer() {
         try {
-            // Fetch current settings
             const response = await fetch(`${this.settings.provider_endpoint}/api/currentsettings`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch current settings: ${response.statusText}`);
             }
             const currentSettings = await response.json();
-            // Update internal settings
+            currentSettings.models_available.sort((a, b) => a.name.localeCompare(b.name));
+
+            this.settings.enginesAvailable = currentSettings.engines_available;
+            this.settings.currentEngineLoaded = currentSettings.current_engine_loaded;
             this.settings.modelsAvailable = currentSettings.models_available;
             this.settings.currentModel = currentSettings.current_model_loaded;
+            this.settings.deepspeed_capable = currentSettings.deepspeed_capable;
             this.settings.deepspeed_available = currentSettings.deepspeed_available;
-            this.settings.deepSpeedEnabled = currentSettings.deepspeed_status;
-            this.settings.lowVramEnabled = currentSettings.low_vram_status;
-            this.settings.finetuned_model = currentSettings.finetuned_model;
-            // Update HTML elements
+            this.settings.deepspeed_enabled = currentSettings.deepspeed_enabled;
+            this.settings.lowvram_capable = currentSettings.lowvram_capable;
+            this.settings.lowvram_enabled = currentSettings.lowvram_enabled;
+
+            await this.fetchRvcVoiceObjects(); // Fetch RVC voices
+
             this.updateModelDropdown();
             this.updateCheckboxes();
+            this.updateRvcVoiceDropdowns(); // Update the RVC voice dropdowns
         } catch (error) {
             console.error(`Error updating settings from server: ${error}`);
+        }
+    }
+
+    updateRvcVoiceDropdowns() {
+        // Handle all RVC-related elements
+        const rvcElements = document.querySelectorAll('.rvc-setting');
+        const isV2 = this.settings.server_version === 'v2';
+        
+        rvcElements.forEach(element => {
+            element.style.display = isV2 ? 'block' : 'none';
+        });
+    
+        // Update and disable/enable character voice dropdown
+        const rvcCharacterVoiceSelect = document.getElementById('rvc_character_voice');
+        if (rvcCharacterVoiceSelect) {
+            rvcCharacterVoiceSelect.disabled = !isV2;
+            if (this.rvcVoices) {
+                rvcCharacterVoiceSelect.innerHTML = '';
+                for (let voice of this.rvcVoices) {
+                    const option = document.createElement('option');
+                    option.value = voice.voice_id;
+                    option.textContent = voice.name;
+                    if (voice.voice_id === this.settings.rvc_character_voice) {
+                        option.selected = true;
+                    }
+                    rvcCharacterVoiceSelect.appendChild(option);
+                }
+            }
+        }
+    
+        // Update and disable/enable narrator voice dropdown
+        const rvcNarratorVoiceSelect = document.getElementById('rvc_narrator_voice');
+        if (rvcNarratorVoiceSelect) {
+            rvcNarratorVoiceSelect.disabled = !isV2;
+            if (this.rvcVoices) {
+                rvcNarratorVoiceSelect.innerHTML = '';
+                for (let voice of this.rvcVoices) {
+                    const option = document.createElement('option');
+                    option.value = voice.voice_id;
+                    option.textContent = voice.name;
+                    if (voice.voice_id === this.settings.rvc_narrator_voice) {
+                        option.selected = true;
+                    }
+                    rvcNarratorVoiceSelect.appendChild(option);
+                }
+            }
+        }
+    
+        // Update pitch inputs
+        const characterPitch = document.getElementById('rvc_character_pitch');
+        if (characterPitch) {
+            characterPitch.disabled = !isV2;
+        }
+    
+        const narratorPitch = document.getElementById('rvc_narrator_pitch');
+        if (narratorPitch) {
+            narratorPitch.disabled = !isV2;
         }
     }
 
@@ -385,9 +530,9 @@ class AllTalkTtsProvider {
             modelSelect.innerHTML = ''; // Clear existing options
             this.settings.modelsAvailable.forEach(model => {
                 const option = document.createElement('option');
-                option.value = model.model_name;
-                option.textContent = model.model_name; // Use model_name instead of name
-                option.selected = model.model_name === this.settings.currentModel;
+                option.value = model.name;
+                option.textContent = model.name; // Use model name directly
+                option.selected = model.name === this.settings.currentModel;
                 modelSelect.appendChild(option);
             });
         }
@@ -400,12 +545,35 @@ class AllTalkTtsProvider {
     updateCheckboxes() {
         const deepspeedCheckbox = document.getElementById('deepspeed');
         const lowVramCheckbox = document.getElementById('low_vram');
-        if (lowVramCheckbox) lowVramCheckbox.checked = this.settings.lowVramEnabled;
+
+        // Handle DeepSpeed checkbox
         if (deepspeedCheckbox) {
-            deepspeedCheckbox.checked = this.settings.deepSpeedEnabled;
-            deepspeedCheckbox.disabled = !this.settings.deepspeed_available; // Disable checkbox if deepspeed is not available
+            if (this.settings.deepspeed_capable) {
+                // If TTS engine is capable of using DeepSpeed
+                deepspeedCheckbox.disabled = !this.settings.deepspeed_available;
+                this.settings.deepspeed_enabled = this.settings.deepspeed_available && this.settings.deepspeed_enabled;
+            } else {
+                // If TTS engine is NOT capable of using DeepSpeed
+                deepspeedCheckbox.disabled = true;
+                this.settings.deepspeed_enabled = false;
+            }
+            deepspeedCheckbox.checked = this.settings.deepspeed_enabled;
+        }
+
+        // Handle Low VRAM checkbox
+        if (lowVramCheckbox) {
+            if (this.settings.lowvram_capable) {
+                // If TTS engine is capable of low VRAM
+                lowVramCheckbox.disabled = false;
+            } else {
+                // If TTS engine is NOT capable of low VRAM
+                lowVramCheckbox.disabled = true;
+                this.settings.lowvram_enabled = false;
+            }
+            lowVramCheckbox.checked = this.settings.lowvram_enabled;
         }
     }
+
 
     //###############################################################//
     // Get Current AT Server Config & Update ST (AT Narrator Voices) //
@@ -433,8 +601,8 @@ class AllTalkTtsProvider {
     updateLanguageDropdown() {
         const languageSelect = document.getElementById('language_options');
         if (languageSelect) {
-            // Ensure default language is set (??? whatever that means)
-            // this.settings.language = this.settings.language;
+            // Ensure default language is set
+            this.settings.language = this.settings.language;
 
             languageSelect.innerHTML = '';
             for (let language in this.languageLabels) {
@@ -456,34 +624,80 @@ class AllTalkTtsProvider {
     setupEventListeners() {
 
         let debounceTimeout;
-        const debounceDelay = 500; // Milliseconds
+        const debounceDelay = 1400; // Milliseconds
 
         // Define the event handler function
         const onModelSelectChange = async (event) => {
-            console.log('Model select change event triggered'); // Debugging statement
+            console.log("Model select change event triggered"); // Debugging statement
             const selectedModel = event.target.value;
-            console.log(`Selected model: ${selectedModel}`); // Debugging statement
+            console.log(`Selected model: ${selectedModel}`); // Debugging statement 
             // Set status to Processing
             updateStatus('Processing');
             try {
                 const response = await fetch(`${this.settings.provider_endpoint}/api/reload?tts_method=${encodeURIComponent(selectedModel)}`, {
-                    method: 'POST',
+                    method: 'POST'
                 });
                 if (!response.ok) {
                     throw new Error(`HTTP Error: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('POST response data:', data); // Debugging statement
+                console.log("POST response data:", data); // Debugging statement 
                 // Set status to Ready if successful
                 updateStatus('Ready');
             } catch (error) {
-                console.error('POST request error:', error); // Debugging statement
+                console.error("POST request error:", error); // Debugging statement
                 // Set status to Error in case of failure
                 updateStatus('Error');
             }
 
             // Handle response or error
         };
+
+        // AllTalk Server version change listener
+        const serverVersionSelect = document.getElementById('server_version');
+        if (serverVersionSelect) {
+            serverVersionSelect.addEventListener('change', async (event) => {
+                this.settings.server_version = event.target.value;
+                // Clear and refetch voices if needed
+                if (event.target.value === 'v2') {
+                    await this.fetchRvcVoiceObjects();
+                }
+                this.updateRvcVoiceDropdowns();
+                this.onSettingsChange();
+            });
+        }        
+
+        const rvcCharacterVoiceSelect = document.getElementById('rvc_character_voice');
+        if (rvcCharacterVoiceSelect) {
+            rvcCharacterVoiceSelect.addEventListener('change', (event) => {
+                this.settings.rvccharacter_voice_gen = event.target.value;
+                this.onSettingsChange(); // Save the settings after change
+            });
+        }
+
+        const rvcNarratorVoiceSelect = document.getElementById('rvc_narrator_voice');
+        if (rvcNarratorVoiceSelect) {
+            rvcNarratorVoiceSelect.addEventListener('change', (event) => {
+                this.settings.rvcnarrator_voice_gen = event.target.value;
+                this.onSettingsChange(); // Save the settings after change
+            });
+        }
+
+        const rvcCharacterPitchSelect = document.getElementById('rvc_character_pitch');
+        if (rvcCharacterPitchSelect) {
+            rvcCharacterPitchSelect.addEventListener('change', (event) => {
+                this.settings.rvc_character_pitch = event.target.value;
+                this.onSettingsChange(); // Save the settings after change
+            });
+        }
+
+        const rvcNarratorPitchSelect = document.getElementById('rvc_narrator_pitch');
+        if (rvcNarratorPitchSelect) {
+            rvcNarratorPitchSelect.addEventListener('change', (event) => {
+                this.settings.rvc_narrator_pitch = event.target.value;
+                this.onSettingsChange(); // Save the settings after change
+            });
+        }        
 
         const debouncedModelSelectChange = (event) => {
             clearTimeout(debounceTimeout);
@@ -496,74 +710,89 @@ class AllTalkTtsProvider {
         const modelSelect = document.getElementById('switch_model');
         if (modelSelect) {
             // Remove the event listener if it was previously added
+            modelSelect.removeEventListener('change', debouncedModelSelectChange);
             // Add the debounced event listener
-            $(modelSelect).off('change').on('change', debouncedModelSelectChange);
+            modelSelect.addEventListener('change', debouncedModelSelectChange);
         }
 
         // DeepSpeed Listener
         const deepspeedCheckbox = document.getElementById('deepspeed');
         if (deepspeedCheckbox) {
-            $(deepspeedCheckbox).off('change').on('change', async (event) => {
+            deepspeedCheckbox.addEventListener('change', async (event) => {
                 const deepSpeedValue = event.target.checked ? 'True' : 'False';
                 // Set status to Processing
                 updateStatus('Processing');
                 try {
                     const response = await fetch(`${this.settings.provider_endpoint}/api/deepspeed?new_deepspeed_value=${deepSpeedValue}`, {
-                        method: 'POST',
+                        method: 'POST'
                     });
                     if (!response.ok) {
                         throw new Error(`HTTP Error: ${response.status}`);
                     }
                     const data = await response.json();
-                    console.log('POST response data:', data); // Debugging statement
+                    console.log("POST response data:", data); // Debugging statement
                     // Set status to Ready if successful
                     updateStatus('Ready');
                 } catch (error) {
-                    console.error('POST request error:', error); // Debugging statement
+                    console.error("POST request error:", error); // Debugging statement
                     // Set status to Error in case of failure
                     updateStatus('Error');
                 }
             });
+        }
+
+        function lowvramdebounce(func, delay) {
+            let debounceTimer;
+            return function (...args) {
+                const context = this;
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => func.apply(context, args), delay);
+            };
         }
 
         // Low VRAM Listener
         const lowVramCheckbox = document.getElementById('low_vram');
         if (lowVramCheckbox) {
-            $(lowVramCheckbox).off('change').on('change', async (event) => {
+            const handleLowVramChange = async (event) => {
                 const lowVramValue = event.target.checked ? 'True' : 'False';
                 // Set status to Processing
                 updateStatus('Processing');
                 try {
                     const response = await fetch(`${this.settings.provider_endpoint}/api/lowvramsetting?new_low_vram_value=${lowVramValue}`, {
-                        method: 'POST',
+                        method: 'POST'
                     });
                     if (!response.ok) {
                         throw new Error(`HTTP Error: ${response.status}`);
                     }
                     const data = await response.json();
-                    console.log('POST response data:', data); // Debugging statement
+                    console.log("POST response data:", data); // Debugging statement
                     // Set status to Ready if successful
                     updateStatus('Ready');
                 } catch (error) {
-                    console.error('POST request error:', error); // Debugging statement
+                    console.error("POST request error:", error); // Debugging statement
                     // Set status to Error in case of failure
                     updateStatus('Error');
                 }
-            });
+            };
+
+            const debouncedHandleLowVramChange = lowvramdebounce(handleLowVramChange, 300); // Adjust delay as needed
+
+            lowVramCheckbox.addEventListener('change', debouncedHandleLowVramChange);
         }
+
 
         // Narrator Voice Dropdown Listener
         const narratorVoiceSelect = document.getElementById('narrator_voice');
         if (narratorVoiceSelect) {
-            $(narratorVoiceSelect).off('change').on('change', (event) => {
-                this.settings.narrator_voice_gen = `${event.target.value}.wav`;
+            narratorVoiceSelect.addEventListener('change', (event) => {
+                this.settings.narrator_voice_gen = `${event.target.value}`;
                 this.onSettingsChange(); // Save the settings after change
             });
         }
 
         const textNotInsideSelect = document.getElementById('at_narrator_text_not_inside');
         if (textNotInsideSelect) {
-            $(textNotInsideSelect).off('change').on('change', (event) => {
+            textNotInsideSelect.addEventListener('change', (event) => {
                 this.settings.text_not_inside = event.target.value;
                 this.onSettingsChange(); // Save the settings after change
             });
@@ -571,39 +800,45 @@ class AllTalkTtsProvider {
 
         // AT Narrator Dropdown Listener
         const atNarratorSelect = document.getElementById('at_narrator_enabled');
-        const ttsPassAsterisksCheckbox = document.getElementById('tts_pass_asterisks'); // Access the checkbox from index.js
-        const ttsNarrateQuotedCheckbox = document.getElementById('tts_narrate_quoted'); // Access the checkbox from index.js
-        const ttsNarrateDialoguesCheckbox = document.getElementById('tts_narrate_dialogues'); // Access the checkbox from index.js
+        const ttsPassAsterisksCheckbox = document.getElementById('tts_pass_asterisks');
+        const ttsNarrateQuotedCheckbox = document.getElementById('tts_narrate_quoted');
+        const ttsNarrateDialoguesCheckbox = document.getElementById('tts_narrate_dialogues');
 
         if (atNarratorSelect && textNotInsideSelect && narratorVoiceSelect) {
-            $(atNarratorSelect).off('change').on('change', (event) => {
-                const isNarratorEnabled = event.target.value === 'true';
-                this.settings.narrator_enabled = isNarratorEnabled; // Update the setting here
-                textNotInsideSelect.disabled = !isNarratorEnabled;
-                narratorVoiceSelect.disabled = !isNarratorEnabled;
+            atNarratorSelect.addEventListener('change', (event) => {
+                const narratorOption = event.target.value;
+                this.settings.narrator_enabled = narratorOption;
 
-                // Sync the state with the checkbox in index.js
-                if (isNarratorEnabled) {
+                // Check if narrator is disabled
+                const isNarratorDisabled = narratorOption === 'false';
+                textNotInsideSelect.disabled = isNarratorDisabled;
+                narratorVoiceSelect.disabled = isNarratorDisabled;
+
+                console.log(`Narrator option: ${narratorOption}`);
+                console.log(`textNotInsideSelect disabled: ${textNotInsideSelect.disabled}`);
+                console.log(`narratorVoiceSelect disabled: ${narratorVoiceSelect.disabled}`);
+
+                if (narratorOption === 'true') {
                     ttsPassAsterisksCheckbox.checked = false;
-                    $('#tts_pass_asterisks').click(); // Simulate a click event
+                    $('#tts_pass_asterisks').click();
                     $('#tts_pass_asterisks').trigger('change');
-                }
-                if (!isNarratorEnabled) {
-                    ttsPassAsterisksCheckbox.checked = true;
-                    $('#tts_pass_asterisks').click(); // Simulate a click event
-                    $('#tts_pass_asterisks').trigger('change');
-                }
-                // Uncheck and set tts_narrate_quoted to false if narrator is enabled
-                if (isNarratorEnabled) {
                     ttsNarrateQuotedCheckbox.checked = true;
                     ttsNarrateDialoguesCheckbox.checked = true;
-                    // Trigger click events instead of change events
                     $('#tts_narrate_quoted').click();
                     $('#tts_narrate_quoted').trigger('change');
                     $('#tts_narrate_dialogues').click();
                     $('#tts_narrate_dialogues').trigger('change');
+                } else if (narratorOption === 'silent') {
+                    ttsPassAsterisksCheckbox.checked = false;
+                    $('#tts_pass_asterisks').click();
+                    $('#tts_pass_asterisks').trigger('change');
+                } else {
+                    ttsPassAsterisksCheckbox.checked = true;
+                    $('#tts_pass_asterisks').click();
+                    $('#tts_pass_asterisks').trigger('change');
                 }
-                this.onSettingsChange(); // Save the settings after change
+
+                this.onSettingsChange();
             });
         }
 
@@ -612,7 +847,7 @@ class AllTalkTtsProvider {
         const atGenerationMethodSelect = document.getElementById('at_generation_method');
         const atNarratorEnabledSelect = document.getElementById('at_narrator_enabled');
         if (atGenerationMethodSelect) {
-            $(atGenerationMethodSelect).off('change').on('change', (event) => {
+            atGenerationMethodSelect.addEventListener('change', (event) => {
                 const selectedMethod = event.target.value;
 
                 if (selectedMethod === 'streaming_enabled') {
@@ -633,7 +868,7 @@ class AllTalkTtsProvider {
         // Listener for Language Dropdown
         const languageSelect = document.getElementById('language_options');
         if (languageSelect) {
-            $(languageSelect).off('change').on('change', (event) => {
+            languageSelect.addEventListener('change', (event) => {
                 this.settings.language = event.target.value;
                 this.onSettingsChange(); // Save the settings after change
             });
@@ -642,7 +877,7 @@ class AllTalkTtsProvider {
         // Listener for AllTalk Endpoint Input
         const atServerInput = document.getElementById('at_server');
         if (atServerInput) {
-            $(atServerInput).off('input').on('input', (event) => {
+            atServerInput.addEventListener('input', (event) => {
                 this.settings.provider_endpoint = event.target.value;
                 this.onSettingsChange(); // Save the settings after change
             });
@@ -662,6 +897,10 @@ class AllTalkTtsProvider {
         this.settings.at_generation_method = $('#at_generation_method').val();
         this.settings.narrator_enabled = $('#at_narrator_enabled').val();
         this.settings.at_narrator_text_not_inside = $('#at_narrator_text_not_inside').val();
+        this.settings.rvc_character_voice = $('#rvc_character_voice').val();
+        this.settings.rvc_narrator_voice = $('#rvc_narrator_voice').val();
+        this.settings.rvc_character_pitch = $('#rvc_character_pitch').val();
+        this.settings.rvc_narrator_pitch = $('#rvc_narrator_pitch').val();        
         this.settings.narrator_voice_gen = $('#narrator_voice').val();
         // Save the updated settings
         saveTtsProviderSettings();
@@ -672,8 +911,16 @@ class AllTalkTtsProvider {
     //#########################//
 
     async onRefreshClick() {
-        await this.initEndpoint();
-        // Additional actions as needed
+        try {
+            updateStatus('Processing'); // Set status to Processing while refreshing
+            await this.checkReady(); // Check if the TTS provider is ready
+            await this.loadSettings(this.settings); // Reload the settings
+            await this.checkReady(); // Check if the TTS provider is ready
+            updateStatus(this.ready ? 'Ready' : 'Offline'); // Update the status based on readiness
+        } catch (error) {
+            console.error('Error during refresh:', error);
+            updateStatus('Error'); // Set status to Error in case of failure
+        }
     }
 
     //##################//
@@ -684,33 +931,44 @@ class AllTalkTtsProvider {
         try {
             // Prepare data for POST request
             const postData = new URLSearchParams();
-            postData.append('voice', `${voiceName}.wav`);
+            postData.append("voice", `${voiceName}`);
+    
+            // Add RVC parameters for V2 if applicable
+            if (this.settings.server_version === 'v2' && this.settings.rvc_character_voice !== 'Disabled') {
+                postData.append("rvccharacter_voice_gen", this.settings.rvc_character_voice);
+                postData.append("rvccharacter_pitch", this.settings.rvc_character_pitch || "0");
+            }
+            
             // Making the POST request
             const response = await fetch(`${this.settings.provider_endpoint}/api/previewvoice/`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 body: postData,
             });
+    
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[previewTtsVoice] Error Response Text:', errorText);
+                console.error(`[previewTtsVoice] Error Response Text:`, errorText);
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
-            // Assuming the server returns a URL to the .wav file
+    
             const data = await response.json();
             if (data.output_file_url) {
-                // Use an audio element to play the .wav file
-                const audioElement = new Audio(data.output_file_url);
-                audioElement.play().catch(e => console.error('Error playing audio:', e));
+                // Handle V1/V2 URL differences
+                const fullUrl = this.settings.server_version === 'v1'
+                    ? data.output_file_url
+                    : `${this.settings.provider_endpoint}${data.output_file_url}`;
+    
+                const audioElement = new Audio(fullUrl);
+                audioElement.play().catch(e => console.error("Error playing audio:", e));
             } else {
-                console.warn('[previewTtsVoice] No output file URL received in the response');
-                throw new Error('No output file URL received in the response');
+                console.warn("[previewTtsVoice] No output file URL received in the response");
+                throw new Error("No output file URL received in the response");
             }
-
         } catch (error) {
-            console.error('[previewTtsVoice] Exception caught during preview generation:', error);
+            console.error("[previewTtsVoice] Exception caught during preview generation:", error);
             throw error;
         }
     }
@@ -744,8 +1002,8 @@ class AllTalkTtsProvider {
         try {
             if (this.settings.at_generation_method === 'streaming_enabled') {
                 // Construct the streaming URL
-                const streamingUrl = `${this.settings.provider_endpoint}/api/tts-generate-streaming?text=${encodeURIComponent(inputText)}&voice=${encodeURIComponent(voiceId)}.wav&language=${encodeURIComponent(this.settings.language)}&output_file=stream_output.wav`;
-                console.log('Streaming URL:', streamingUrl);
+                const streamingUrl = `${this.settings.provider_endpoint}/api/tts-generate-streaming?text=${encodeURIComponent(inputText)}&voice=${encodeURIComponent(voiceId)}&language=${encodeURIComponent(this.settings.language)}&output_file=stream_output.wav`;
+                console.log("Streaming URL:", streamingUrl);
 
                 // Return the streaming URL directly
                 return streamingUrl;
@@ -759,7 +1017,7 @@ class AllTalkTtsProvider {
                 return audioResponse; // Return the fetch response directly
             }
         } catch (error) {
-            console.error('Error in generateTts:', error);
+            console.error("Error in generateTts:", error);
             throw error;
         }
     }
@@ -770,21 +1028,32 @@ class AllTalkTtsProvider {
     //####################//
 
     async fetchTtsGeneration(inputText, voiceId) {
-        // Prepare the request payload
         const requestBody = new URLSearchParams({
             'text_input': inputText,
-            'text_filtering': 'standard',
-            'character_voice_gen': voiceId + '.wav',
+            'text_filtering': "standard",
+            'character_voice_gen': voiceId,
             'narrator_enabled': this.settings.narrator_enabled,
-            'narrator_voice_gen': this.settings.narrator_voice_gen + '.wav',
+            'narrator_voice_gen': this.settings.narrator_voice_gen,
             'text_not_inside': this.settings.at_narrator_text_not_inside,
             'language': this.settings.language,
-            'output_file_name': 'st_output',
-            'output_file_timestamp': 'true',
-            'autoplay': 'false',
-            'autoplay_volume': '0.8',
-        }).toString();
-
+            'output_file_name': "st_output",
+            'output_file_timestamp': "true",
+            'autoplay': "false",
+            'autoplay_volume': "0.8"
+        });
+    
+        // Add RVC parameters only for V2
+        if (this.settings.server_version === 'v2') {
+            if (this.settings.rvc_character_voice !== 'Disabled') {
+                requestBody.append('rvccharacter_voice_gen', this.settings.rvc_character_voice);
+                requestBody.append('rvccharacter_pitch', this.settings.rvc_character_pitch || "0");
+            }
+            if (this.settings.rvc_narrator_voice !== 'Disabled') {
+                requestBody.append('rvcnarrator_voice_gen', this.settings.rvc_narrator_voice);
+                requestBody.append('rvcnarrator_pitch', this.settings.rvc_narrator_pitch || "0");
+            }
+        }
+    
         try {
             const response = await doExtrasFetch(
                 `${this.settings.provider_endpoint}/api/tts-generate`,
@@ -794,22 +1063,26 @@ class AllTalkTtsProvider {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'Cache-Control': 'no-cache',
                     },
-                    body: requestBody,
-                },
+                    body: requestBody
+                }
             );
-
+    
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[fetchTtsGeneration] Error Response Text:', errorText);
-                // toastr.error(response.statusText, 'TTS Generation Failed');
+                console.error(`[fetchTtsGeneration] Error Response Text:`, errorText);
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
             const data = await response.json();
-            const outputUrl = data.output_file_url;
-            return outputUrl; // Return only the output_file_url
+    
+            // Handle V1/V2 URL differences
+            const outputUrl = this.settings.server_version === 'v1'
+                ? data.output_file_url  // V1 returns full URL
+                : `${this.settings.provider_endpoint}${data.output_file_url}`; // V2 returns relative path
+    
+            return outputUrl;
         } catch (error) {
-            console.error('[fetchTtsGeneration] Exception caught:', error);
-            throw error; // Rethrow the error for further handling
+            console.error("[fetchTtsGeneration] Exception caught:", error);
+            throw error;
         }
     }
 }
