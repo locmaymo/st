@@ -7491,7 +7491,7 @@ export function callPopup(text, type, inputValue = '', { okButton, rows, wide, w
         } else if (['new_chat', 'confirm'].includes(popup_type)) {
             return okButton ?? 'Yes';
         } else if (['input'].includes(popup_type)) {
-            return okButton ?? 'Save';
+            return okButton ?? t`Save`;
         }
         return okButton ?? 'Delete';
     }
@@ -7861,7 +7861,7 @@ function openCharacterWorldPopup() {
     if (!isMobile()) {
         $(extraSelect).select2({
             width: '100%',
-            placeholder: 'No auxillary Lorebooks set. Click here to select.',
+            placeholder: t`No auxillary Lorebooks set. Click here to select.`,
             allowClear: true,
             closeOnSelect: false,
         });

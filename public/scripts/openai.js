@@ -3612,8 +3612,8 @@ async function onExportPresetClick() {
 
     const fieldValues = sensitiveFields.filter(field => preset[field]).map(field => `<b>${field}</b>: <code>${preset[field]}</code>`);
     const shouldConfirm = fieldValues.length > 0;
-    const textHeader = 'Your preset contains proxy and/or custom endpoint settings.';
-    const textMessage = `<div>Do you want to remove these fields before exporting?</div><br>${DOMPurify.sanitize(fieldValues.join('<br>'))}`;
+    const textHeader = t`Your preset contains proxy and/or custom endpoint settings.`;
+    const textMessage = `<div>` + t`Do you want to remove these fields before exporting?` + `</div><br>${DOMPurify.sanitize(fieldValues.join('<br>'))}`;
     const cancelButton = { text: 'Cancel', result: POPUP_RESULT.CANCELLED, appendAtEnd: true };
     const popupOptions = { customButtons: [cancelButton] };
     const popupResult = await Popup.show.confirm(textHeader, textMessage, popupOptions);
@@ -4369,8 +4369,8 @@ async function onOpenrouterModelSortChange() {
 
 async function onNewPresetClick() {
     const popupText = `
-        <h3>Preset name:</h3>
-        <h4>Hint: Use a character/group name to bind preset to a specific chat.</h4>`;
+        <h3>` + t`Preset name:` + `</h3>
+        <h4>` + t`Hint: Use a character/group name to bind preset to a specific chat.` + `</h4>`;
     const name = await callPopup(popupText, 'input', oai_settings.preset_settings_openai);
 
     if (!name) {
