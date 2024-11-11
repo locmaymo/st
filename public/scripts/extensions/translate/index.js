@@ -406,30 +406,47 @@ async function translate(text, lang) {
             lang = extension_settings.translate.target_language;
         }
 
-        switch (extension_settings.translate.provider) {
-            case 'libre':
-                return await translateProviderLibre(text, lang);
-            case 'google':
-                return await chunkedTranslate(text, lang, translateProviderGoogle, 5000);
-            case 'lingva':
-                return await chunkedTranslate(text, lang, translateProviderLingva, 5000);
-            case 'deepl':
-                return await translateProviderDeepl(text, lang);
-            case 'deeplx':
-                return await chunkedTranslate(text, lang, translateProviderDeepLX, 1500);
-            case 'oneringtranslator':
-                return await translateProviderOneRing(text, lang);
-            case 'bing':
-                return await chunkedTranslate(text, lang, translateProviderBing, 1000);
-            case 'yandex':
-                return await translateProviderYandex(text, lang);
-            default:
-                console.error('Unknown translation provider', extension_settings.translate.provider);
-                return text;
+        // split text by embedded images links
+        const chunks = text.split(/!\[.*?]\([^)]*\)/);
+        const links = [ ...text.matchAll(/!\[.*?]\([^)]*\)/g) ];
+
+        let r = "";
+        for (let i = 0; i < chunks.length; i++) {
+            r += await translateInner(chunks[i], lang);
+            if (i < links.length) r += links[i][0];
         }
+
+        return r;
     } catch (error) {
         console.log(error);
         toastr.error(String(error), 'Failed to translate message');
+    }
+}
+
+async function translateInner(text, lang) {
+    if (text == '') {
+        return '';
+    }
+    switch (extension_settings.translate.provider) {
+        case 'libre':
+            return await translateProviderLibre(text, lang);
+        case 'google':
+            return await chunkedTranslate(text, lang, translateProviderGoogle, 5000);
+        case 'lingva':
+            return await chunkedTranslate(text, lang, translateProviderLingva, 5000);
+        case 'deepl':
+            return await translateProviderDeepl(text, lang);
+        case 'deeplx':
+            return await chunkedTranslate(text, lang, translateProviderDeepLX, 1500);
+        case 'oneringtranslator':
+            return await translateProviderOneRing(text, lang);
+        case 'bing':
+            return await chunkedTranslate(text, lang, translateProviderBing, 1000);
+        case 'yandex':
+            return await translateProviderYandex(text, lang);
+        default:
+            console.error('Unknown translation provider', extension_settings.translate.provider);
+            return text;
     }
 }
 
