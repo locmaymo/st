@@ -188,7 +188,7 @@ router.post('/searxng', jsonParser, async (request, response) => {
         const searchUrl = new URL('/search', baseUrl);
         const searchParams = new URLSearchParams();
         searchParams.append('q', query);
-        if (preferences.length > 0) {
+        if (preferences) {
             searchParams.append('preferences', preferences);
         }
         searchUrl.search = searchParams.toString();
