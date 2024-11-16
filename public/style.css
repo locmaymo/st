@@ -5673,7 +5673,8 @@ body:not(.movingUI) .drawer-content.maximized {
     }
 
     #featherless_model_search_bar {
-        width: 100%;
+        flex: 1;
+        flex-basis:100%;
     }
 
 }
