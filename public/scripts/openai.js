@@ -4056,7 +4056,7 @@ async function onModelChange() {
     if (oai_settings.chat_completion_source == chat_completion_sources.MAKERSUITE) {
         if (oai_settings.max_context_unlocked) {
             $('#openai_max_context').attr('max', max_2mil);
-        } else if (value.match('gemini-exp-1114')){
+        } else if (value.includes('gemini-exp-1114')){
             $('#openai_max_context').attr('max', max_32k);
         } else if (value.includes('gemini-1.5-pro')) {
             $('#openai_max_context').attr('max', max_2mil);

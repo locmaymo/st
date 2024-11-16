@@ -267,7 +267,7 @@ async function sendMakerSuiteRequest(request, response) {
             delete generationConfig.stopSequences;
         }
 
-        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.match('gemini-exp-1114')) && request.body.use_makersuite_sysprompt;
+        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.includes('gemini-exp-1114')) && request.body.use_makersuite_sysprompt;
         const prompt = convertGooglePrompt(request.body.messages, model, should_use_system_prompt, request.body.char_name, request.body.user_name);
         let body = {
             contents: prompt.contents,
