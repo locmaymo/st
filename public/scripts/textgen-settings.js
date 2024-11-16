@@ -1209,7 +1209,6 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
     };
     const vllmParams = {
         'n': canMultiSwipe ? settings.n : 1,
-        'best_of': canMultiSwipe ? settings.n : 1,
         'ignore_eos': settings.ignore_eos_token,
         'spaces_between_special_tokens': settings.spaces_between_special_tokens,
         'seed': settings.seed >= 0 ? settings.seed : undefined,
