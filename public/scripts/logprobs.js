@@ -248,7 +248,7 @@ function onAlternativeClicked(tokenLogprobs, alternative) {
  * coordinates from a PointerEvent, this function identifies the exact
  * word clicked and returns the text preceding it within the span.
  *
- * If the clicked position does not resolve to a valid word or text node, 
+ * If the clicked position does not resolve to a valid word or text node,
  * the entire span text is returned as a fallback.
  *
  * @param {PointerEvent} event - The click event containing the x and y coordinates.
@@ -268,7 +268,7 @@ function getTextBeforeClickedWord(event, spanText) {
         const text = textNode.nodeValue;
 
         // Find the boundaries of the clicked word
-        const start = text.lastIndexOf(" ", offset - 1) + 1;
+        const start = text.lastIndexOf(' ', offset - 1) + 1;
 
         // Return the text before the clicked word
         return text.slice(0, start);
