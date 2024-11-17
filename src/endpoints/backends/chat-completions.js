@@ -80,9 +80,9 @@ async function sendClaudeRequest(request, response) {
     const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.CLAUDE);
     const divider = '-'.repeat(process.stdout.columns);
     const enableSystemPromptCache = getConfigValue('claude.enableSystemPromptCache', false) && request.body.model.startsWith('claude-3');
-    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1) && request.body.model.startsWith('claude-3');
-    // Disabled if not an integer or negative
-    if (!Number.isInteger(cachingAtDepth) || cachingAtDepth < 0) {
+    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1);
+    // Disabled if not an integer or negative, or if the model doesn't support it
+    if (!Number.isInteger(cachingAtDepth) || cachingAtDepth < 0 || !request.body.model.startsWith('claude-3')) {
         cachingAtDepth = -1;
     }
 
@@ -898,6 +898,47 @@ router.post('/generate', jsonParser, function (request, response) {
 
         if (request.body.use_fallback) {
             bodyParams['route'] = 'fallback';
+        }
+
+        let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1);
+        if (Number.isInteger(cachingAtDepth) && cachingAtDepth >= 0 && request.body.model.startsWith('anthropic/claude-3')) {
+            //caching the prefill is a terrible idea in general
+            let passedThePrefill = false;
+            //depth here is the number of message role switches
+            let depth = 0;
+            let previousRoleName = "";
+            for (let i = request.body.messages.length - 1; i >= 0; i--) {
+                if (!passedThePrefill && request.body.messages[i].role === 'assistant') {
+                    continue;
+                }
+
+                passedThePrefill = true;
+
+                if (request.body.messages[i].role !== previousRoleName) {
+                    if (depth === cachingAtDepth || depth === cachingAtDepth + 2) {
+                        const content = request.body.messages[i].content;
+                        if (typeof content === 'string') {
+                            request.body.messages[i].content = [{
+                                type: 'text',
+                                text: content,
+                                cache_control: { type: "ephemeral"},
+                            }];
+                        } else {
+                            const contentPartCount = content.length;
+                            content[contentPartCount - 1].cache_control = {
+                                type: "ephemeral"
+                            }
+                        }
+                    }
+
+                    if (depth === cachingAtDepth + 2) {
+                        break
+                    }
+
+                    depth += 1;
+                    previousRoleName = request.body.messages[i].role;
+                }
+            }
         }
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         apiUrl = request.body.custom_url;
