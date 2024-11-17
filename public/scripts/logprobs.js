@@ -25,6 +25,10 @@ const REROLL_BUTTON = $('#logprobsReroll');
  */
 
 /**
+ * @typedef {(Node|JQuery<Text>|JQuery<HTMLElement>)[]} NodeArray - Array of DOM nodes
+ */
+
+/**
  * Logprob data for a single message
  * @typedef {Object} MessageLogprobData
  * @property {number} created - timestamp of when the message was generated
@@ -200,15 +204,15 @@ function renderTopLogprobs() {
             container.addClass('selected');
         }
 
-        const tokenText = $('<span></span>').text(`${toVisibleWhitespace(token)}`);
-        const percentText = $('<span></span>').text(`${(probability * 100).toFixed(2)}%`);
+        const tokenText = $('<span></span>').text(`${toVisibleWhitespace(token.toString())}`);
+        const percentText = $('<span></span>').text(`${(+probability * 100).toFixed(2)}%`);
         container.append(tokenText, percentText);
         if (log) {
             container.attr('title', `logarithm: ${log}`);
         }
         addKeyboardProps(container);
         if (token !== '<others>') {
-            container.on('click', () => onAlternativeClicked(state.selectedTokenLogprobs, token));
+            container.on('click', () => onAlternativeClicked(state.selectedTokenLogprobs, token.toString()));
         } else {
             container.prop('disabled', true);
         }
@@ -228,7 +232,7 @@ function renderTopLogprobs() {
  * User clicks on a token in the token output view. It updates the selected token state
  * and re-renders the top logprobs view, or deselects the token if it was already selected.
  * @param {TokenLogprobs} logprobs - logprob data for the selected token
- * @param {Element} span - target span node that was clicked
+ * @param {Node|JQuery} span - target span node that was clicked
  */
 function onSelectedTokenChanged(logprobs, span) {
     $('.logprobs_output_token.selected').removeClass('selected');
@@ -399,11 +403,11 @@ function toVisibleWhitespace(input) {
  * after the span node if its token begins or ends with whitespace in order to
  * allow text to wrap despite whitespace characters being replaced with a dot.
  * @param {string} text - token text being evaluated for whitespace
- * @param {Element} span - target span node to be wrapped
- * @returns {Node[]} - array of nodes to be appended to the parent element
+ * @param {Node|JQuery} span - target span node to be wrapped
+ * @returns {NodeArray} - array of nodes to be appended to the parent element
  */
 function withVirtualWhitespace(text, span) {
-    /** @type {Node[]} */
+    /** @type {NodeArray} */
     const result = [span];
     if (text.match(/^\s/)) {
         result.unshift(document.createTextNode('\u200b'));
@@ -522,7 +526,7 @@ function convertTokenIdLogprobsToText(input) {
 
     // Submit token IDs to tokenizer to get token text, then build ID->text map
     // noinspection JSCheckFunctionSignatures - mutates input in-place
-    const { chunks } = decodeTextTokens(tokenizerId, tokenIds);
+    const { chunks } = decodeTextTokens(tokenizerId, tokenIds.map(parseInt));
     const tokenIdText = new Map(tokenIds.map((id, i) => [id, chunks[i]]));
 
     // Fixup logprobs data with token text
