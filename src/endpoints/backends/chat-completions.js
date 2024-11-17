@@ -146,11 +146,13 @@ async function sendClaudeRequest(request, response) {
             cachingAtDepth += convertedPrompt.messages[messageCount - 1].role === 'assistant' ? 1 : 0;
 
             if (messageCount - 1 - cachingAtDepth >= 0) {
-                convertedPrompt.messages[messageCount - 1 - cachingAtDepth]['cache_control'] = { type: 'ephemeral' };
+                const contentCount = convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content.length;
+                convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content[contentCount - 1]['cache_control'] = { type: 'ephemeral' };
             }
 
             if (messageCount - 1 - cachingAtDepth - 2 >= 0) {
-                convertedPrompt.messages[messageCount - 1 - cachingAtDepth - 2]['cache_control'] = { type: 'ephemeral' };
+                const contentCount = convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content.length;
+                convertedPrompt.messages[messageCount - 1 - cachingAtDepth - 2].content[contentCount - 1]['cache_control'] = { type: 'ephemeral' };
             }
         }
 
