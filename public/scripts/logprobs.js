@@ -364,7 +364,7 @@ function onToggleLogprobsPanel() {
 function createSwipe(messageId, prompt) {
     // need to call `cleanUpMessage` on our new prompt, because we were working
     // with raw model output and our new prompt is missing trimming/macro replacements
-    const cleanedPrompt = cleanUpMessage(prompt, false, false);
+    const cleanedPrompt = cleanUpMessage(prompt, false, false, true);
 
     const msg = chat[messageId];
     const newSwipeInfo = {

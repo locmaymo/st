@@ -3164,7 +3164,7 @@ grammarly-extension {
 .avatar-container .avatar-buttons {
     display: flex;
     flex-direction: row;
-    gap: 5px;
+    gap: 3px;
     opacity: 0.3;
     transition: opacity 0.25s ease-in-out;
 }
