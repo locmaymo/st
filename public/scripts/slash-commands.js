@@ -2084,31 +2084,7 @@ async function buttonsCallback(args, text) {
             buttonContainer.classList.add('flex-container', 'flexFlowColumn', 'wide100p');
 
             const scrollableContainer = document.createElement('div');
-            scrollableContainer.style.maxHeight = '50vh'; // Use viewport height instead of fixed pixels
-            scrollableContainer.style.overflowY = 'auto';
-            scrollableContainer.style.WebkitOverflowScrolling = 'touch'; // Enable momentum scrolling on iOS
-            scrollableContainer.classList.add('m-t-1', 'scrollable-buttons');
-
-            // Add custom CSS for better mobile scrolling
-            const style = document.createElement('style');
-            style.textContent = `
-                .scrollable-buttons {
-                    -webkit-overflow-scrolling: touch;
-                    overflow-y: auto;
-                    flex-shrink: 1;
-                    min-height: 0;
-                    scrollbar-width: thin;
-                    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
-                }
-                .scrollable-buttons::-webkit-scrollbar {
-                    width: 6px;
-                }
-                .scrollable-buttons::-webkit-scrollbar-thumb {
-                    background-color: rgba(255, 255, 255, 0.3);
-                    border-radius: 3px;
-                }
-            `;
-            document.head.appendChild(style);
+            scrollableContainer.classList.add('scrollable-buttons-container');
 
             for (const [result, button] of resultToButtonMap) {
                 const buttonElement = document.createElement('div');
