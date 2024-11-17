@@ -80,12 +80,6 @@
     background-color: rgba(255, 0, 50, 0.4);
 }
 
-#logprobsReroll {
-    float: right; /* Position the button to the right */
-    margin: 5px 0 5px 10px; /* Add spacing (top, right, bottom, left) */
-    clear: right; /* Ensure it starts on a new line */
-}
-
 .logprobs_candidate_list {
     grid-row-start: 3;
     grid-row-end: 4;

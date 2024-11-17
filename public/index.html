@@ -6631,8 +6631,11 @@
                 </div>
             </div>
             <div class="logprobs_panel_content inline-drawer-content flex-container flexFlowColumn">
-                <small>
+                <small class="flex-container alignItemsCenter justifySpaceBetween">
                     <b data-i18n="Select a token to see alternatives considered by the AI.">Select a token to see alternatives considered by the AI.</b>
+                    <button id="logprobsReroll" class="menu_button" title="Reroll with the entire prefix" data-i18n="[title]Reroll with the entire prefix">
+                        <span class="fa-solid fa-redo logprobs_reroll"></span>
+                    </button>
                 </small>
                 <hr>
                 <div id="logprobs_generation_output"></div>

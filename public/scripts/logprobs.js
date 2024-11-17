@@ -17,6 +17,7 @@ import { t } from './i18n.js';
 
 const TINTS = 4;
 const MAX_MESSAGE_LOGPROBS = 100;
+const REROLL_BUTTON = $('#logprobsReroll');
 
 /**
  * Tuple of a candidate token and its logarithm of probability of being chosen
@@ -93,14 +94,10 @@ function renderAlternativeTokensView() {
 
     const prefix = continueFrom || '';
     const tokenSpans = [];
+    REROLL_BUTTON.toggle(!!prefix);
 
     if (prefix) {
-        const rerollButton = $('<button id="logprobsReroll" class="menu_button">' +
-            '    <span class="fa-solid fa-redo logprobs_reroll"></span>' +
-            '</button>');
-        rerollButton.attr('title', t`Reroll with the entire prefix`);
-        rerollButton.on('click', () => onPrefixClicked(prefix.length));
-        tokenSpans.push(rerollButton);
+        REROLL_BUTTON.off('click').on('click', () => onPrefixClicked(prefix.length));
 
         let cumulativeOffset = 0;
         const words = prefix.split(/\s+/);
@@ -126,7 +123,6 @@ function renderAlternativeTokensView() {
             cumulativeOffset += word.length + (delimiters[i]?.length || 0);
         });
     }
-
 
     messageLogprobs.forEach((tokenData, i) => {
         const { token } = tokenData;
@@ -539,6 +535,7 @@ function convertTokenIdLogprobsToText(input) {
 }
 
 export function initLogprobs() {
+    REROLL_BUTTON.hide();
     const debouncedRender = debounce(renderAlternativeTokensView);
     $('#logprobsViewerClose').on('click', onToggleLogprobsPanel);
     $('#option_toggle_logprobs').on('click', onToggleLogprobsPanel);
