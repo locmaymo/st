@@ -80,7 +80,11 @@ async function sendClaudeRequest(request, response) {
     const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.CLAUDE);
     const divider = '-'.repeat(process.stdout.columns);
     const enableSystemPromptCache = getConfigValue('claude.enableSystemPromptCache', false) && request.body.model.startsWith('claude-3');
-    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', false) && request.body.model.startsWith('claude-3');
+    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1) && request.body.model.startsWith('claude-3');
+    // Disabled if not an integer or negative
+    if (!Number.isInteger(cachingAtDepth) || cachingAtDepth < 0) {
+        cachingAtDepth = -1;
+    }
 
     if (!apiKey) {
         console.log(color.red(`Claude API key is missing.\n${divider}`));
@@ -140,7 +144,7 @@ async function sendClaudeRequest(request, response) {
             }
         }
 
-        if (cachingAtDepth !== false) {
+        if (cachingAtDepth !== -1) {
             // There are extremely few scenarios in which caching the prefill is a good idea, it mostly just breaks everything
             const messageCount = convertedPrompt.messages.length;
             cachingAtDepth += convertedPrompt.messages[messageCount - 1].role === 'assistant' ? 1 : 0;
@@ -156,7 +160,7 @@ async function sendClaudeRequest(request, response) {
             }
         }
 
-        if (enableSystemPromptCache || cachingAtDepth !== false) {
+        if (enableSystemPromptCache || cachingAtDepth !== -1) {
             additionalHeaders['anthropic-beta'] = 'prompt-caching-2024-07-31';
         }
 
