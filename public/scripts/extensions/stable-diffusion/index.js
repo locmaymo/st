@@ -3283,7 +3283,8 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
         const response = await fetch(getUserAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
             workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(avatarBase64));
         } else {
             workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(PNG_PIXEL));
@@ -3293,7 +3294,8 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
         const response = await fetch(getCharacterAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
             workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(avatarBase64));
         } else {
             workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(PNG_PIXEL));
