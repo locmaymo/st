@@ -39,6 +39,7 @@ const UPDATE_INTERVAL = 1000;
 // This is a 1x1 transparent PNG
 const PNG_PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 const CUSTOM_STOP_EVENT = 'sd_stop_generation';
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 const sources = {
     extras: 'extras',
@@ -55,6 +56,7 @@ const sources = {
     blockentropy: 'blockentropy',
     huggingface: 'huggingface',
     nanogpt: 'nanogpt',
+    bfl: 'bfl',
 };
 
 const initiators = {
@@ -296,6 +298,9 @@ const defaultSettings = {
 
     // Stability AI settings
     stability_style_preset: 'anime',
+
+    // BFL API settings
+    bfl_upsampling: false,
 };
 
 const writePromptFieldsDebounced = debounce(writePromptFields, debounce_timeout.relaxed);
@@ -463,6 +468,7 @@ async function loadSettings() {
     $('#sd_stability_style_preset').val(extension_settings.sd.stability_style_preset);
     $('#sd_huggingface_model_id').val(extension_settings.sd.huggingface_model_id);
     $('#sd_function_tool').prop('checked', extension_settings.sd.function_tool);
+    $('#sd_bfl_upsampling').prop('checked', extension_settings.sd.bfl_upsampling);
 
     for (const style of extension_settings.sd.styles) {
         const option = document.createElement('option');
@@ -1089,15 +1095,14 @@ function onComfyWorkflowChange() {
     saveSettingsDebounced();
 }
 
-async function onStabilityKeyClick() {
-    const popupText = 'Stability AI API Key:';
+async function onApiKeyClick(popupText, secretKey) {
     const key = await callGenericPopup(popupText, POPUP_TYPE.INPUT, '', {
         customButtons: [{
             text: 'Remove Key',
             appendAtEnd: true,
             result: POPUP_RESULT.NEGATIVE,
             action: async () => {
-                await writeSecret(SECRET_KEYS.STABILITY, '');
+                await writeSecret(secretKey, '');
                 toastr.success('API Key removed');
                 await loadSettingOptions();
             },
@@ -1108,10 +1113,23 @@ async function onStabilityKeyClick() {
         return;
     }
 
-    await writeSecret(SECRET_KEYS.STABILITY, String(key));
+    await writeSecret(secretKey, String(key));
 
     toastr.success('API Key saved');
     await loadSettingOptions();
+}
+
+async function onStabilityKeyClick() {
+    return onApiKeyClick('Stability AI API Key:', SECRET_KEYS.STABILITY);
+}
+
+async function onBflKeyClick() {
+    return onApiKeyClick('BFL API Key:', SECRET_KEYS.BFL);
+}
+
+function onBflUpsamplingInput() {
+    extension_settings.sd.bfl_upsampling = !!$('#sd_bfl_upsampling').prop('checked');
+    saveSettingsDebounced();
 }
 
 function onStabilityStylePresetChange() {
@@ -1238,6 +1256,7 @@ async function onModelChange() {
         sources.blockentropy,
         sources.huggingface,
         sources.nanogpt,
+        sources.bfl,
     ];
 
     if (cloudSources.includes(extension_settings.sd.source)) {
@@ -1459,6 +1478,9 @@ async function loadSamplers() {
         case sources.nanogpt:
             samplers = ['N/A'];
             break;
+        case sources.bfl:
+            samplers = ['N/A'];
+            break;
     }
 
     for (const sampler of samplers) {
@@ -1654,6 +1676,9 @@ async function loadModels() {
         case sources.nanogpt:
             models = await loadNanoGPTModels();
             break;
+        case sources.bfl:
+            models = await loadBflModels();
+            break;
     }
 
     for (const model of models) {
@@ -1677,6 +1702,17 @@ async function loadStabilityModels() {
         { value: 'stable-image-ultra', text: 'Stable Image Ultra' },
         { value: 'stable-image-core', text: 'Stable Image Core' },
         { value: 'stable-diffusion-3', text: 'Stable Diffusion 3' },
+    ];
+}
+
+async function loadBflModels() {
+    $('#sd_bfl_key').toggleClass('success', !!secret_state[SECRET_KEYS.BFL]);
+
+    return [
+        { value: 'flux-pro-1.1-ultra', text: 'flux-pro-1.1-ultra' },
+        { value: 'flux-pro-1.1', text: 'flux-pro-1.1' },
+        { value: 'flux-pro', text: 'flux-pro' },
+        { value: 'flux-dev', text: 'flux-dev' },
     ];
 }
 
@@ -2027,6 +2063,9 @@ async function loadSchedulers() {
         case sources.nanogpt:
             schedulers = ['N/A'];
             break;
+        case sources.bfl:
+            schedulers = ['N/A'];
+            break;
     }
 
     for (const scheduler of schedulers) {
@@ -2110,6 +2149,9 @@ async function loadVaes() {
             vaes = ['N/A'];
             break;
         case sources.nanogpt:
+            vaes = ['N/A'];
+            break;
+        case sources.bfl:
             vaes = ['N/A'];
             break;
     }
@@ -2666,6 +2708,10 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
                 break;
             case sources.nanogpt:
                 result = await generateNanoGPTImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.bfl:
+                result = await generateBflImage(prefixedPrompt, signal);
+                break;
         }
 
         if (!result.data) {
@@ -3370,8 +3416,40 @@ async function generateNanoGPTImage(prompt, negativePrompt, signal) {
             width: parseInt(extension_settings.sd.width),
             height: parseInt(extension_settings.sd.height),
             resolution: `${extension_settings.sd.width}x${extension_settings.sd.height}`,
-            showExplicitContent:  true,
+            showExplicitContent: true,
             nImages: 1,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+        return { format: 'jpg', data: data.image };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
+/**
+ * Generates an image using the BFL API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateBflImage(prompt, signal) {
+    const result = await fetch('/api/sd/bfl/generate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        signal: signal,
+        body: JSON.stringify({
+            prompt: prompt,
+            model: extension_settings.sd.model,
+            steps: clamp(extension_settings.sd.steps, 1, 50),
+            guidance: clamp(extension_settings.sd.scale, 1.5, 5),
+            width: clamp(extension_settings.sd.width, 256, 1440),
+            height: clamp(extension_settings.sd.height, 256, 1440),
+            prompt_upsampling: !!extension_settings.sd.bfl_upsampling,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
@@ -3668,6 +3746,8 @@ function isValidState() {
             return secret_state[SECRET_KEYS.HUGGINGFACE];
         case sources.nanogpt:
             return secret_state[SECRET_KEYS.NANOGPT];
+        case sources.bfl:
+            return secret_state[SECRET_KEYS.BFL];
     }
 }
 
@@ -4338,6 +4418,8 @@ jQuery(async () => {
     $('#sd_stability_style_preset').on('change', onStabilityStylePresetChange);
     $('#sd_huggingface_model_id').on('input', onHFModelInput);
     $('#sd_function_tool').on('input', onFunctionToolInput);
+    $('#sd_bfl_key').on('click', onBflKeyClick);
+    $('#sd_bfl_upsampling').on('input', onBflUpsamplingInput);
 
     if (!CSS.supports('field-sizing', 'content')) {
         $('.sd_settings .inline-drawer-toggle').on('click', function () {
