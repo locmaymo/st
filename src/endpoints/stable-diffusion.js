@@ -7,7 +7,7 @@ import sanitize from 'sanitize-filename';
 import { sync as writeFileAtomicSync } from 'write-file-atomic';
 import FormData from 'form-data';
 
-import { delay, getBasicAuthHeader } from '../util.js';
+import { delay, getBasicAuthHeader, tryParse } from '../util.js';
 import { jsonParser } from '../express-common.js';
 import { readSecret, SECRET_KEYS } from './secrets.js';
 
@@ -535,7 +535,8 @@ comfy.post('/generate', jsonParser, async (request, response) => {
             body: request.body.prompt,
         });
         if (!promptResult.ok) {
-            throw new Error('ComfyUI returned an error.');
+            const text = await promptResult.text();
+            throw new Error('ComfyUI returned an error.', { cause: tryParse(text) });
         }
 
         /** @type {any} */
