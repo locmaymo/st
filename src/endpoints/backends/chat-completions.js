@@ -26,6 +26,8 @@ import {
     convertMistralMessages,
     convertAI21Messages,
     mergeMessages,
+    cachingAtDepthForOpenRouterClaude,
+    cachingAtDepthForClaude,
 } from '../../prompt-converters.js';
 
 import { readSecret, SECRET_KEYS } from '../secrets.js';
@@ -145,19 +147,7 @@ async function sendClaudeRequest(request, response) {
         }
 
         if (cachingAtDepth !== -1) {
-            // There are extremely few scenarios in which caching the prefill is a good idea, it mostly just breaks everything
-            const messageCount = convertedPrompt.messages.length;
-            cachingAtDepth += convertedPrompt.messages[messageCount - 1].role === 'assistant' ? 1 : 0;
-
-            if (messageCount - 1 - cachingAtDepth >= 0) {
-                const contentCount = convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content.length;
-                convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content[contentCount - 1]['cache_control'] = { type: 'ephemeral' };
-            }
-
-            if (messageCount - 1 - cachingAtDepth - 2 >= 0) {
-                const contentCount = convertedPrompt.messages[messageCount - 1 - cachingAtDepth].content.length;
-                convertedPrompt.messages[messageCount - 1 - cachingAtDepth - 2].content[contentCount - 1]['cache_control'] = { type: 'ephemeral' };
-            }
+            cachingAtDepthForClaude(convertedPrompt.messages, cachingAtDepth);
         }
 
         if (enableSystemPromptCache || cachingAtDepth !== -1) {
@@ -902,43 +892,7 @@ router.post('/generate', jsonParser, function (request, response) {
 
         let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1);
         if (Number.isInteger(cachingAtDepth) && cachingAtDepth >= 0 && request.body.model.startsWith('anthropic/claude-3')) {
-            //caching the prefill is a terrible idea in general
-            let passedThePrefill = false;
-            //depth here is the number of message role switches
-            let depth = 0;
-            let previousRoleName = "";
-            for (let i = request.body.messages.length - 1; i >= 0; i--) {
-                if (!passedThePrefill && request.body.messages[i].role === 'assistant') {
-                    continue;
-                }
-
-                passedThePrefill = true;
-
-                if (request.body.messages[i].role !== previousRoleName) {
-                    if (depth === cachingAtDepth || depth === cachingAtDepth + 2) {
-                        const content = request.body.messages[i].content;
-                        if (typeof content === 'string') {
-                            request.body.messages[i].content = [{
-                                type: 'text',
-                                text: content,
-                                cache_control: { type: "ephemeral"},
-                            }];
-                        } else {
-                            const contentPartCount = content.length;
-                            content[contentPartCount - 1].cache_control = {
-                                type: "ephemeral"
-                            }
-                        }
-                    }
-
-                    if (depth === cachingAtDepth + 2) {
-                        break
-                    }
-
-                    depth += 1;
-                    previousRoleName = request.body.messages[i].role;
-                }
-            }
+            cachingAtDepthForOpenRouterClaude(request.body.messages, cachingAtDepth);
         }
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         apiUrl = request.body.custom_url;
