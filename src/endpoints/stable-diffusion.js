@@ -411,10 +411,11 @@ comfy.post('/models', jsonParser, async (request, response) => {
         const data = await result.json();
 
         const ckpts = data.CheckpointLoaderSimple.input.required.ckpt_name[0].map(it => ({ value: it, text: it })) || [];
+        const unets = data.UNETLoader.input.required.unet_name[0].map(it => ({ value: it, text: `UNet: ${it}` })) || [];
 
         // load list of GGUF unets from diffusion_models if the loader node is available
         const ggufs = data.UnetLoaderGGUF?.input.required.unet_name[0].map(it => ({ value: it, text: `GGUF: ${it}` })) || [];
-        const models = ckpts.concat(ggufs);
+        const models = [...ckpts, ...unets, ...ggufs];
 
         // make the display names of the models somewhat presentable
         models.forEach(it => it.text = it.text.replace(/\.[^.]*$/, '').replace(/_/g, ' '));
@@ -577,7 +578,7 @@ comfy.post('/generate', jsonParser, async (request, response) => {
         return response.send(imgBuffer.toString('base64'));
     } catch (error) {
         console.log('ComfyUI error:', error);
-        response.status(500).send(`${error.message}`);
+        response.status(500).send(error.message);
         return response;
     }
 });
