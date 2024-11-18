@@ -23,7 +23,7 @@ import {
 import { collapseNewlines, registerDebugFunction } from '../../power-user.js';
 import { SECRET_KEYS, secret_state, writeSecret } from '../../secrets.js';
 import { getDataBankAttachments, getDataBankAttachmentsForSource, getFileAttachment } from '../../chats.js';
-import { debounce, getStringHash as calculateHash, waitUntilCondition, onlyUnique, splitRecursive, trimToStartSentence, trimToEndSentence } from '../../utils.js';
+import { debounce, getStringHash as calculateHash, waitUntilCondition, onlyUnique, splitRecursive, trimToStartSentence, trimToEndSentence, escapeHtml } from '../../utils.js';
 import { debounce_timeout } from '../../constants.js';
 import { getSortedEntries } from '../../world-info.js';
 import { textgen_types, textgenerationwebui_settings } from '../../textgen-settings.js';
@@ -565,7 +565,7 @@ async function vectorizeFile(fileText, fileName, collectionId, chunkSize, overla
 
         const batchSize = getBatchSize();
         const toastBody = $('<span>').text('This may take a while. Please wait...');
-        const toast = toastr.info(toastBody, `Ingesting file ${fileName}`, { closeButton: false, escapeHtml: false, timeOut: 0, extendedTimeOut: 0 });
+        const toast = toastr.info(toastBody, `Ingesting file ${escapeHtml(fileName)}`, { closeButton: false, escapeHtml: false, timeOut: 0, extendedTimeOut: 0 });
         const overlapSize = Math.round(chunkSize * overlapPercent / 100);
         const delimiters = getChunkDelimiters();
         // Overlap should not be included in chunk size. It will be later compensated by overlapChunks
@@ -1060,7 +1060,7 @@ async function onViewStatsClick() {
     toastr.info(`Total hashes: <b>${totalHashes}</b><br>
     Unique hashes: <b>${uniqueHashes}</b><br><br>
     I'll mark collected messages with a green circle.`,
-    `Stats for chat ${chatId}`,
+    `Stats for chat ${escapeHtml(chatId)}`,
     { timeOut: 10000, escapeHtml: false },
     );
 
