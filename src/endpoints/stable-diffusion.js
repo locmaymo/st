@@ -575,8 +575,8 @@ comfy.post('/generate', jsonParser, async (request, response) => {
         if (!imgResponse.ok) {
             throw new Error('ComfyUI returned an error.');
         }
-        const imgBuffer = await imgResponse.buffer();
-        return response.send(imgBuffer.toString('base64'));
+        const imgBuffer = await imgResponse.arrayBuffer();
+        return response.send(Buffer.from(imgBuffer).toString('base64'));
     } catch (error) {
         console.log('ComfyUI error:', error);
         response.status(500).send(error.message);
