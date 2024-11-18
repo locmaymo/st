@@ -3269,6 +3269,10 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
 
     const seed = extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : Math.round(Math.random() * Number.MAX_SAFE_INTEGER);
     workflow = workflow.replaceAll('"%seed%"', JSON.stringify(seed));
+
+    const denoising_strength = extension_settings.sd.denoising_strength === undefined ? 1.0 : extension_settings.sd.denoising_strength;
+    workflow = workflow.replaceAll('"%denoise%"', JSON.stringify(denoising_strength));
+
     placeholders.forEach(ph => {
         workflow = workflow.replaceAll(`"%${ph}%"`, JSON.stringify(extension_settings.sd[ph]));
     });
@@ -3279,7 +3283,8 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
         const response = await fetch(getUserAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
             workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(avatarBase64));
         } else {
             workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(PNG_PIXEL));
@@ -3289,7 +3294,8 @@ async function generateComfyImage(prompt, negativePrompt, signal) {
         const response = await fetch(getCharacterAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
             workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(avatarBase64));
         } else {
             workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(PNG_PIXEL));

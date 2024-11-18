@@ -3026,6 +3026,7 @@
                                         <option value="codestral-latest">codestral-latest</option>
                                         <option value="codestral-mamba-latest">codestral-mamba-latest</option>
                                         <option value="pixtral-12b-latest">pixtral-12b-latest</option>
+                                        <option value="pixtral-large-latest">pixtral-large-latest</option>
                                     </optgroup>
                                     <optgroup label="Sub-versions">
                                         <option value="open-mistral-nemo-2407">open-mistral-nemo-2407</option>
@@ -3040,10 +3041,12 @@
                                         <option value="mistral-medium-2312">mistral-medium-2312</option>
                                         <option value="mistral-large-2402">mistral-large-2402</option>
                                         <option value="mistral-large-2407">mistral-large-2407</option>
+                                        <option value="mistral-large-2411">mistral-large-2411</option>
                                         <option value="codestral-2405">codestral-2405</option>
                                         <option value="codestral-2405-blue">codestral-2405-blue</option>
                                         <option value="codestral-mamba-2407">codestral-mamba-2407</option>
                                         <option value="pixtral-12b-2409">pixtral-12b-2409</option>
+                                        <option value="pixtral-large-2411">pixtral-large-2411</option>
                                     </optgroup>
                                     <optgroup id="mistralai_other_models" label="Other"></optgroup>
                                 </select>
@@ -4503,7 +4506,7 @@
                                 </div>
                             </div>
                             <div name="AutoCompleteToggle" class="inline-drawer wide100p flexFlowColumn">
-                                <div class="inline-drawer-toggle inline-drawer-header userSettingsInnerExpandable" title="Options for the various autocompelte input boxes.">
+                                <div class="inline-drawer-toggle inline-drawer-header userSettingsInnerExpandable" title="Options for the various autocomplete input boxes.">
                                     <b><span data-i18n="AutoComplete Settings">AutoComplete Settings</span></b>
                                     <div class="fa-solid fa-circle-chevron-down inline-drawer-icon down"></div>
                                 </div>
@@ -6631,8 +6634,11 @@
                 </div>
             </div>
             <div class="logprobs_panel_content inline-drawer-content flex-container flexFlowColumn">
-                <small>
+                <small class="flex-container alignItemsCenter justifySpaceBetween flexNoWrap">
                     <b data-i18n="Select a token to see alternatives considered by the AI.">Select a token to see alternatives considered by the AI.</b>
+                    <button id="logprobsReroll" class="menu_button margin0" title="Reroll with the entire prefix" data-i18n="[title]Reroll with the entire prefix">
+                        <span class="fa-solid fa-redo logprobs_reroll"></span>
+                    </button>
                 </small>
                 <hr>
                 <div id="logprobs_generation_output"></div>

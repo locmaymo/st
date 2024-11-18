@@ -7,7 +7,7 @@ import sanitize from 'sanitize-filename';
 import { sync as writeFileAtomicSync } from 'write-file-atomic';
 import FormData from 'form-data';
 
-import { getBasicAuthHeader, delay } from '../util.js';
+import { delay, getBasicAuthHeader, tryParse } from '../util.js';
 import { jsonParser } from '../express-common.js';
 import { readSecret, SECRET_KEYS } from './secrets.js';
 
@@ -19,7 +19,7 @@ import { readSecret, SECRET_KEYS } from './secrets.js';
 function getComfyWorkflows(directories) {
     return fs
         .readdirSync(directories.comfyWorkflows)
-        .filter(file => file[0] != '.' && file.toLowerCase().endsWith('.json'))
+        .filter(file => file[0] !== '.' && file.toLowerCase().endsWith('.json'))
         .sort(Intl.Collator().compare);
 }
 
@@ -67,8 +67,7 @@ router.post('/upscalers', jsonParser, async (request, response) => {
 
             /** @type {any} */
             const data = await result.json();
-            const names = data.map(x => x.name);
-            return names;
+            return data.map(x => x.name);
         }
 
         async function getLatentUpscalers() {
@@ -88,8 +87,7 @@ router.post('/upscalers', jsonParser, async (request, response) => {
 
             /** @type {any} */
             const data = await result.json();
-            const names = data.map(x => x.name);
-            return names;
+            return data.map(x => x.name);
         }
 
         const [upscalers, latentUpscalers] = await Promise.all([getUpscalerModels(), getLatentUpscalers()]);
@@ -241,8 +239,7 @@ router.post('/set-model', jsonParser, async (request, response) => {
                     'Authorization': getBasicAuthHeader(request.body.auth),
                 },
             });
-            const data = await result.json();
-            return data;
+            return await result.json();
         }
 
         const url = new URL(request.body.url);
@@ -274,7 +271,7 @@ router.post('/set-model', jsonParser, async (request, response) => {
 
             const progress = progressState['progress'];
             const jobCount = progressState['state']['job_count'];
-            if (progress == 0.0 && jobCount === 0) {
+            if (progress === 0.0 && jobCount === 0) {
                 break;
             }
 
@@ -412,8 +409,19 @@ comfy.post('/models', jsonParser, async (request, response) => {
         }
         /** @type {any} */
         const data = await result.json();
-        return response.send(data.CheckpointLoaderSimple.input.required.ckpt_name[0].map(it => ({ value: it, text: it })));
-    } catch (error) {
+
+        const ckpts = data.CheckpointLoaderSimple.input.required.ckpt_name[0].map(it => ({ value: it, text: it })) || [];
+        const unets = data.UNETLoader.input.required.unet_name[0].map(it => ({ value: it, text: `UNet: ${it}` })) || [];
+
+        // load list of GGUF unets from diffusion_models if the loader node is available
+        const ggufs = data.UnetLoaderGGUF?.input.required.unet_name[0].map(it => ({ value: it, text: `GGUF: ${it}` })) || [];
+        const models = [...ckpts, ...unets, ...ggufs];
+
+        // make the display names of the models somewhat presentable
+        models.forEach(it => it.text = it.text.replace(/\.[^.]*$/, '').replace(/_/g, ' '));
+
+        return response.send(models);
+    } catch (error)     {
         console.log(error);
         return response.sendStatus(500);
     }
@@ -527,7 +535,8 @@ comfy.post('/generate', jsonParser, async (request, response) => {
             body: request.body.prompt,
         });
         if (!promptResult.ok) {
-            throw new Error('ComfyUI returned an error.');
+            const text = await promptResult.text();
+            throw new Error('ComfyUI returned an error.', { cause: tryParse(text) });
         }
 
         /** @type {any} */
@@ -550,7 +559,13 @@ comfy.post('/generate', jsonParser, async (request, response) => {
             await delay(100);
         }
         if (item.status.status_str === 'error') {
-            throw new Error('ComfyUI generation did not succeed.');
+            // Report node tracebacks if available
+            const errorMessages = item.status?.messages
+                ?.filter(it => it[0] === 'execution_error')
+                .map(it => it[1])
+                .map(it => `${it.node_type} [${it.node_id}] ${it.exception_type}: ${it.exception_message}`)
+                .join('\n') || '';
+            throw new Error(`ComfyUI generation did not succeed.\n\n${errorMessages}`.trim());
         }
         const imgInfo = Object.keys(item.outputs).map(it => item.outputs[it].images).flat()[0];
         const imgUrl = new URL(request.body.url);
@@ -560,11 +575,12 @@ comfy.post('/generate', jsonParser, async (request, response) => {
         if (!imgResponse.ok) {
             throw new Error('ComfyUI returned an error.');
         }
-        const imgBuffer = await imgResponse.buffer();
-        return response.send(imgBuffer.toString('base64'));
+        const imgBuffer = await imgResponse.arrayBuffer();
+        return response.send(Buffer.from(imgBuffer).toString('base64'));
     } catch (error) {
-        console.log(error);
-        return response.sendStatus(500);
+        console.log('ComfyUI error:', error);
+        response.status(500).send(error.message);
+        return response;
     }
 });
 
