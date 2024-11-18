@@ -722,7 +722,7 @@ export function convertTextCompletionPrompt(messages) {
 export function cachingAtDepthForClaude(messages, cachingAtDepth) {
     let passedThePrefill = false;
     let depth = 0;
-    let previousRoleName = "";
+    let previousRoleName = '';
 
     for (let i = messages.length - 1; i >= 0; i--) {
         if (!passedThePrefill && messages[i].role === 'assistant') {
@@ -734,7 +734,7 @@ export function cachingAtDepthForClaude(messages, cachingAtDepth) {
         if (messages[i].role !== previousRoleName) {
             if (depth === cachingAtDepth || depth === cachingAtDepth + 2) {
                 const content = messages[i].content;
-                content[content.length - 1].cache_control = {type: "ephemeral"};
+                content[content.length - 1].cache_control = { type: 'ephemeral' };
             }
 
             if (depth === cachingAtDepth + 2) {
@@ -758,7 +758,7 @@ export function cachingAtDepthForOpenRouterClaude(messages, cachingAtDepth) {
     let passedThePrefill = false;
     //depth here is the number of message role switches
     let depth = 0;
-    let previousRoleName = "";
+    let previousRoleName = '';
     for (let i = messages.length - 1; i >= 0; i--) {
         if (!passedThePrefill && messages[i].role === 'assistant') {
             continue;
@@ -773,18 +773,18 @@ export function cachingAtDepthForOpenRouterClaude(messages, cachingAtDepth) {
                     messages[i].content = [{
                         type: 'text',
                         text: content,
-                        cache_control: {type: "ephemeral"},
+                        cache_control: { type: 'ephemeral' },
                     }];
                 } else {
                     const contentPartCount = content.length;
                     content[contentPartCount - 1].cache_control = {
-                        type: "ephemeral"
-                    }
+                        type: 'ephemeral',
+                    };
                 }
             }
 
             if (depth === cachingAtDepth + 2) {
-                break
+                break;
             }
 
             depth += 1;
