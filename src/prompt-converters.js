@@ -718,3 +718,77 @@ export function convertTextCompletionPrompt(messages) {
     });
     return messageStrings.join('\n') + '\nassistant:';
 }
+
+export function cachingAtDepthForClaude(messages, cachingAtDepth) {
+    let passedThePrefill = false;
+    let depth = 0;
+    let previousRoleName = '';
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (!passedThePrefill && messages[i].role === 'assistant') {
+            continue;
+        }
+
+        passedThePrefill = true;
+
+        if (messages[i].role !== previousRoleName) {
+            if (depth === cachingAtDepth || depth === cachingAtDepth + 2) {
+                const content = messages[i].content;
+                content[content.length - 1].cache_control = { type: 'ephemeral' };
+            }
+
+            if (depth === cachingAtDepth + 2) {
+                break;
+            }
+
+            depth += 1;
+            previousRoleName = messages[i].role;
+        }
+    }
+}
+
+/**
+ * Append cache_control headers to an OpenRouter request at depth. Directly modifies the
+ * messages array.
+ * @param {object[]} messages Array of messages
+ * @param {number} cachingAtDepth Depth at which caching is supposed to occur
+ */
+export function cachingAtDepthForOpenRouterClaude(messages, cachingAtDepth) {
+    //caching the prefill is a terrible idea in general
+    let passedThePrefill = false;
+    //depth here is the number of message role switches
+    let depth = 0;
+    let previousRoleName = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (!passedThePrefill && messages[i].role === 'assistant') {
+            continue;
+        }
+
+        passedThePrefill = true;
+
+        if (messages[i].role !== previousRoleName) {
+            if (depth === cachingAtDepth || depth === cachingAtDepth + 2) {
+                const content = messages[i].content;
+                if (typeof content === 'string') {
+                    messages[i].content = [{
+                        type: 'text',
+                        text: content,
+                        cache_control: { type: 'ephemeral' },
+                    }];
+                } else {
+                    const contentPartCount = content.length;
+                    content[contentPartCount - 1].cache_control = {
+                        type: 'ephemeral',
+                    };
+                }
+            }
+
+            if (depth === cachingAtDepth + 2) {
+                break;
+            }
+
+            depth += 1;
+            previousRoleName = messages[i].role;
+        }
+    }
+}

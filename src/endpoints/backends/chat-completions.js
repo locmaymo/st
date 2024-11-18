@@ -26,6 +26,8 @@ import {
     convertMistralMessages,
     convertAI21Messages,
     mergeMessages,
+    cachingAtDepthForOpenRouterClaude,
+    cachingAtDepthForClaude,
 } from '../../prompt-converters.js';
 
 import { readSecret, SECRET_KEYS } from '../secrets.js';
@@ -80,6 +82,11 @@ async function sendClaudeRequest(request, response) {
     const apiKey = request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.CLAUDE);
     const divider = '-'.repeat(process.stdout.columns);
     const enableSystemPromptCache = getConfigValue('claude.enableSystemPromptCache', false) && request.body.model.startsWith('claude-3');
+    let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1);
+    // Disabled if not an integer or negative, or if the model doesn't support it
+    if (!Number.isInteger(cachingAtDepth) || cachingAtDepth < 0 || !request.body.model.startsWith('claude-3')) {
+        cachingAtDepth = -1;
+    }
 
     if (!apiKey) {
         console.log(color.red(`Claude API key is missing.\n${divider}`));
@@ -138,9 +145,15 @@ async function sendClaudeRequest(request, response) {
                 requestBody.tools[requestBody.tools.length - 1]['cache_control'] = { type: 'ephemeral' };
             }
         }
-        if (enableSystemPromptCache) {
+
+        if (cachingAtDepth !== -1) {
+            cachingAtDepthForClaude(convertedPrompt.messages, cachingAtDepth);
+        }
+
+        if (enableSystemPromptCache || cachingAtDepth !== -1) {
             additionalHeaders['anthropic-beta'] = 'prompt-caching-2024-07-31';
         }
+
         console.log('Claude request:', requestBody);
 
         const generateResponse = await fetch(apiUrl + '/messages', {
@@ -875,6 +888,11 @@ router.post('/generate', jsonParser, function (request, response) {
 
         if (request.body.use_fallback) {
             bodyParams['route'] = 'fallback';
+        }
+
+        let cachingAtDepth = getConfigValue('claude.cachingAtDepth', -1);
+        if (Number.isInteger(cachingAtDepth) && cachingAtDepth >= 0 && request.body.model.startsWith('anthropic/claude-3')) {
+            cachingAtDepthForOpenRouterClaude(request.body.messages, cachingAtDepth);
         }
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.CUSTOM) {
         apiUrl = request.body.custom_url;
