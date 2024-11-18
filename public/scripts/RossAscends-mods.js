@@ -699,8 +699,7 @@ const chatBlock = document.getElementById('chat');
 const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
 /**
- * Resizes the chat input textarea vertically to match its text content, up to a maximum height defined in CSS.
- * Preserves scroll position in Chrome. In Firefox, the textarea grows to cover the chat history.
+ * this makes the chat input text area resize vertically to match the text size (limited by CSS at 50% window height)
  */
 function autoFitSendTextArea() {
     const originalScrollBottom = chatBlock.scrollHeight - (chatBlock.scrollTop + chatBlock.offsetHeight);
