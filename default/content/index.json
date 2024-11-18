@@ -136,6 +136,10 @@
         "type": "workflow"
     },
     {
+        "filename": "Char_Avatar_Comfy_Workflow.json",
+        "type": "workflow"
+    },
+    {
         "filename": "presets/kobold/Ace of Spades.json",
         "type": "kobold_preset"
     },
