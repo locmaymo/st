@@ -193,6 +193,7 @@ const settings = {
     openrouter_allow_fallbacks: true,
     xtc_threshold: 0.1,
     xtc_probability: 0,
+    nsigma: 0.0,
     featherless_model: '',
 };
 
@@ -265,6 +266,7 @@ export const setting_names = [
     'openrouter_allow_fallbacks',
     'xtc_threshold',
     'xtc_probability',
+    'nsigma',
 ];
 
 const DYNATEMP_BLOCK = document.getElementById('dynatemp_block_ooba');
@@ -1178,6 +1180,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'sampler_order': settings.type === textgen_types.KOBOLDCPP ? settings.sampler_order : undefined,
         'xtc_threshold': settings.xtc_threshold,
         'xtc_probability': settings.xtc_probability,
+        'nsigma': settings.nsigma,
     };
     const nonAphroditeParams = {
         'rep_pen': settings.rep_pen,
@@ -1245,6 +1248,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'dynatemp_exponent': dynatemp ? settings.dynatemp_exponent : undefined,
         'xtc_threshold': settings.xtc_threshold,
         'xtc_probability': settings.xtc_probability,
+        'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
     };
 
