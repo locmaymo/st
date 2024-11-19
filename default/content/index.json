@@ -766,5 +766,13 @@
     {
         "filename": "presets/context/Mistral V3-Tekken.json",
         "type": "context"
+    },
+    {
+        "filename": "presets/instruct/Mistral V7.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Mistral V7.json",
+        "type": "context"
     }
 ]
