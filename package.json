@@ -33,7 +33,6 @@
         "ip-matching": "^2.1.2",
         "ipaddr.js": "^2.0.1",
         "jimp": "^0.22.10",
-        "js-sha256": "^0.11.0",
         "localforage": "^1.10.0",
         "lodash": "^4.17.21",
         "mime-types": "^2.1.35",
