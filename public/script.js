@@ -1236,9 +1236,10 @@ async function getStatusTextgen() {
         const supportsTokenization = response.headers.get('x-supports-tokenization') === 'true';
         supportsTokenization ? sessionStorage.setItem(TOKENIZER_SUPPORTED_KEY, 'true') : sessionStorage.removeItem(TOKENIZER_SUPPORTED_KEY);
 
+        const wantsInstructDerivation = (power_user.instruct.enabled && power_user.instruct.derived);
+        const wantsContextDerivation = power_user.context_derived;
         const supportsChatTemplate = response.headers.get('x-supports-chat-template') === 'true';
-
-        if (supportsChatTemplate) {
+        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
             const response = await fetch('/api/backends/text-completions/chat_template', {
                 method: 'POST',
                 headers: getRequestHeaders(),
@@ -1251,12 +1252,16 @@ async function getStatusTextgen() {
             const data = await response.json();
             if (data) {
                 const { chat_template, chat_template_hash } = data;
-                console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
+                console.log(`${wantsContextDerivation} ${wantsInstructDerivation} We have chat template ${chat_template.split('\n')[0]}...`);
                 const templates = await deriveTemplatesFromChatTemplate(chat_template, chat_template_hash);
                 if (templates) {
                     const { context, instruct } = templates;
-                    selectContextPreset(context, { isAuto: true });
-                    selectInstructPreset(instruct, { isAuto: true });
+                    if (wantsContextDerivation) {
+                        selectContextPreset(context, { isAuto: true });
+                    }
+                    if (wantsInstructDerivation) {
+                        selectInstructPreset(instruct, { isAuto: true });
+                    }
                 }
             }
         }
