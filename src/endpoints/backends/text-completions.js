@@ -218,9 +218,49 @@ router.post('/status', jsonParser, async function (request, response) {
             } catch (error) {
                 console.error(`Failed to get TabbyAPI model info: ${error}`);
             }
+        } else if (apiType == TEXTGEN_TYPES.KOBOLDCPP) {
+            try {
+                const chatTemplateUrl = baseUrl + '/api/extra/chat_template';
+                const chatTemplateReply = await fetch(chatTemplateUrl);
+                if (chatTemplateReply.ok) {
+                    response.setHeader('x-supports-chat-template', 'true');
+                } else {
+                    console.log(`ct res = ${JSON.stringify(chatTemplateReply)}`);
+                }
+            } catch (error) {
+                console.error(`Failed to fetch chat template info: ${error}`);
+            }
         }
 
         return response.send({ result, data: data.data });
+    } catch (error) {
+        console.error(error);
+        return response.status(500);
+    }
+});
+
+router.post('/chat_template', jsonParser, async function (request, response) {
+    if (!request.body.api_server) return response.sendStatus(400);
+
+    try {
+        const baseUrl = trimV1(request.body.api_server);
+        const args = {
+            headers: { 'Content-Type': 'application/json' },
+        };
+
+        setAdditionalHeaders(request, args, baseUrl);
+
+        const chatTemplateUrl = baseUrl + '/api/extra/chat_template';
+        const chatTemplateReply = await fetch(chatTemplateUrl, args);
+
+        if (!chatTemplateReply.ok) {
+            console.log('Chat template endpoint is offline.');
+            return response.status(400);
+        }
+
+        /** @type {any} */
+        const chatTemplate = await chatTemplateReply.json();
+        return response.send(chatTemplate);
     } catch (error) {
         console.error(error);
         return response.status(500);

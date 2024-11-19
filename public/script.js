@@ -267,6 +267,7 @@ import { applyBrowserFixes } from './scripts/browser-fixes.js';
 import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
+import { deriveTemplatesFromChatTemplate } from './scripts/chat-cemplates.js';
 
 //exporting functions and vars for mods
 export {
@@ -1234,6 +1235,31 @@ async function getStatusTextgen() {
 
         const supportsTokenization = response.headers.get('x-supports-tokenization') === 'true';
         supportsTokenization ? sessionStorage.setItem(TOKENIZER_SUPPORTED_KEY, 'true') : sessionStorage.removeItem(TOKENIZER_SUPPORTED_KEY);
+
+        const supportsChatTemplate = response.headers.get('x-supports-chat-template') === 'true';
+
+        if (supportsChatTemplate) {
+            const response = await fetch('/api/backends/text-completions/chat_template', {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({
+                    api_server: endpoint,
+                    api_type: textgen_settings.type,
+                }),
+            });
+
+            const data = await response.json();
+            if (data) {
+                const chat_template = data.chat_template;
+                console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
+                const templates = await deriveTemplatesFromChatTemplate(chat_template);
+                if (templates) {
+                    const { context, instruct } = templates;
+                    selectContextPreset(context, { isAuto: true });
+                    selectInstructPreset(instruct, { isAuto: true });
+                }
+            }
+        }
 
         // We didn't get a 200 status code, but the endpoint has an explanation. Which means it DID connect, but I digress.
         if (online_status === 'no_connection' && data.response) {
