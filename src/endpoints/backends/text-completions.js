@@ -226,7 +226,7 @@ router.post('/status', jsonParser, async function (request, response) {
                 if (chatTemplateReply.ok) {
                     response.setHeader('x-supports-chat-template', 'true');
                 } else {
-                    console.log(`ct res = ${JSON.stringify(chatTemplateReply)}`);
+                    console.log(`chat_template error: ${JSON.stringify(chatTemplateReply)}`);
                 }
             } catch (error) {
                 console.error(`Failed to fetch chat template info: ${error}`);
