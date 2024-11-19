@@ -1250,9 +1250,9 @@ async function getStatusTextgen() {
 
             const data = await response.json();
             if (data) {
-                const chat_template = data.chat_template;
+                const { chat_template, chat_template_hash } = data;
                 console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
-                const templates = await deriveTemplatesFromChatTemplate(chat_template);
+                const templates = await deriveTemplatesFromChatTemplate(chat_template, chat_template_hash);
                 if (templates) {
                     const { context, instruct } = templates;
                     selectContextPreset(context, { isAuto: true });

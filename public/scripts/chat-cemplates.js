@@ -1,14 +1,3 @@
-// https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
-async function digestMessage(message) {
-    const msgUint8 = new TextEncoder().encode(message); // encode as (utf-8) Uint8Array
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8); // hash the message
-    const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
-    const hashHex = hashArray
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join(''); // convert bytes to hex string
-    return hashHex;
-}
-
 // the hash can be obtained from command line e.g. via: MODEL=path_to_model; python -c "import json, hashlib, sys; print(hashlib.sha256(json.load(open('"$MODEL"/tokenizer_config.json'))['chat_template'].strip().encode()).hexdigest())"
 // note that chat templates must be trimmed to match the llama.cpp metadata value
 const derivations = {
@@ -66,8 +55,7 @@ const derivations = {
     },
 };
 
-export async function deriveTemplatesFromChatTemplate(chat_template) {
-    const hash = await digestMessage(chat_template);
+export async function deriveTemplatesFromChatTemplate(chat_template, hash) {
     if (hash in derivations) {
         return derivations[hash];
     }

@@ -16,6 +16,7 @@ import {
 } from '../../constants.js';
 import { forwardFetchResponse, trimV1, getConfigValue } from '../../util.js';
 import { setAdditionalHeaders } from '../../additional-headers.js';
+import { sha256 } from 'js-sha256';
 
 export const router = express.Router();
 
@@ -260,6 +261,7 @@ router.post('/chat_template', jsonParser, async function (request, response) {
 
         /** @type {any} */
         const chatTemplate = await chatTemplateReply.json();
+        chatTemplate['chat_template_hash'] = sha256.create().update(chatTemplate['chat_template']).hex();
         return response.send(chatTemplate);
     } catch (error) {
         console.error(error);
