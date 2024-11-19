@@ -59,6 +59,6 @@ export async function deriveTemplatesFromChatTemplate(chat_template, hash) {
     if (hash in derivations) {
         return derivations[hash];
     }
-    console.log(`Unknown chat template hash: ${hash}`);
+    console.log(`Unknown chat template hash: ${hash} for [${chat_template}]`);
     return null;
 }
