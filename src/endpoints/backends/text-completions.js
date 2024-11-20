@@ -219,19 +219,7 @@ router.post('/status', jsonParser, async function (request, response) {
             } catch (error) {
                 console.error(`Failed to get TabbyAPI model info: ${error}`);
             }
-        } else if (apiType == TEXTGEN_TYPES.KOBOLDCPP) {
-            try {
-                const chatTemplateUrl = baseUrl + '/api/extra/chat_template';
-                const chatTemplateReply = await fetch(chatTemplateUrl);
-                if (chatTemplateReply.ok) {
-                    response.setHeader('x-supports-chat-template', 'true');
-                } else {
-                    console.log(`chat_template error: ${JSON.stringify(chatTemplateReply)}`);
-                }
-            } catch (error) {
-                console.error(`Failed to fetch chat template info: ${error}`);
-            }
-        } else if (apiType == TEXTGEN_TYPES.LLAMACPP) {
+        } else if (apiType == TEXTGEN_TYPES.KOBOLDCPP || apiType == TEXTGEN_TYPES.LLAMACPP) {
             // the /props endpoint includes chat template
             response.setHeader('x-supports-chat-template', 'true');
         }
@@ -242,11 +230,6 @@ router.post('/status', jsonParser, async function (request, response) {
         return response.status(500);
     }
 });
-
-const chat_template_endpoints = {
-    koboldcpp: '/api/extra/chat_template',
-    llamacpp: '/props',
-}
 
 router.post('/chat_template', jsonParser, async function (request, response) {
     if (!request.body.api_server) return response.sendStatus(400);
@@ -260,23 +243,23 @@ router.post('/chat_template', jsonParser, async function (request, response) {
         setAdditionalHeaders(request, args, baseUrl);
 
         const apiType = request.body.api_type;
-        const chatTemplateUrl = baseUrl + chat_template_endpoints[apiType];
-        const chatTemplateReply = await fetch(chatTemplateUrl, args);
+        const propsUrl = baseUrl + "/props";
+        const propsReply = await fetch(propsUrl, args);
 
-        if (!chatTemplateReply.ok) {
-            console.log('Chat template endpoint is offline.');
+        if (!propsReply.ok) {
+            console.log('Properties endpoint is offline.');
             return response.status(400);
         }
 
         /** @type {any} */
-        const chatTemplate = await chatTemplateReply.json();
+        const props = await propsReply.json();
         // TEMPORARY: llama.cpp's /props endpoint includes a \u0000 at the end of the chat template, resulting in mismatching hashes
-        if (apiType === TEXTGEN_TYPES.LLAMACPP && chatTemplate['chat_template'].endsWith('\u0000')) {
-            chatTemplate['chat_template'] = chatTemplate['chat_template'].slice(0, -1);
+        if (apiType === TEXTGEN_TYPES.LLAMACPP && props['chat_template'].endsWith('\u0000')) {
+            props['chat_template'] = props['chat_template'].slice(0, -1);
         }
-        chatTemplate['chat_template_hash'] = createHash('sha256').update(chatTemplate['chat_template']).digest('hex');
-        console.log(`We have chat template stuff: ${JSON.stringify(chatTemplate)}`);
-        return response.send(chatTemplate);
+        props['chat_template_hash'] = createHash('sha256').update(props['chat_template']).digest('hex');
+        console.log(`We have chat template stuff: ${JSON.stringify(props)}`);
+        return response.send(props);
     } catch (error) {
         console.error(error);
         return response.status(500);
