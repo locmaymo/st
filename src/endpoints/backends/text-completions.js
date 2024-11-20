@@ -257,6 +257,7 @@ router.post('/chat_template', jsonParser, async function (request, response) {
         if (apiType === TEXTGEN_TYPES.LLAMACPP && props['chat_template'].endsWith('\u0000')) {
             props['chat_template'] = props['chat_template'].slice(0, -1);
         }
+        props['chat_template'] = props['chat_template'].trim();
         props['chat_template_hash'] = createHash('sha256').update(props['chat_template']).digest('hex');
         console.log(`We have chat template stuff: ${JSON.stringify(props)}`);
         return response.send(props);
