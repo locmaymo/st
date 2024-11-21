@@ -1,6 +1,6 @@
 // the hash can be obtained from command line e.g. via: MODEL=path_to_model; python -c "import json, hashlib, sys; print(hashlib.sha256(json.load(open('"$MODEL"/tokenizer_config.json'))['chat_template'].encode()).hexdigest())"
 // note that chat templates must be trimmed to match the llama.cpp metadata value
-const derivations = {
+const hash_derivations = {
     // Meta
     'e10ca381b1ccc5cf9db52e371f3b6651576caee0a630b452e2816b2d404d4b65':
         // Meta-Llama-3.1-8B-Instruct
@@ -51,17 +51,27 @@ const derivations = {
     ,
 };
 
+const substr_derivations = {
+    '<|im_start|>': 'ChatML', // qwen2.5, ...
+}
+
+const parse_derivation = derivation => (typeof derivation === 'string') ? {
+    'context': derivation,
+    'instruct': derivation,
+} : derivation;
+
 export async function deriveTemplatesFromChatTemplate(chat_template, hash) {
-    if (hash in derivations) {
-        const derivation = derivations[hash];
-        if (typeof derivation === 'string') {
-            return {
-                'context': derivation,
-                'instruct': derivation,
-            }
-        }
-        return derivation;
+    if (hash in hash_derivations) {
+        return parse_derivation(hash_derivations[hash]);
     }
+
+    // heuristics
+    for (const [substr, derivation] of Object.entries(substr_derivations) ) {
+        if (chat_template.includes(substr)) {
+            return parse_derivation(derivation);
+        }
+    }
+
     console.log(`Unknown chat template hash: ${hash} for [${chat_template}]`);
     return null;
 }
