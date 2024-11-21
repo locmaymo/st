@@ -1240,7 +1240,7 @@ async function getStatusTextgen() {
         const wantsContextDerivation = power_user.context_derived;
         const supportsChatTemplate = response.headers.get('x-supports-chat-template') === 'true';
         if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
-            const response = await fetch('/api/backends/text-completions/chat_template', {
+            const response = await fetch('/api/backends/text-completions/props', {
                 method: 'POST',
                 headers: getRequestHeaders(),
                 body: JSON.stringify({

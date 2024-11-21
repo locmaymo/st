@@ -231,7 +231,7 @@ router.post('/status', jsonParser, async function (request, response) {
     }
 });
 
-router.post('/chat_template', jsonParser, async function (request, response) {
+router.post('/props', jsonParser, async function (request, response) {
     if (!request.body.api_server) return response.sendStatus(400);
 
     try {
@@ -253,13 +253,12 @@ router.post('/chat_template', jsonParser, async function (request, response) {
 
         /** @type {any} */
         const props = await propsReply.json();
-        // TEMPORARY: llama.cpp's /props endpoint includes a \u0000 at the end of the chat template, resulting in mismatching hashes
+        // TEMPORARY: llama.cpp's /props endpoint has a bug which replaces the last newline with a \0
         if (apiType === TEXTGEN_TYPES.LLAMACPP && props['chat_template'].endsWith('\u0000')) {
-            props['chat_template'] = props['chat_template'].slice(0, -1);
+            props['chat_template'] = props['chat_template'].slice(0, -1) + '\n';
         }
-        props['chat_template'] = props['chat_template'].trim();
         props['chat_template_hash'] = createHash('sha256').update(props['chat_template']).digest('hex');
-        console.log(`We have chat template stuff: ${JSON.stringify(props)}`);
+        console.log(`We have props: ${JSON.stringify(props)}`);
         return response.send(props);
     } catch (error) {
         console.error(error);
