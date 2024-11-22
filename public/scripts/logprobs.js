@@ -519,14 +519,14 @@ function convertTokenIdLogprobsToText(input) {
 
     const tokenizerId = getTokenizerBestMatch(api);
 
-    // Flatten unique token IDs across all logprobs
+    /** @type {any[]} Flatten unique token IDs across all logprobs */
     const tokenIds = Array.from(new Set(input.flatMap(logprobs =>
         logprobs.topLogprobs.map(([token]) => token).concat(logprobs.token),
     )));
 
     // Submit token IDs to tokenizer to get token text, then build ID->text map
     // noinspection JSCheckFunctionSignatures - mutates input in-place
-    const { chunks } = decodeTextTokens(tokenizerId, tokenIds.map(parseInt));
+    const { chunks } = decodeTextTokens(tokenizerId, tokenIds);
     const tokenIdText = new Map(tokenIds.map((id, i) => [id, chunks[i]]));
 
     // Fixup logprobs data with token text
