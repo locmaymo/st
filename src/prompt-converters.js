@@ -347,6 +347,7 @@ export function convertGooglePrompt(messages, model, useSysPrompt = false, charN
         'gemini-1.5-flash-8b-exp-0827',
         'gemini-1.5-flash-8b-exp-0924',
         'gemini-exp-1114',
+        'gemini-exp-1121',
         'gemini-1.5-pro',
         'gemini-1.5-pro-latest',
         'gemini-1.5-pro-001',
