@@ -2362,6 +2362,7 @@ function ensureSelectionExists(setting, selector) {
  * @param {string} [message] Chat message
  * @param {function} [callback] Callback function
  * @returns {Promise<string>} Image path
+ * @throws {Error} If the prompt or image generation fails
  */
 async function generatePicture(initiator, args, trigger, message, callback) {
     if (!trigger || trigger.trim().length === 0) {
@@ -2379,7 +2380,7 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     trigger = trigger.trim();
     const generationType = getGenerationType(trigger);
-    console.log('Generation mode', generationType, 'triggered with', trigger);
+    console.log('Image generation mode', generationType, 'triggered with', trigger);
     const quietPrompt = getQuietPrompt(generationType, trigger);
     const context = getContext();
 
@@ -2387,7 +2388,7 @@ async function generatePicture(initiator, args, trigger, message, callback) {
         ? context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString()
         : context.characters[context.characterId]?.name;
 
-    if (generationType == generationMode.BACKGROUND) {
+    if (generationType === generationMode.BACKGROUND) {
         const callbackOriginal = callback;
         callback = async function (prompt, imagePath, generationType, _negativePromptPrefix, _initiator, prefixedPrompt) {
             const imgUrl = `url("${encodeURI(imagePath)}")`;
@@ -2415,6 +2416,8 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     try {
         const combineNegatives = (prefix) => { negativePromptPrefix = combinePrefixes(negativePromptPrefix, prefix); };
+
+        // generate the text prompt for the image
         const prompt = await getPrompt(generationType, message, trigger, quietPrompt, combineNegatives);
         console.log('Processed image prompt:', prompt);
 
@@ -2425,6 +2428,7 @@ async function generatePicture(initiator, args, trigger, message, callback) {
             args._abortController.addEventListener('abort', stopListener);
         }
 
+        // generate the image
         imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiator, abortController.signal);
     } catch (err) {
         console.trace(err);
@@ -2500,7 +2504,7 @@ function restoreOriginalDimensions(savedParams) {
  */
 async function getPrompt(generationType, message, trigger, quietPrompt, combineNegatives) {
     let prompt;
-
+    console.log('getPrompt: Generation mode', generationType, 'triggered with', trigger);
     switch (generationType) {
         case generationMode.RAW_LAST:
             prompt = message || getRawLastMessage();
@@ -2718,7 +2722,7 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
             throw new Error('Endpoint did not return image data.');
         }
     } catch (err) {
-        console.error(err);
+        console.error('Image generation request error: ', err);
         toastr.error('Image generation failed. Please try again.' + '\n\n' + String(err), 'Image Generation');
         return;
     }

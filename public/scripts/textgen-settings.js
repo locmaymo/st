@@ -880,6 +880,13 @@ function setSettingByName(setting, value, trigger) {
     }
 }
 
+/**
+ * Sends a streaming request for textgenerationwebui.
+ * @param generate_data
+ * @param signal
+ * @returns {Promise<(function(): AsyncGenerator<{swipes: [], text: string, toolCalls: [], logprobs: {token: string, topLogprobs: Candidate[]}|null}, void, *>)|*>}
+ * @throws {Error} - If the response status is not OK, or from within the generator
+ */
 async function generateTextGenWithStreaming(generate_data, signal) {
     generate_data.stream = true;
 
@@ -995,6 +1002,7 @@ export function parseTabbyLogprobs(data) {
  * @param {Response} response - Response from the server.
  * @param {string} decoded - Decoded response body.
  * @returns {void} Nothing.
+ * @throws {Error} If the response contains an error message, throws Error with the message.
  */
 function tryParseStreamingError(response, decoded) {
     let data = {};
