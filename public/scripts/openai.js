@@ -2057,8 +2057,9 @@ async function sendOpenAIRequest(type, messages, signal) {
         checkModerationError(data);
 
         if (data.error) {
-            toastr.error(data.error.message || response.statusText, t`API returned an error`);
-            throw new Error(data);
+            const message = data.error.message || response.statusText || t`Unknown error`;
+            toastr.error(message, t`API returned an error`);
+            throw new Error(message);
         }
 
         if (type !== 'quiet') {

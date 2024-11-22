@@ -2432,8 +2432,12 @@ async function generatePicture(initiator, args, trigger, message, callback) {
         imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiator, abortController.signal);
     } catch (err) {
         console.trace(err);
-        toastr.error('SD prompt text generation failed. Reason: ' + err, 'Image Generation');
-        throw new Error('SD prompt text generation failed. Reason: ' + err);
+        // errors here are most likely due to text generation failure
+        // sendGenerationRequest mostly deals with its own errors
+        const reason = err.error?.message || err.message || 'Unknown error';
+        const errorText = 'SD prompt text generation failed. ' + reason;
+        toastr.error(errorText, 'Image Generation');
+        throw new Error(errorText);
     }
     finally {
         $(stopButton).hide();
