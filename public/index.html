@@ -91,9 +91,6 @@
                                 <div class="margin0 title_restorable standoutHeader">
                                     <strong>
                                         <span data-i18n="kobldpresets">Kobold Presets</span>
-                                        <a href="https://docs.sillytavern.app/usage/api-connections/koboldai/" class="notes-link" target="_blank">
-                                            <span class="fa-solid fa-circle-question note-link-span"></span>
-                                        </a>
                                     </strong>
 
                                     <div class="flex-container gap3px">
@@ -3274,8 +3271,14 @@
             </div>
             <div id="AdvancedFormatting" class="drawer-content">
                 <div class="flex-container alignItemsBaseline">
-                    <h3 class="margin0 flex1" data-i18n="Advanced Formatting">
-                        Advanced Formatting
+                    <h3 class="margin0 flex1 flex-container alignItemsBaseline">
+                        <span data-i18n="Advanced Formatting">
+                            Advanced Formatting
+                        </span>
+
+                        <a href="https://docs.sillytavern.app/usage/prompts/" class="notes-link" target="_blank">
+                            <span class="fa-solid fa-circle-question note-link-span"></span>
+                        </a>
                     </h3>
                     <div class="flex-container">
                         <input id="af_master_import_file" type="file" hidden accept=".json" class="displayNone">
@@ -3295,9 +3298,12 @@
                             <h4 class="standoutHeader title_restorable">
                                 <div>
                                     <span data-i18n="Context Template">Context Template</span>
-                                    <a href="https://docs.sillytavern.app/usage/core-concepts/advancedformatting/#context-template" class="notes-link" target="_blank">
-                                        <span class="fa-solid fa-circle-question note-link-span"></span>
-                                    </a>
+                                </div>
+                                <div class="flex-container">
+                                    <label for="context_derived" class="checkbox_label flex1" title="Derive from Model Metadata, if possible." data-i18n="[title]context_derived">
+                                        <input id="context_derived" type="checkbox" style="display:none;" />
+                                        <small><i class="fa-solid fa-bolt menu_button margin0"></i></small>
+                                    </label>
                                 </div>
                             </h4>
                             <div class="flex-container" title="Select your current Context Template" data-i18n="[title]Select your current Context Template">
@@ -3394,11 +3400,12 @@
                         <h4 class="standoutHeader title_restorable justifySpaceBetween">
                             <div class="flex-container">
                                 <span data-i18n="Instruct Template">Instruct Template</span>
-                                <a href="https://docs.sillytavern.app/usage/core-concepts/instructmode/" class="notes-link" target="_blank">
-                                    <span class="fa-solid fa-circle-question note-link-span"></span>
-                                </a>
                             </div>
                             <div class="flex-container">
+                                <label for="instruct_derived" class="checkbox_label flex1" title="Derive from Model Metadata, if possible." data-i18n="[title]instruct_derived">
+                                    <input id="instruct_derived" type="checkbox" style="display:none;" />
+                                    <small><i class="fa-solid fa-bolt menu_button margin0"></i></small>
+                                </label>
                                 <label for="instruct_bind_to_context" class="checkbox_label flex1" title="Bind to Context&#10If enabled, Context templates will be automatically selected based on selected Instruct template name or by preference." data-i18n="[title]instruct_bind_to_context">
                                     <input id="instruct_bind_to_context" type="checkbox" style="display:none;" />
                                     <small><i class="fa-solid fa-link menu_button margin0"></i></small>
@@ -3579,9 +3586,6 @@
                         <h4 class="standoutHeader title_restorable justifySpaceBetween">
                             <div class="flex-container">
                                 <span data-i18n="System Prompt">System Prompt</span>
-                                <a href="https://docs.sillytavern.app/usage/core-concepts/advancedformatting/#system-prompt" class="notes-link" target="_blank">
-                                    <span class="fa-solid fa-circle-question note-link-span"></span>
-                                </a>
                             </div>
                             <div class="flex-container">
                                 <label id="sysprompt_enabled_label" for="sysprompt_enabled" class="checkbox_label flex1" title="Enable System Prompt" data-i18n="[title]sysprompt_enabled">
@@ -3649,7 +3653,7 @@
                         <div name="tokenizerSettingsBlock">
                             <div name="tokenizerSelectorBlock">
                                 <h4 class="standoutHeader"><span data-i18n="Tokenizer">Tokenizer</span>
-                                    <a href="https://docs.sillytavern.app/usage/core-concepts/advancedformatting/#tokenizer" class="notes-link" target="_blank">
+                                    <a href="https://docs.sillytavern.app/usage/prompts/tokenizer/" class="notes-link" target="_blank">
                                         <span class="fa-solid fa-circle-question note-link-span"></span>
                                     </a>
                                 </h4>
@@ -3675,10 +3679,8 @@
                             </div>
                             <div class="range-block flex-container flexnowrap" name="tokenPaddingBlock">
                                 <div class="range-block-title justifyLeft">
-                                    <small data-i18n="Token Padding" class="flex-container">Token Padding
-                                        <a href="https://docs.sillytavern.app/usage/core-concepts/advancedformatting/#token-padding" class="notes-link" target="_blank">
-                                            <span class="fa-solid fa-circle-question note-link-span"></span>
-                                        </a>
+                                    <small data-i18n="Token Padding">
+                                        Token Padding
                                     </small>
                                 </div>
                                 <input id="token_padding" class="text_pole textarea_compact" type="number" min="-2048" max="2048" />
@@ -3736,7 +3738,7 @@
                     </div>
                     <h3 class="margin0">
                         <span data-i18n="Worlds/Lorebooks">Worlds/Lorebooks</span>
-                        <a href="https://docs.sillytavern.app/usage/core-concepts/worldinfo/" class="notes-link" target="_blank">
+                        <a href="https://docs.sillytavern.app/usage/worldinfo/" class="notes-link" target="_blank">
                             <span class="fa-solid fa-circle-question note-link-span"></span>
                         </a>
                     </h3>
@@ -4263,7 +4265,7 @@
                                 <audio id="audio_message_sound" src="sounds/message.mp3" hidden></audio>
                                 <span>
                                     <small data-i18n="Message Sound">Message Sound</small>
-                                    <a href="https://docs.sillytavern.app/usage/core-concepts/uicustomization/#message-sound" class="notes-link" target="_blank">
+                                    <a href="https://docs.sillytavern.app/usage/user_settings/uicustomization/#message-sound" class="notes-link" target="_blank">
                                         <span class="fa-solid fa-circle-question note-link-span"></span>
                                     </a>
                                 </span>
@@ -5795,7 +5797,7 @@
                                     <div class="flex-container justifySpaceBetween">
                                         <small for="group">
                                             <span data-i18n="Inclusion Group">Inclusion Group</span>
-                                            <a href="https://docs.sillytavern.app/usage/core-concepts/worldinfo/#inclusion-group" class="notes-link" target="_blank" title="Inclusion Groups ensure only one entry from a group is activated at a time, if multiple are triggered.&#13;Supports multiple comma-separated groups.&#13;&#13;Documentation: World Info - Inclusion Group" data-i18n="[title]Inclusion Groups ensure only one entry from a group is activated at a time, if multiple are triggered.Documentation: World Info - Inclusion Group">
+                                            <a href="https://docs.sillytavern.app/usage/worldinfo/#inclusion-group" class="notes-link" target="_blank" title="Inclusion Groups ensure only one entry from a group is activated at a time, if multiple are triggered.&#13;Supports multiple comma-separated groups.&#13;&#13;Documentation: World Info - Inclusion Group" data-i18n="[title]Inclusion Groups ensure only one entry from a group is activated at a time, if multiple are triggered.Documentation: World Info - Inclusion Group">
                                                 <span class="fa-solid fa-circle-question note-link-span"></span>
                                             </a>
                                         </small>
