@@ -709,7 +709,7 @@ async function refinePrompt(prompt, isNegative) {
     return prompt;
 }
 
-function onChatChanged() {
+async function onChatChanged() {
     if (this_chid === undefined || selected_group) {
         $('#sd_character_prompt_block').hide();
         return;
@@ -737,7 +737,7 @@ function onChatChanged() {
     $('#sd_character_prompt').val(characterPrompt);
     $('#sd_character_negative_prompt').val(negativePrompt);
     $('#sd_character_prompt_share').prop('checked', hasSharedData);
-    void adjustElementScrollHeight();
+    await adjustElementScrollHeight();
 }
 
 async function adjustElementScrollHeight() {
