@@ -267,7 +267,7 @@ import { applyBrowserFixes } from './scripts/browser-fixes.js';
 import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
-import { deriveTemplatesFromChatTemplate } from './scripts/chat-cemplates.js';
+import { deriveTemplatesFromChatTemplate } from './scripts/chat-templates.js';
 
 //exporting functions and vars for mods
 export {

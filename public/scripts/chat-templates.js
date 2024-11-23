@@ -53,7 +53,7 @@ const hash_derivations = {
 
 const substr_derivations = {
     '<|im_start|>': 'ChatML', // qwen2.5, ...
-}
+};
 
 const parse_derivation = derivation => (typeof derivation === 'string') ? {
     'context': derivation,
