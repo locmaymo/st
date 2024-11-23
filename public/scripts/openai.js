@@ -1326,7 +1326,7 @@ function tryParseStreamingError(response, decoded) {
             return;
         }
 
-        void checkQuotaError(data);
+        checkQuotaError(data);
         checkModerationError(data);
 
         // these do not throw correctly (equiv to Error("[object Object]"))
@@ -1350,18 +1350,16 @@ function tryParseStreamingError(response, decoded) {
 /**
  * Checks if the response contains a quota error and displays a popup if it does.
  * @param data
- * @returns {Promise<void>}
+ * @returns {void}
  * @throws {object} - response JSON
  */
-async function checkQuotaError(data) {
-    const errorText = await renderTemplateAsync('quotaError');
-
+function checkQuotaError(data) {
     if (!data) {
         return;
     }
 
     if (data.quota_error) {
-        callPopup(errorText, 'text');
+        renderTemplateAsync('quotaError').then((html) => Popup.show.text('Quota Error', html));
 
         // this does not throw correctly (equiv to Error("[object Object]"))
         // if trying to fix "[object Object]" displayed to users, start here
@@ -2054,7 +2052,7 @@ async function sendOpenAIRequest(type, messages, signal) {
     else {
         const data = await response.json();
 
-        await checkQuotaError(data);
+        checkQuotaError(data);
         checkModerationError(data);
 
         if (data.error) {
