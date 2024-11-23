@@ -2550,7 +2550,7 @@ async function getPrompt(generationType, message, trigger, quietPrompt, combineN
  */
 function generateFreeModePrompt(trigger, combineNegatives) {
     return trigger
-        .replace(/^char(\s|,)|\{\{charPrefix}}/gi, (_, suffix) => {
+        .replace(/^char(\s|,)|{{charPrefix}}/gi, (_, suffix) => {
             const getLastCharacterKey = () => {
                 if (typeof this_chid !== 'undefined') {
                     return getCharaFilename(this_chid);
