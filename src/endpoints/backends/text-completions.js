@@ -237,7 +237,7 @@ router.post('/props', jsonParser, async function (request, response) {
     try {
         const baseUrl = trimV1(request.body.api_server);
         const args = {
-            headers: { 'Content-Type': 'application/json' },
+            headers: {},
         };
 
         setAdditionalHeaders(request, args, baseUrl);
@@ -247,7 +247,6 @@ router.post('/props', jsonParser, async function (request, response) {
         const propsReply = await fetch(propsUrl, args);
 
         if (!propsReply.ok) {
-            console.log('Properties endpoint is offline.');
             return response.status(400);
         }
 
@@ -258,7 +257,7 @@ router.post('/props', jsonParser, async function (request, response) {
             props['chat_template'] = props['chat_template'].slice(0, -1) + '\n';
         }
         props['chat_template_hash'] = createHash('sha256').update(props['chat_template']).digest('hex');
-        console.log(`We have props: ${JSON.stringify(props)}`);
+        console.log(`Model properties: ${JSON.stringify(props)}`);
         return response.send(props);
     } catch (error) {
         console.error(error);
