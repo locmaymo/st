@@ -118,13 +118,13 @@ const triggerWords = {
 };
 
 const messageTrigger = {
-    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render|show)\b.{0,10}\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those|your)?)?(.+)/i,
+    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render|show)\b.{0,10}\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those|your)?\s+)?(.+)/i,
     specialCases: {
         [generationMode.CHARACTER]: ['you', 'yourself'],
         [generationMode.USER]: ['me', 'myself'],
         [generationMode.SCENARIO]: ['story', 'scenario', 'whole story'],
         [generationMode.NOW]: ['last message'],
-        [generationMode.FACE]: ['your face', 'your portrait', 'your selfie'],
+        [generationMode.FACE]: ['face', 'portrait', 'selfie'],
         [generationMode.BACKGROUND]: ['background', 'scene background', 'scene', 'scenery', 'surroundings', 'environment'],
     },
 };
@@ -343,7 +343,7 @@ function processTriggers(chat, _, abort) {
             return;
         }
 
-        console.log(`SD: Triggered by "${message}", detected subject: ${subject}"`);
+        console.log(`SD: Triggered by "${message}", detected subject: "${subject}"`);
 
         outer: for (const [specialMode, triggers] of Object.entries(messageTrigger.specialCases)) {
             for (const trigger of triggers) {
@@ -2379,7 +2379,9 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     trigger = trigger.trim();
     const generationType = getGenerationType(trigger);
-    console.log('Generation mode', generationType, 'triggered with', trigger);
+    const generationTypeKey = Object.keys(generationMode).find(key => generationMode[key] === generationType);
+    console.log(`Generation mode ${generationTypeKey} triggered with "${trigger}"`);
+
     const quietPrompt = getQuietPrompt(generationType, trigger);
     const context = getContext();
 
