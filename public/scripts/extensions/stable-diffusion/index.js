@@ -2404,7 +2404,7 @@ async function generatePicture(initiator, args, trigger, message, callback) {
         const callbackOriginal = callback;
         callback = async function (prompt, imagePath, generationType, _negativePromptPrefix, _initiator, prefixedPrompt) {
             const imgUrl = `url("${encodeURI(imagePath)}")`;
-            void eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
+            await eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
 
             if (typeof callbackOriginal === 'function') {
                 await callbackOriginal(prompt, imagePath, generationType, negativePromptPrefix, initiator, prefixedPrompt);
