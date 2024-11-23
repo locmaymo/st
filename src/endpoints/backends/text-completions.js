@@ -16,7 +16,7 @@ import {
 } from '../../constants.js';
 import { forwardFetchResponse, trimV1, getConfigValue } from '../../util.js';
 import { setAdditionalHeaders } from '../../additional-headers.js';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
 export const router = express.Router();
 
@@ -243,7 +243,7 @@ router.post('/props', jsonParser, async function (request, response) {
         setAdditionalHeaders(request, args, baseUrl);
 
         const apiType = request.body.api_type;
-        const propsUrl = baseUrl + "/props";
+        const propsUrl = baseUrl + '/props';
         const propsReply = await fetch(propsUrl, args);
 
         if (!propsReply.ok) {
