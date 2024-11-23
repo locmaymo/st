@@ -752,7 +752,8 @@ async function populateChatHistory(messages, prompts, chatCompletion, type = nul
             if (type === 'continue' && oai_settings.continue_prefill && chatPrompt === firstNonInjected) {
                 // in case we are using continue_prefill and the latest message is an assistant message, we want to prepend the users assistant prefill on the message
                 if (chatPrompt.role === 'assistant') {
-                    const continueMessage = await Message.createAsync(chatMessage.role, substituteParams(oai_settings.assistant_prefill + '\n\n') + chatMessage.content, chatMessage.identifier);
+                    const messageContent = [substituteParams(oai_settings.assistant_prefill), chatMessage.content].filter(x => x).join('\n\n');
+                    const continueMessage = await Message.createAsync(chatMessage.role, messageContent, chatMessage.identifier);
                     const collection = new MessageCollection('continuePrefill', continueMessage);
                     chatCompletion.add(collection, -1);
                     continue;
@@ -4083,7 +4084,7 @@ async function onModelChange() {
     if (oai_settings.chat_completion_source == chat_completion_sources.MAKERSUITE) {
         if (oai_settings.max_context_unlocked) {
             $('#openai_max_context').attr('max', max_2mil);
-        } else if (value.includes('gemini-exp-1114')){
+        } else if (value.includes('gemini-exp-1114') || value.includes('gemini-exp-1121')) {
             $('#openai_max_context').attr('max', max_32k);
         } else if (value.includes('gemini-1.5-pro')) {
             $('#openai_max_context').attr('max', max_2mil);
@@ -4223,10 +4224,10 @@ async function onModelChange() {
         else if (['command-light-nightly', 'command-nightly'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_8k);
         }
-        else if (oai_settings.cohere_model.includes('command-r')) {
+        else if (oai_settings.cohere_model.includes('command-r') || ['c4ai-aya-expanse-32b'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_128k);
         }
-        else if (['c4ai-aya-23'].includes(oai_settings.cohere_model)) {
+        else if (['c4ai-aya-23', 'c4ai-aya-expanse-8b'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_8k);
         }
         else {
@@ -4772,6 +4773,7 @@ export function isImageInliningSupported() {
         'gemini-1.5-flash-8b-exp-0827',
         'gemini-1.5-flash-8b-exp-0924',
         'gemini-exp-1114',
+        'gemini-exp-1121',
         'gemini-1.0-pro-vision-latest',
         'gemini-1.5-pro',
         'gemini-1.5-pro-latest',

@@ -267,6 +267,7 @@ import { applyBrowserFixes } from './scripts/browser-fixes.js';
 import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
+import { deriveTemplatesFromChatTemplate } from './scripts/chat-templates.js';
 
 //exporting functions and vars for mods
 export {
@@ -1234,6 +1235,38 @@ async function getStatusTextgen() {
 
         const supportsTokenization = response.headers.get('x-supports-tokenization') === 'true';
         supportsTokenization ? sessionStorage.setItem(TOKENIZER_SUPPORTED_KEY, 'true') : sessionStorage.removeItem(TOKENIZER_SUPPORTED_KEY);
+
+        const wantsInstructDerivation = (power_user.instruct.enabled && power_user.instruct.derived);
+        const wantsContextDerivation = power_user.context_derived;
+        const supportsChatTemplate = [textgen_types.KOBOLDCPP, textgen_types.LLAMACPP].includes(textgen_settings.type);
+        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
+            const response = await fetch('/api/backends/text-completions/props', {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({
+                    api_server: endpoint,
+                    api_type: textgen_settings.type,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data) {
+                    const { chat_template, chat_template_hash } = data;
+                    console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
+                    const templates = await deriveTemplatesFromChatTemplate(chat_template, chat_template_hash);
+                    if (templates) {
+                        const { context, instruct } = templates;
+                        if (wantsContextDerivation) {
+                            selectContextPreset(context, { isAuto: true });
+                        }
+                        if (wantsInstructDerivation) {
+                            selectInstructPreset(instruct, { isAuto: true });
+                        }
+                    }
+                }
+            }
+        }
 
         // We didn't get a 200 status code, but the endpoint has an explanation. Which means it DID connect, but I digress.
         if (online_status === 'no_connection' && data.response) {
