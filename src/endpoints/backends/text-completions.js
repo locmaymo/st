@@ -219,9 +219,6 @@ router.post('/status', jsonParser, async function (request, response) {
             } catch (error) {
                 console.error(`Failed to get TabbyAPI model info: ${error}`);
             }
-        } else if (apiType == TEXTGEN_TYPES.KOBOLDCPP || apiType == TEXTGEN_TYPES.LLAMACPP) {
-            // the /props endpoint includes chat template
-            response.setHeader('x-supports-chat-template', 'true');
         }
 
         return response.send({ result, data: data.data });

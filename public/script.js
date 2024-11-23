@@ -1238,7 +1238,7 @@ async function getStatusTextgen() {
 
         const wantsInstructDerivation = (power_user.instruct.enabled && power_user.instruct.derived);
         const wantsContextDerivation = power_user.context_derived;
-        const supportsChatTemplate = response.headers.get('x-supports-chat-template') === 'true';
+        const supportsChatTemplate = [textgen_types.KOBOLDCPP, textgen_types.LLAMACPP].includes(textgen_settings.type);
         if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
             const response = await fetch('/api/backends/text-completions/props', {
                 method: 'POST',
