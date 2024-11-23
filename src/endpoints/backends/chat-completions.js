@@ -130,10 +130,6 @@ async function sendClaudeRequest(request, response) {
             delete requestBody.system;
         }
         if (useTools) {
-            // Claude doesn't do prefills on function calls, and doesn't allow empty messages
-            if (convertedPrompt.messages.length && convertedPrompt.messages[convertedPrompt.messages.length - 1].role === 'assistant') {
-                convertedPrompt.messages.push({ role: 'user', content: '.' });
-            }
             additionalHeaders['anthropic-beta'] = 'tools-2024-05-16';
             requestBody.tool_choice = { type: request.body.tool_choice };
             requestBody.tools = request.body.tools
@@ -141,6 +137,10 @@ async function sendClaudeRequest(request, response) {
                 .map(tool => tool.function)
                 .map(fn => ({ name: fn.name, description: fn.description, input_schema: fn.parameters }));
 
+            // Claude doesn't do prefills on function calls, and doesn't allow empty messages
+            if (requestBody.tools.length && convertedPrompt.messages.length && convertedPrompt.messages[convertedPrompt.messages.length - 1].role === 'assistant') {
+                convertedPrompt.messages.push({ role: 'user', content: [{ type: 'text', text: '\u200b' }] });
+            }
             if (enableSystemPromptCache && requestBody.tools.length) {
                 requestBody.tools[requestBody.tools.length - 1]['cache_control'] = { type: 'ephemeral' };
             }
@@ -280,7 +280,7 @@ async function sendMakerSuiteRequest(request, response) {
             delete generationConfig.stopSequences;
         }
 
-        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.includes('gemini-exp-1114')) && request.body.use_makersuite_sysprompt;
+        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.includes('gemini-exp-1114') || model.includes('gemini-exp-1121')) && request.body.use_makersuite_sysprompt;
         const prompt = convertGooglePrompt(request.body.messages, model, should_use_system_prompt, request.body.char_name, request.body.user_name);
         let body = {
             contents: prompt.contents,

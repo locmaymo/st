@@ -347,6 +347,7 @@ export function convertGooglePrompt(messages, model, useSysPrompt = false, charN
         'gemini-1.5-flash-8b-exp-0827',
         'gemini-1.5-flash-8b-exp-0924',
         'gemini-exp-1114',
+        'gemini-exp-1121',
         'gemini-1.5-pro',
         'gemini-1.5-pro-latest',
         'gemini-1.5-pro-001',
@@ -628,10 +629,29 @@ export function convertMistralMessages(messages, charName = '', userName = '') {
 export function mergeMessages(messages, charName, userName, strict) {
     let mergedMessages = [];
 
+    /** @type {Map<string,object>} */
+    const contentTokens = new Map();
+
     // Remove names from the messages
     messages.forEach((message) => {
         if (!message.content) {
             message.content = '';
+        }
+        // Flatten contents and replace image URLs with random tokens
+        if (Array.isArray(message.content)) {
+            const text = message.content.map((content) => {
+                if (content.type === 'text') {
+                    return content.text;
+                }
+                // Could be extended with other non-text types
+                if (content.type === 'image_url') {
+                    const token = crypto.randomBytes(32).toString('base64');
+                    contentTokens.set(token, content);
+                    return token;
+                }
+                return '';
+            }).join('\n\n');
+            message.content = text;
         }
         if (message.role === 'system' && message.name === 'example_assistant') {
             if (charName && !message.content.startsWith(`${charName}: `)) {
@@ -670,6 +690,32 @@ export function mergeMessages(messages, charName, userName, strict) {
         messages.unshift({
             role: 'user',
             content: PROMPT_PLACEHOLDER,
+        });
+    }
+
+    // Check for content tokens and replace them with the actual content objects
+    if (contentTokens.size > 0) {
+        mergedMessages.forEach((message) => {
+            const hasValidToken = Array.from(contentTokens.keys()).some(token => message.content.includes(token));
+
+            if (hasValidToken) {
+                const splitContent = message.content.split('\n\n');
+                const mergedContent = [];
+
+                splitContent.forEach((content) => {
+                    if (contentTokens.has(content)) {
+                        mergedContent.push(contentTokens.get(content));
+                    } else {
+                        if (mergedContent.length > 0 && mergedContent[mergedContent.length - 1].type === 'text') {
+                            mergedContent[mergedContent.length - 1].text += `\n\n${content}`;
+                        } else {
+                            mergedContent.push({ type: 'text', text: content });
+                        }
+                    }
+                });
+
+                message.content = mergedContent;
+            }
         });
     }
 

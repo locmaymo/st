@@ -2740,6 +2740,7 @@
                                     </optgroup>
                                     <optgroup label="GPT-4o">
                                         <option value="gpt-4o">gpt-4o</option>
+                                        <option value="gpt-4o-2024-11-20">gpt-4o-2024-11-20</option>
                                         <option value="gpt-4o-2024-08-06">gpt-4o-2024-08-06</option>
                                         <option value="gpt-4o-2024-05-13">gpt-4o-2024-05-13</option>
                                         <option value="chatgpt-4o-latest">chatgpt-4o-latest</option>
@@ -2979,6 +2980,7 @@
                                         <option value="chat-bison-001">PaLM 2 Chat (Legacy)</option>
                                     </optgroup>
                                     <optgroup label="Subversions">
+                                        <option value="gemini-exp-1121">Gemini Experimental 2024-11-21</option>
                                         <option value="gemini-exp-1114">Gemini Experimental 2024-11-14</option>
                                         <option value="gemini-1.5-pro-exp-0801">Gemini 1.5 Pro Experiment 2024-08-01</option>
                                         <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Experiment 2024-08-27</option>
@@ -3159,6 +3161,8 @@
                                 <h4 data-i18n="Cohere Model">Cohere Model</h4>
                                 <select id="model_cohere_select">
                                     <optgroup label="Stable">
+                                        <option value="c4ai-aya-expanse-32b">c4ai-aya-expanse-32b</option>
+                                        <option value="c4ai-aya-expanse-8b">c4ai-aya-expanse-8b</option>
                                         <option value="c4ai-aya-23-35b">c4ai-aya-23-35b</option>
                                         <option value="c4ai-aya-23-8b">c4ai-aya-23-8b</option>
                                         <option value="command-light">command-light</option>
@@ -4486,7 +4490,7 @@
                                 </div>
                                 <div nane="AutoContiueBlock" class="inline-drawer wide100p flexFlowColumn">
                                     <div class="inline-drawer-toggle inline-drawer-header userSettingsInnerExpandable" title="Automatically 'continue' a response if the model stopped before reaching a certain amount of tokens.">
-                                        <b><span data-i18n="Auto-swipe">Auto-Continue</span></b>
+                                        <b><span data-i18n="Auto-Continue">Auto-Continue</span></b>
                                         <div class="fa-solid fa-circle-chevron-down inline-drawer-icon down"></div>
                                     </div>
                                     <div class="inline-drawer-content">
@@ -5065,6 +5069,7 @@
                                                 <span data-i18n="Group reply strategy">Group reply strategy</span>
                                             </label>
                                             <select id="rm_group_activation_strategy">
+                                                <option value="2" data-i18n="Manual">Manual</option>
                                                 <option value="0" data-i18n="Natural order">Natural order</option>
                                                 <option value="1" data-i18n="List order">List order</option>
                                             </select>
