@@ -52,7 +52,7 @@ function setNoteDepthCommand(_, text) {
             toastr.error(t`Not a valid number`);
             return;
         }
-    
+
         $('#extension_floating_depth').val(Math.abs(value)).trigger('input');
         toastr.success(t`Author's Note depth updated`);
     }
@@ -76,15 +76,17 @@ function setNoteIntervalCommand(_, text) {
 
 function setNotePositionCommand(_, text) {
     const validPositions = {
+        'after': 0,
         'scenario': 0,
         'chat': 1,
-        'before_scenario': 2
+        'before_scenario': 2,
+        'before': 2,
     };
 
     if (text) {
-        const position = validPositions[text?.trim()];
+        const position = validPositions[text?.trim()?.toLowerCase()];
 
-        if (typeof position == 'undefined') {
+        if (typeof position === 'undefined') {
             toastr.error(t`Not a valid position`);
             return;
         }
@@ -94,22 +96,23 @@ function setNotePositionCommand(_, text) {
     }
     return Object.keys(validPositions).find(key => validPositions[key] == chat_metadata[metadata_keys.position]);
 }
+
 function setNoteRoleCommand(_, text) {
     const validRoles = {
         'system': 0,
         'user': 1,
-        'assistant': 2
+        'assistant': 2,
     };
 
     if (text) {
-        const role = validRoles[text?.trim()];
+        const role = validRoles[text?.trim()?.toLowerCase()];
 
-        if (typeof role == 'undefined') {
+        if (typeof role === 'undefined') {
             toastr.error(t`Not a valid role`);
             return;
         }
 
-        $(`#extension_floating_role`).val(Math.abs(role)).trigger('input');
+        $('#extension_floating_role').val(Math.abs(role)).trigger('input');
         toastr.info(t`Author's Note role updated`);
     }
     return Object.keys(validRoles).find(key => validRoles[key] == chat_metadata[metadata_keys.role]);
@@ -491,7 +494,8 @@ export function initAuthorsNote() {
     });
     $('#option_toggle_AN').on('click', onANMenuItemClick);
 
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'note',
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'note',
         callback: setNoteTextCommand,
         returns: 'current author\'s note',
         unnamedArgumentList: [
@@ -505,8 +509,9 @@ export function initAuthorsNote() {
             </div>
         `,
     }));
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'depth',
-        aliases: ['note-depth'],
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'note-depth',
+        aliases: ['depth'],
         callback: setNoteDepthCommand,
         returns: 'current author\'s note depth',
         unnamedArgumentList: [
@@ -520,8 +525,9 @@ export function initAuthorsNote() {
             </div>
         `,
     }));
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'freq',
-        aliases: ['note-freq'],
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'note-frequency',
+        aliases: ['freq', 'note-freq'],
         callback: setNoteIntervalCommand,
         returns: 'current author\'s note insertion frequency',
         namedArgumentList: [],
@@ -536,14 +542,15 @@ export function initAuthorsNote() {
             </div>
         `,
     }));
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'pos',
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'note-position',
         callback: setNotePositionCommand,
-        aliases: ['note-pos'],
+        aliases: ['pos', 'note-pos'],
         returns: 'current author\'s note insertion position',
         namedArgumentList: [],
         unnamedArgumentList: [
             new SlashCommandArgument(
-                'position', [ARGUMENT_TYPE.STRING], false, false, null, ['chat', 'scenario','before_scenario'],
+                'position', [ARGUMENT_TYPE.STRING], false, false, null, ['before', 'after', 'chat'],
             ),
         ],
         helpString: `
@@ -552,13 +559,14 @@ export function initAuthorsNote() {
             </div>
         `,
     }));
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'note-role',
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'note-role',
         callback: setNoteRoleCommand,
         returns: 'current author\'s note chat insertion role',
         namedArgumentList: [],
         unnamedArgumentList: [
             new SlashCommandArgument(
-                'position', [ARGUMENT_TYPE.STRING], false, false, null, ['system', 'user','assistant'],
+                'position', [ARGUMENT_TYPE.STRING], false, false, null, ['system', 'user', 'assistant'],
             ),
         ],
         helpString: `
