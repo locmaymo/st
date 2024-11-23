@@ -148,6 +148,12 @@ export async function loadInstructMode(data) {
  * @param {boolean} [options.isAuto=false] Is auto-select.
  */
 export function selectContextPreset(preset, { quiet = false, isAuto = false } = {}) {
+    const presetExists = context_presets.some(x => x.name === preset);
+    if (!presetExists) {
+        console.warn(`Context template "${preset}" not found`);
+        return;
+    }
+
     // If context template is not already selected, select it
     if (preset !== power_user.context.preset) {
         $('#context_presets').val(preset).trigger('change');
@@ -165,6 +171,12 @@ export function selectContextPreset(preset, { quiet = false, isAuto = false } = 
  * @param {boolean} [options.isAuto=false] Is auto-select.
  */
 export function selectInstructPreset(preset, { quiet = false, isAuto = false } = {}) {
+    const presetExists = instruct_presets.some(x => x.name === preset);
+    if (!presetExists) {
+        console.warn(`Instruct template "${preset}" not found`);
+        return;
+    }
+
     // If instruct preset is not already selected, select it
     if (preset !== power_user.instruct.preset) {
         $('#instruct_presets').val(preset).trigger('change');
