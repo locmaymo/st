@@ -330,6 +330,12 @@ const debug_functions = [];
 
 const setHotswapsDebounced = debounce(favsToHotswap);
 
+const fuzzySearchCharactersCache = new Map();
+const fuzzySearchWorldInfoCache = new Map();
+const fuzzySearchPersonasCache = new Map();
+const fuzzySearchTagsCache = new Map();
+const fuzzySearchGroupsCache = new Map();
+
 function playMessageSound() {
     if (!power_user.play_message_sound) {
         return;
@@ -1830,6 +1836,11 @@ async function loadContextSettings() {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchCharacters(searchValue) {
+
+    if (fuzzySearchCharactersCache.has(searchValue)) {
+        return fuzzySearchCharactersCache.get(searchValue);
+    }
+
     // @ts-ignore
     const fuse = new Fuse(characters, {
         keys: [
@@ -1853,6 +1864,7 @@ export function fuzzySearchCharacters(searchValue) {
 
     const results = fuse.search(searchValue);
     console.debug('Characters fuzzy search results for ' + searchValue, results);
+    fuzzySearchCharactersCache.set(searchValue, results);
     return results;
 }
 
@@ -1863,6 +1875,10 @@ export function fuzzySearchCharacters(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchWorldInfo(data, searchValue) {
+    if (fuzzySearchWorldInfoCache.has(searchValue)) {
+        return fuzzySearchWorldInfoCache.get(searchValue);
+    }
+
     // @ts-ignore
     const fuse = new Fuse(data, {
         keys: [
@@ -1882,6 +1898,7 @@ export function fuzzySearchWorldInfo(data, searchValue) {
 
     const results = fuse.search(searchValue);
     console.debug('World Info fuzzy search results for ' + searchValue, results);
+    fuzzySearchWorldInfoCache.set(searchValue, results);
     return results;
 }
 
@@ -1892,6 +1909,10 @@ export function fuzzySearchWorldInfo(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchPersonas(data, searchValue) {
+    if (fuzzySearchPersonasCache.has(searchValue)) {
+        return fuzzySearchPersonasCache.get(searchValue);
+    }
+
     data = data.map(x => ({ key: x, name: power_user.personas[x] ?? '', description: power_user.persona_descriptions[x]?.description ?? '' }));
     // @ts-ignore
     const fuse = new Fuse(data, {
@@ -1907,6 +1928,7 @@ export function fuzzySearchPersonas(data, searchValue) {
 
     const results = fuse.search(searchValue);
     console.debug('Personas fuzzy search results for ' + searchValue, results);
+    fuzzySearchPersonasCache.set(searchValue, results);
     return results;
 }
 
@@ -1916,6 +1938,10 @@ export function fuzzySearchPersonas(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchTags(searchValue) {
+    if (fuzzySearchTagsCache.has(searchValue)) {
+        return fuzzySearchTagsCache.get(searchValue);
+    }
+
     // @ts-ignore
     const fuse = new Fuse(tags, {
         keys: [
@@ -1929,6 +1955,7 @@ export function fuzzySearchTags(searchValue) {
 
     const results = fuse.search(searchValue);
     console.debug('Tags fuzzy search results for ' + searchValue, results);
+    fuzzySearchTagsCache.set(searchValue, results);
     return results;
 }
 
@@ -1938,6 +1965,10 @@ export function fuzzySearchTags(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchGroups(searchValue) {
+    if (fuzzySearchGroupsCache.has(searchValue)) {
+        return fuzzySearchGroupsCache.get(searchValue);
+    }
+
     // @ts-ignore
     const fuse = new Fuse(groups, {
         keys: [
@@ -1954,6 +1985,7 @@ export function fuzzySearchGroups(searchValue) {
 
     const results = fuse.search(searchValue);
     console.debug('Groups fuzzy search results for ' + searchValue, results);
+    fuzzySearchGroupsCache.set(searchValue, results);
     return results;
 }
 
