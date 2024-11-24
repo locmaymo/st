@@ -328,6 +328,22 @@ const contextControls = [
 let browser_has_focus = true;
 const debug_functions = [];
 
+const fuzzySearchCaches = {
+    characters: { keyHash: null, resultMap: new Map() },
+    worldInfo: { keyHash: null, resultMap: new Map() },
+    personas: { keyHash: null, resultMap: new Map() },
+    tags: { keyHash: null, resultMap: new Map() },
+    groups: { keyHash: null, resultMap: new Map() },
+};
+
+const fuzzySearchCategories = {
+    characters: 'characters',
+    worldInfo: 'worldInfo',
+    personas: 'personas',
+    tags: 'tags',
+    groups: 'groups',
+};
+
 const setHotswapsDebounced = debounce(favsToHotswap);
 
 function playMessageSound() {
@@ -1824,15 +1840,6 @@ async function loadContextSettings() {
     });
 }
 
-// Create separate caches for each type of fuzzy search
-const fuzzySearchCaches = {
-    characters: { keyHash: null, resultMap: new Map() },
-    worldInfo: { keyHash: null, resultMap: new Map() },
-    personas: { keyHash: null, resultMap: new Map() },
-    tags: { keyHash: null, resultMap: new Map() },
-    groups: { keyHash: null, resultMap: new Map() },
-};
-
 /**
  * Generates a hash of the Fuse configuration keys
  * @param {Array<{name: string, weight: number, getFn?: Function}>} keys
@@ -1849,12 +1856,62 @@ function hashFuseKeys(keys) {
 }
 
 /**
- * Fuzzy search characters by a search term with caching
+ * Common function to perform fuzzy search with caching
+ * @param {string} type - Type of search from fuzzySearchCategories
+ * @param {any[]} data - Data array to search in
+ * @param {Array<{name: string, weight: number, getFn?: Function}>} keys - Fuse.js keys configuration
+ * @param {string} searchValue - The search term
+ * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
+ */
+function performFuzzySearch(type, data, keys, searchValue) {
+    const currentKeyHash = hashFuseKeys(keys);
+    const cache = fuzzySearchCaches[type];
+
+    // Check cache for existing results
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.log(`Using cached ${type} fuzzy search results for ${searchValue}`);
+        return cache.resultMap.get(searchValue);
+    }
+
+    // Clear cache if keys changed
+    if (cache.keyHash !== currentKeyHash) {
+        console.log(`${type} Fuse keys changed, clearing cache`);
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
+    const fuse = new Fuse(data, {
+        keys: keys,
+        includeScore: true,
+        ignoreLocation: true,
+        useExtendedSearch: true,
+        threshold: 0.2,
+    });
+
+    const results = fuse.search(searchValue);
+    cache.resultMap.set(searchValue, results);
+
+    console.log(`${type} fuzzy search results for ${searchValue}`, results);
+    return results;
+}
+
+/**
+ * Clears all fuzzy search caches
+ */
+export function clearFuzzySearchCaches() {
+    for (const cache of Object.values(fuzzySearchCaches)) {
+        cache.keyHash = null;
+        cache.resultMap.clear();
+    }
+}
+
+/**
+ * Fuzzy search characters by a search term
  * @param {string} searchValue - The search term
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchCharacters(searchValue) {
-    const fuseKeys = [
+    const keys = [
         { name: 'data.name', weight: 20 },
         { name: '#tags', weight: 10, getFn: (character) => getTagsList(character.avatar).map(x => x.name).join('||') },
         { name: 'data.description', weight: 3 },
@@ -1868,39 +1925,7 @@ export function fuzzySearchCharacters(searchValue) {
         { name: 'data.alternate_greetings', weight: 1 },
     ];
 
-    // Generate hash of current keys configuration
-    const currentKeyHash = hashFuseKeys(fuseKeys);
-    const cache = fuzzySearchCaches.characters;
-
-    // Check if we have a cached result for this search value
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.debug('Using cached fuzzy search results for ' + searchValue);
-        return cache.resultMap.get(searchValue);
-    }
-
-    // If key configuration changed, clear the cache
-    if (cache.keyHash !== currentKeyHash) {
-        console.debug('Fuse keys changed, clearing cache');
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
-    // Create new Fuse instance and perform search
-    const fuse = new Fuse(characters, {
-        keys: fuseKeys,
-        includeScore: true,
-        ignoreLocation: true,
-        useExtendedSearch: true,
-        threshold: 0.2,
-    });
-
-    const results = fuse.search(searchValue);
-
-    // Cache the results
-    cache.resultMap.set(searchValue, results);
-
-    console.debug('Characters fuzzy search results for ' + searchValue, results);
-    return results;
+    return performFuzzySearch(fuzzySearchCategories.characters, characters, keys, searchValue);
 }
 
 /**
@@ -1910,7 +1935,7 @@ export function fuzzySearchCharacters(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchWorldInfo(data, searchValue) {
-    const fuseKeys = [
+    const keys = [
         { name: 'key', weight: 20 },
         { name: 'group', weight: 15 },
         { name: 'comment', weight: 10 },
@@ -1920,35 +1945,7 @@ export function fuzzySearchWorldInfo(data, searchValue) {
         { name: 'automationId', weight: 1 },
     ];
 
-    const currentKeyHash = hashFuseKeys(fuseKeys);
-    const cache = fuzzySearchCaches.worldInfo;
-
-    // Check cache for existing results
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.debug('Using cached WI fuzzy search results for ' + searchValue);
-        return cache.resultMap.get(searchValue);
-    }
-
-    // Clear cache if keys changed
-    if (cache.keyHash !== currentKeyHash) {
-        console.debug('WI Fuse keys changed, clearing cache');
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
-    const fuse = new Fuse(data, {
-        keys: fuseKeys,
-        includeScore: true,
-        ignoreLocation: true,
-        useExtendedSearch: true,
-        threshold: 0.2,
-    });
-
-    const results = fuse.search(searchValue);
-    cache.resultMap.set(searchValue, results);
-
-    console.debug('World Info fuzzy search results for ' + searchValue, results);
-    return results;
+    return performFuzzySearch(fuzzySearchCategories.worldInfo, data, keys, searchValue);
 }
 
 /**
@@ -1958,42 +1955,18 @@ export function fuzzySearchWorldInfo(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchPersonas(data, searchValue) {
-    data = data.map(x => ({ key: x, name: power_user.personas[x] ?? '', description: power_user.persona_descriptions[x]?.description ?? '' }));
+    const mappedData = data.map(x => ({
+        key: x,
+        name: power_user.personas[x] ?? '',
+        description: power_user.persona_descriptions[x]?.description ?? ''
+    }));
 
-    const fuseKeys = [
+    const keys = [
         { name: 'name', weight: 20 },
         { name: 'description', weight: 3 },
     ];
 
-    const currentKeyHash = hashFuseKeys(fuseKeys);
-    const cache = fuzzySearchCaches.personas;
-
-    // Check cache for existing results
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.debug('Using cached personas fuzzy search results for ' + searchValue);
-        return cache.resultMap.get(searchValue);
-    }
-
-    // Clear cache if keys changed
-    if (cache.keyHash !== currentKeyHash) {
-        console.debug('Personas Fuse keys changed, clearing cache');
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
-    const fuse = new Fuse(data, {
-        keys: fuseKeys,
-        includeScore: true,
-        ignoreLocation: true,
-        useExtendedSearch: true,
-        threshold: 0.2,
-    });
-
-    const results = fuse.search(searchValue);
-    cache.resultMap.set(searchValue, results);
-
-    console.debug('Personas fuzzy search results for ' + searchValue, results);
-    return results;
+    return performFuzzySearch(fuzzySearchCategories.personas, mappedData, keys, searchValue);
 }
 
 /**
@@ -2002,39 +1975,11 @@ export function fuzzySearchPersonas(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchTags(searchValue) {
-    const fuseKeys = [
+    const keys = [
         { name: 'name', weight: 1 },
     ];
 
-    const currentKeyHash = hashFuseKeys(fuseKeys);
-    const cache = fuzzySearchCaches.tags;
-
-    // Check cache for existing results
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.debug('Using cached tags fuzzy search results for ' + searchValue);
-        return cache.resultMap.get(searchValue);
-    }
-
-    // Clear cache if keys changed
-    if (cache.keyHash !== currentKeyHash) {
-        console.debug('Tags Fuse keys changed, clearing cache');
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
-    const fuse = new Fuse(tags, {
-        keys: fuseKeys,
-        includeScore: true,
-        ignoreLocation: true,
-        useExtendedSearch: true,
-        threshold: 0.2,
-    });
-
-    const results = fuse.search(searchValue);
-    cache.resultMap.set(searchValue, results);
-
-    console.debug('Tags fuzzy search results for ' + searchValue, results);
-    return results;
+    return performFuzzySearch(fuzzySearchCategories.tags, tags, keys, searchValue);
 }
 
 /**
@@ -2043,52 +1988,14 @@ export function fuzzySearchTags(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchGroups(searchValue) {
-    const fuseKeys = [
+    const keys = [
         { name: 'name', weight: 20 },
         { name: 'members', weight: 15 },
         { name: '#tags', weight: 10, getFn: (group) => getTagsList(group.id).map(x => x.name).join('||') },
         { name: 'id', weight: 1 },
     ];
 
-    const currentKeyHash = hashFuseKeys(fuseKeys);
-    const cache = fuzzySearchCaches.groups;
-
-    // Check cache for existing results
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.debug('Using cached groups fuzzy search results for ' + searchValue);
-        return cache.resultMap.get(searchValue);
-    }
-
-    // Clear cache if keys changed
-    if (cache.keyHash !== currentKeyHash) {
-        console.debug('Groups Fuse keys changed, clearing cache');
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
-    const fuse = new Fuse(groups, {
-        keys: fuseKeys,
-        includeScore: true,
-        ignoreLocation: true,
-        useExtendedSearch: true,
-        threshold: 0.2,
-    });
-
-    const results = fuse.search(searchValue);
-    cache.resultMap.set(searchValue, results);
-
-    console.debug('Groups fuzzy search results for ' + searchValue, results);
-    return results;
-}
-
-/**
- * Clears all fuzzy search caches
- */
-export function clearFuzzySearchCaches() {
-    for (const cache of Object.values(fuzzySearchCaches)) {
-        cache.keyHash = null;
-        cache.resultMap.clear();
-    }
+    return performFuzzySearch(fuzzySearchCategories.groups, groups, keys, searchValue);
 }
 
 /**
