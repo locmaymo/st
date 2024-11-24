@@ -1841,21 +1841,6 @@ async function loadContextSettings() {
 }
 
 /**
- * Generates a hash of the Fuse configuration keys
- * @param {Array<{name: string, weight: number, getFn?: Function}>} keys
- * @returns {number} Hash of the keys configuration
- */
-function hashFuseKeys(keys) {
-    // Convert keys to a stable string representation
-    const keyString = keys.map(k => {
-        const getFnString = k.getFn ? k.getFn.toString() : '';
-        return `${k.name}:${k.weight}:${getFnString}`;
-    }).join('|');
-
-    return getStringHash(keyString);
-}
-
-/**
  * Common function to perform fuzzy search with caching
  * @param {string} type - Type of search from fuzzySearchCategories
  * @param {any[]} data - Data array to search in
