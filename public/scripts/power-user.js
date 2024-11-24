@@ -642,6 +642,10 @@ async function CreateZenSliders(elmnt) {
         numSteps = 50;
         decimals = 1;
     }
+    if (sliderID == 'nsigma') {
+        numSteps = 50;
+        decimals = 1;
+    }
     //customize steps
     if (sliderID == 'mirostat_mode_textgenerationwebui' ||
         sliderID == 'mirostat_mode_kobold') {
@@ -686,6 +690,7 @@ async function CreateZenSliders(elmnt) {
         sliderID == 'penalty_alpha_textgenerationwebui' ||
         sliderID == 'length_penalty_textgenerationwebui' ||
         sliderID == 'epsilon_cutoff_textgenerationwebui' ||
+        sliderID == 'nsigma' ||
         sliderID == 'rep_pen_range' ||
         sliderID == 'eta_cutoff_textgenerationwebui' ||
         sliderID == 'top_a_textgenerationwebui' ||
