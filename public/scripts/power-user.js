@@ -1869,13 +1869,13 @@ function performFuzzySearch(type, data, keys, searchValue) {
 
     // Check cache for existing results
     if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        console.log(`Using cached ${type} fuzzy search results for ${searchValue}`);
+        // console.debug(`Using cached ${type} fuzzy search results for ${searchValue}`);
         return cache.resultMap.get(searchValue);
     }
 
     // Clear cache if keys changed
     if (cache.keyHash !== currentKeyHash) {
-        console.log(`${type} Fuse keys changed, clearing cache`);
+        // console.debug(`${type} Fuse keys changed, clearing cache`);
         cache.keyHash = currentKeyHash;
         cache.resultMap.clear();
     }
@@ -1891,7 +1891,7 @@ function performFuzzySearch(type, data, keys, searchValue) {
     const results = fuse.search(searchValue);
     cache.resultMap.set(searchValue, results);
 
-    console.log(`${type} fuzzy search results for ${searchValue}`, results);
+    // console.debug(`${type} fuzzy search results for ${searchValue}`, results);
     return results;
 }
 
