@@ -329,11 +329,11 @@ let browser_has_focus = true;
 const debug_functions = [];
 
 const fuzzySearchCaches = {
-    characters: { keyHash: null, resultMap: new Map() },
-    worldInfo: { keyHash: null, resultMap: new Map() },
-    personas: { keyHash: null, resultMap: new Map() },
-    tags: { keyHash: null, resultMap: new Map() },
-    groups: { keyHash: null, resultMap: new Map() },
+    characters: { resultMap: new Map() },
+    worldInfo: { resultMap: new Map() },
+    personas: { resultMap: new Map() },
+    tags: { resultMap: new Map() },
+    groups: { resultMap: new Map() },
 };
 
 const fuzzySearchCategories = {
@@ -1864,22 +1864,14 @@ function hashFuseKeys(keys) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 function performFuzzySearch(type, data, keys, searchValue) {
-    const currentKeyHash = hashFuseKeys(keys);
     const cache = fuzzySearchCaches[type];
 
     // Check cache for existing results
-    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
-        // console.debug(`Using cached ${type} fuzzy search results for ${searchValue}`);
+    if (cache.resultMap.has(searchValue)) {
         return cache.resultMap.get(searchValue);
     }
 
-    // Clear cache if keys changed
-    if (cache.keyHash !== currentKeyHash) {
-        // console.debug(`${type} Fuse keys changed, clearing cache`);
-        cache.keyHash = currentKeyHash;
-        cache.resultMap.clear();
-    }
-
+    // @ts-ignore
     const fuse = new Fuse(data, {
         keys: keys,
         includeScore: true,
@@ -1890,19 +1882,18 @@ function performFuzzySearch(type, data, keys, searchValue) {
 
     const results = fuse.search(searchValue);
     cache.resultMap.set(searchValue, results);
-
-    // console.debug(`${type} fuzzy search results for ${searchValue}`, results);
     return results;
 }
+
 
 /**
  * Clears all fuzzy search caches
  */
 export function clearFuzzySearchCaches() {
     for (const cache of Object.values(fuzzySearchCaches)) {
-        cache.keyHash = null;
         cache.resultMap.clear();
     }
+    console.log('Fuzzy search caches cleared');
 }
 
 /**

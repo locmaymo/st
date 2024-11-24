@@ -268,6 +268,7 @@ import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { deriveTemplatesFromChatTemplate } from './scripts/chat-templates.js';
+import { clearFuzzySearchCaches } from './scripts/power-user.js';
 
 //exporting functions and vars for mods
 export {
@@ -1515,6 +1516,7 @@ export async function printCharacters(fullRefresh = false) {
     });
 
     favsToHotswap();
+    clearFuzzySearchCaches();
 }
 
 /** Checks the state of the current search, and adds/removes the search sorting option accordingly */
