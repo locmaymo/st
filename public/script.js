@@ -2705,8 +2705,7 @@ export async function generateQuietPrompt(quiet_prompt, quietToLoud, skipWIAN, q
             quietName: quietName,
         };
         originalResponseLength = responseLengthCustomized ? saveResponseLength(main_api, responseLength) : -1;
-        const generateFinished = await Generate('quiet', options);
-        return generateFinished;
+        return await Generate('quiet', options);
     } finally {
         if (responseLengthCustomized) {
             restoreResponseLength(main_api, originalResponseLength);
@@ -3361,9 +3360,9 @@ export async function generateRaw(prompt, api, instructOverride, quietToLoud, sy
 
         let data = {};
 
-        if (api == 'koboldhorde') {
+        if (api === 'koboldhorde') {
             data = await generateHorde(prompt, generateData, abortController.signal, false);
-        } else if (api == 'openai') {
+        } else if (api === 'openai') {
             data = await sendOpenAIRequest('quiet', generateData, abortController.signal);
         } else {
             const generateUrl = getGenerateUrl(api);
@@ -3376,13 +3375,15 @@ export async function generateRaw(prompt, api, instructOverride, quietToLoud, sy
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw error;
+                throw await response.json();
             }
 
             data = await response.json();
         }
 
+        // should only happen for text completions
+        // other frontend paths do not return data if calling the backend fails,
+        // they throw things instead
         if (data.error) {
             throw new Error(data.response);
         }
@@ -4434,6 +4435,11 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         return Promise.resolve();
     }
 
+    /**
+     * Saves itemized prompt bits and calls streaming or non-streaming generation API.
+     * @returns {Promise<void|*|Awaited<*>|String|{fromStream}|string|undefined|Object>}
+     * @throws {Error|object} Error with message text, or Error with response JSON (OAI/Horde), or the actual response JSON (novel|textgenerationwebui|kobold)
+     */
     async function finishGenerating() {
         if (power_user.console_log_prompts) {
             console.log(generate_data.prompt);
@@ -4545,6 +4551,12 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
     return finishGenerating().then(onSuccess, onError);
 
+    /**
+     * Handles the successful response from the generation API.
+     * @param data
+     * @returns {Promise<String|{fromStream}|*|string|string|void|Awaited<*>|undefined>}
+     * @throws {Error} Throws an error if the response data contains an error message
+     */
     async function onSuccess(data) {
         if (!data) return;
 
@@ -4554,6 +4566,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
         let messageChunk = '';
 
+        // if an error was returned in data (textgenwebui), show it and throw it
         if (data.error) {
             unblockGeneration(type);
             generatedPromptCache = '';
@@ -4668,9 +4681,15 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         return Object.defineProperty(new String(getMessage), 'messageChunk', { value: messageChunk });
     }
 
+    /**
+     * Exception handler for finishGenerating
+     * @param {Error|object} exception Error or response JSON
+     * @throws {Error|object} Re-throws the exception
+     */
     function onError(exception) {
+        // if the response JSON was thrown (novel|textgenerationwebui|kobold), show the error message
         if (typeof exception?.error?.message === 'string') {
-            toastr.error(exception.error.message, t`Error`, { timeOut: 10000, extendedTimeOut: 20000 });
+            toastr.error(exception.error.message, t`Text generation error`, { timeOut: 10000, extendedTimeOut: 20000 });
         }
 
         generatedPromptCache = '';
@@ -5338,6 +5357,7 @@ function setInContextMessages(lastmsg, type) {
  * @param {string} type Generation type
  * @param {object} data Generation data
  * @returns {Promise<object>} Response data from the API
+ * @throws {Error|object}
  */
 export async function sendGenerationRequest(type, data) {
     if (main_api === 'openai') {
@@ -5357,12 +5377,10 @@ export async function sendGenerationRequest(type, data) {
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw error;
+        throw await response.json();
     }
 
-    const responseData = await response.json();
-    return responseData;
+    return await response.json();
 }
 
 /**
@@ -5394,6 +5412,7 @@ export async function sendStreamingRequest(type, data) {
  * Gets the generation endpoint URL for the specified API.
  * @param {string} api API name
  * @returns {string} Generation URL
+ * @throws {Error} If the API is unknown
  */
 function getGenerateUrl(api) {
     switch (api) {

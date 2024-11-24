@@ -2373,6 +2373,7 @@ function ensureSelectionExists(setting, selector) {
  * @param {string} [message] Chat message
  * @param {function} [callback] Callback function
  * @returns {Promise<string|undefined>} Image path
+ * @throws {Error} If the prompt or image generation fails
  */
 async function generatePicture(initiator, args, trigger, message, callback) {
     if (!trigger || trigger.trim().length === 0) {
@@ -2391,7 +2392,7 @@ async function generatePicture(initiator, args, trigger, message, callback) {
     trigger = trigger.trim();
     const generationType = getGenerationType(trigger);
     const generationTypeKey = Object.keys(generationMode).find(key => generationMode[key] === generationType);
-    console.log(`Generation mode ${generationTypeKey} triggered with "${trigger}"`);
+    console.log(`Image generation mode ${generationTypeKey} triggered with "${trigger}"`);
 
     const quietPrompt = getQuietPrompt(generationType, trigger);
     const context = getContext();
@@ -2428,6 +2429,8 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     try {
         const combineNegatives = (prefix) => { negativePromptPrefix = combinePrefixes(negativePromptPrefix, prefix); };
+
+        // generate the text prompt for the image
         const prompt = await getPrompt(generationType, message, trigger, quietPrompt, combineNegatives);
         console.log('Processed image prompt:', prompt);
 
@@ -2438,11 +2441,16 @@ async function generatePicture(initiator, args, trigger, message, callback) {
             args._abortController.addEventListener('abort', stopListener);
         }
 
+        // generate the image
         imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiator, abortController.signal);
     } catch (err) {
         console.trace(err);
-        toastr.error('SD prompt text generation failed. Reason: ' + err, 'Image Generation');
-        throw new Error('SD prompt text generation failed. Reason: ' + err);
+        // errors here are most likely due to text generation failure
+        // sendGenerationRequest mostly deals with its own errors
+        const reason = err.error?.message || err.message || 'Unknown error';
+        const errorText = 'SD prompt text generation failed. ' + reason;
+        toastr.error(errorText, 'Image Generation');
+        throw new Error(errorText);
     }
     finally {
         $(stopButton).hide();
@@ -2513,7 +2521,7 @@ function restoreOriginalDimensions(savedParams) {
  */
 async function getPrompt(generationType, message, trigger, quietPrompt, combineNegatives) {
     let prompt;
-
+    console.log('getPrompt: Generation mode', generationType, 'triggered with', trigger);
     switch (generationType) {
         case generationMode.RAW_LAST:
             prompt = message || getRawLastMessage();
@@ -2729,7 +2737,7 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
             throw new Error('Endpoint did not return image data.');
         }
     } catch (err) {
-        console.error(err);
+        console.error('Image generation request error: ', err);
         toastr.error('Image generation failed. Please try again.' + '\n\n' + String(err), 'Image Generation');
         return;
     }
