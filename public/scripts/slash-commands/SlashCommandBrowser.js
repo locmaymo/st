@@ -11,7 +11,7 @@ export class SlashCommandBrowser {
 
     renderInto(parent) {
         if (!this.dom) {
-            const queryRegex = /(?:^|\s+)([^\s"]\S*?)(?:\s+|$)|(?:^|\s+)"(.*?)(?:"|$)(?:\s+|$)/;
+            const queryRegex = /(?:(?:^|\s+)([^\s"][^\s]*?)(?:\s+|$))|(?:(?:^|\s+)"(.*?)(?:"|$)(?:\s+|$))/;
             const root = document.createElement('div'); {
                 this.dom = root;
                 const search = document.createElement('div'); {
