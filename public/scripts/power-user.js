@@ -330,12 +330,6 @@ const debug_functions = [];
 
 const setHotswapsDebounced = debounce(favsToHotswap);
 
-const fuzzySearchCharactersCache = new Map();
-const fuzzySearchWorldInfoCache = new Map();
-const fuzzySearchPersonasCache = new Map();
-const fuzzySearchTagsCache = new Map();
-const fuzzySearchGroupsCache = new Map();
-
 function playMessageSound() {
     if (!power_user.play_message_sound) {
         return;
@@ -1830,32 +1824,70 @@ async function loadContextSettings() {
     });
 }
 
+// Create separate caches for each type of fuzzy search
+const fuzzySearchCaches = {
+    characters: { keyHash: null, resultMap: new Map() },
+    worldInfo: { keyHash: null, resultMap: new Map() },
+    personas: { keyHash: null, resultMap: new Map() },
+    tags: { keyHash: null, resultMap: new Map() },
+    groups: { keyHash: null, resultMap: new Map() },
+};
+
 /**
- * Fuzzy search characters by a search term
+ * Generates a hash of the Fuse configuration keys
+ * @param {Array<{name: string, weight: number, getFn?: Function}>} keys
+ * @returns {number} Hash of the keys configuration
+ */
+function hashFuseKeys(keys) {
+    // Convert keys to a stable string representation
+    const keyString = keys.map(k => {
+        const getFnString = k.getFn ? k.getFn.toString() : '';
+        return `${k.name}:${k.weight}:${getFnString}`;
+    }).join('|');
+
+    return getStringHash(keyString);
+}
+
+/**
+ * Fuzzy search characters by a search term with caching
  * @param {string} searchValue - The search term
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchCharacters(searchValue) {
+    const fuseKeys = [
+        { name: 'data.name', weight: 20 },
+        { name: '#tags', weight: 10, getFn: (character) => getTagsList(character.avatar).map(x => x.name).join('||') },
+        { name: 'data.description', weight: 3 },
+        { name: 'data.mes_example', weight: 3 },
+        { name: 'data.scenario', weight: 2 },
+        { name: 'data.personality', weight: 2 },
+        { name: 'data.first_mes', weight: 2 },
+        { name: 'data.creator_notes', weight: 2 },
+        { name: 'data.creator', weight: 1 },
+        { name: 'data.tags', weight: 1 },
+        { name: 'data.alternate_greetings', weight: 1 },
+    ];
 
-    if (fuzzySearchCharactersCache.has(searchValue)) {
-        return fuzzySearchCharactersCache.get(searchValue);
+    // Generate hash of current keys configuration
+    const currentKeyHash = hashFuseKeys(fuseKeys);
+    const cache = fuzzySearchCaches.characters;
+
+    // Check if we have a cached result for this search value
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.debug('Using cached fuzzy search results for ' + searchValue);
+        return cache.resultMap.get(searchValue);
     }
 
-    // @ts-ignore
+    // If key configuration changed, clear the cache
+    if (cache.keyHash !== currentKeyHash) {
+        console.debug('Fuse keys changed, clearing cache');
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
+    // Create new Fuse instance and perform search
     const fuse = new Fuse(characters, {
-        keys: [
-            { name: 'data.name', weight: 20 },
-            { name: '#tags', weight: 10, getFn: (character) => getTagsList(character.avatar).map(x => x.name).join('||') },
-            { name: 'data.description', weight: 3 },
-            { name: 'data.mes_example', weight: 3 },
-            { name: 'data.scenario', weight: 2 },
-            { name: 'data.personality', weight: 2 },
-            { name: 'data.first_mes', weight: 2 },
-            { name: 'data.creator_notes', weight: 2 },
-            { name: 'data.creator', weight: 1 },
-            { name: 'data.tags', weight: 1 },
-            { name: 'data.alternate_greetings', weight: 1 },
-        ],
+        keys: fuseKeys,
         includeScore: true,
         ignoreLocation: true,
         useExtendedSearch: true,
@@ -1863,8 +1895,11 @@ export function fuzzySearchCharacters(searchValue) {
     });
 
     const results = fuse.search(searchValue);
+
+    // Cache the results
+    cache.resultMap.set(searchValue, results);
+
     console.debug('Characters fuzzy search results for ' + searchValue, results);
-    fuzzySearchCharactersCache.set(searchValue, results);
     return results;
 }
 
@@ -1875,21 +1910,34 @@ export function fuzzySearchCharacters(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchWorldInfo(data, searchValue) {
-    if (fuzzySearchWorldInfoCache.has(searchValue)) {
-        return fuzzySearchWorldInfoCache.get(searchValue);
+    const fuseKeys = [
+        { name: 'key', weight: 20 },
+        { name: 'group', weight: 15 },
+        { name: 'comment', weight: 10 },
+        { name: 'keysecondary', weight: 10 },
+        { name: 'content', weight: 3 },
+        { name: 'uid', weight: 1 },
+        { name: 'automationId', weight: 1 },
+    ];
+
+    const currentKeyHash = hashFuseKeys(fuseKeys);
+    const cache = fuzzySearchCaches.worldInfo;
+
+    // Check cache for existing results
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.debug('Using cached WI fuzzy search results for ' + searchValue);
+        return cache.resultMap.get(searchValue);
     }
 
-    // @ts-ignore
+    // Clear cache if keys changed
+    if (cache.keyHash !== currentKeyHash) {
+        console.debug('WI Fuse keys changed, clearing cache');
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
     const fuse = new Fuse(data, {
-        keys: [
-            { name: 'key', weight: 20 },
-            { name: 'group', weight: 15 },
-            { name: 'comment', weight: 10 },
-            { name: 'keysecondary', weight: 10 },
-            { name: 'content', weight: 3 },
-            { name: 'uid', weight: 1 },
-            { name: 'automationId', weight: 1 },
-        ],
+        keys: fuseKeys,
         includeScore: true,
         ignoreLocation: true,
         useExtendedSearch: true,
@@ -1897,8 +1945,9 @@ export function fuzzySearchWorldInfo(data, searchValue) {
     });
 
     const results = fuse.search(searchValue);
+    cache.resultMap.set(searchValue, results);
+
     console.debug('World Info fuzzy search results for ' + searchValue, results);
-    fuzzySearchWorldInfoCache.set(searchValue, results);
     return results;
 }
 
@@ -1909,17 +1958,31 @@ export function fuzzySearchWorldInfo(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchPersonas(data, searchValue) {
-    if (fuzzySearchPersonasCache.has(searchValue)) {
-        return fuzzySearchPersonasCache.get(searchValue);
+    data = data.map(x => ({ key: x, name: power_user.personas[x] ?? '', description: power_user.persona_descriptions[x]?.description ?? '' }));
+
+    const fuseKeys = [
+        { name: 'name', weight: 20 },
+        { name: 'description', weight: 3 },
+    ];
+
+    const currentKeyHash = hashFuseKeys(fuseKeys);
+    const cache = fuzzySearchCaches.personas;
+
+    // Check cache for existing results
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.debug('Using cached personas fuzzy search results for ' + searchValue);
+        return cache.resultMap.get(searchValue);
     }
 
-    data = data.map(x => ({ key: x, name: power_user.personas[x] ?? '', description: power_user.persona_descriptions[x]?.description ?? '' }));
-    // @ts-ignore
+    // Clear cache if keys changed
+    if (cache.keyHash !== currentKeyHash) {
+        console.debug('Personas Fuse keys changed, clearing cache');
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
     const fuse = new Fuse(data, {
-        keys: [
-            { name: 'name', weight: 20 },
-            { name: 'description', weight: 3 },
-        ],
+        keys: fuseKeys,
         includeScore: true,
         ignoreLocation: true,
         useExtendedSearch: true,
@@ -1927,8 +1990,9 @@ export function fuzzySearchPersonas(data, searchValue) {
     });
 
     const results = fuse.search(searchValue);
+    cache.resultMap.set(searchValue, results);
+
     console.debug('Personas fuzzy search results for ' + searchValue, results);
-    fuzzySearchPersonasCache.set(searchValue, results);
     return results;
 }
 
@@ -1938,15 +2002,28 @@ export function fuzzySearchPersonas(data, searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchTags(searchValue) {
-    if (fuzzySearchTagsCache.has(searchValue)) {
-        return fuzzySearchTagsCache.get(searchValue);
+    const fuseKeys = [
+        { name: 'name', weight: 1 },
+    ];
+
+    const currentKeyHash = hashFuseKeys(fuseKeys);
+    const cache = fuzzySearchCaches.tags;
+
+    // Check cache for existing results
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.debug('Using cached tags fuzzy search results for ' + searchValue);
+        return cache.resultMap.get(searchValue);
     }
 
-    // @ts-ignore
+    // Clear cache if keys changed
+    if (cache.keyHash !== currentKeyHash) {
+        console.debug('Tags Fuse keys changed, clearing cache');
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
     const fuse = new Fuse(tags, {
-        keys: [
-            { name: 'name', weight: 1 },
-        ],
+        keys: fuseKeys,
         includeScore: true,
         ignoreLocation: true,
         useExtendedSearch: true,
@@ -1954,8 +2031,9 @@ export function fuzzySearchTags(searchValue) {
     });
 
     const results = fuse.search(searchValue);
+    cache.resultMap.set(searchValue, results);
+
     console.debug('Tags fuzzy search results for ' + searchValue, results);
-    fuzzySearchTagsCache.set(searchValue, results);
     return results;
 }
 
@@ -1965,18 +2043,31 @@ export function fuzzySearchTags(searchValue) {
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
 export function fuzzySearchGroups(searchValue) {
-    if (fuzzySearchGroupsCache.has(searchValue)) {
-        return fuzzySearchGroupsCache.get(searchValue);
+    const fuseKeys = [
+        { name: 'name', weight: 20 },
+        { name: 'members', weight: 15 },
+        { name: '#tags', weight: 10, getFn: (group) => getTagsList(group.id).map(x => x.name).join('||') },
+        { name: 'id', weight: 1 },
+    ];
+
+    const currentKeyHash = hashFuseKeys(fuseKeys);
+    const cache = fuzzySearchCaches.groups;
+
+    // Check cache for existing results
+    if (cache.keyHash === currentKeyHash && cache.resultMap.has(searchValue)) {
+        console.debug('Using cached groups fuzzy search results for ' + searchValue);
+        return cache.resultMap.get(searchValue);
     }
 
-    // @ts-ignore
+    // Clear cache if keys changed
+    if (cache.keyHash !== currentKeyHash) {
+        console.debug('Groups Fuse keys changed, clearing cache');
+        cache.keyHash = currentKeyHash;
+        cache.resultMap.clear();
+    }
+
     const fuse = new Fuse(groups, {
-        keys: [
-            { name: 'name', weight: 20 },
-            { name: 'members', weight: 15 },
-            { name: '#tags', weight: 10, getFn: (group) => getTagsList(group.id).map(x => x.name).join('||') },
-            { name: 'id', weight: 1 },
-        ],
+        keys: fuseKeys,
         includeScore: true,
         ignoreLocation: true,
         useExtendedSearch: true,
@@ -1984,9 +2075,20 @@ export function fuzzySearchGroups(searchValue) {
     });
 
     const results = fuse.search(searchValue);
+    cache.resultMap.set(searchValue, results);
+
     console.debug('Groups fuzzy search results for ' + searchValue, results);
-    fuzzySearchGroupsCache.set(searchValue, results);
     return results;
+}
+
+/**
+ * Clears all fuzzy search caches
+ */
+export function clearFuzzySearchCaches() {
+    for (const cache of Object.values(fuzzySearchCaches)) {
+        cache.keyHash = null;
+        cache.resultMap.clear();
+    }
 }
 
 /**
