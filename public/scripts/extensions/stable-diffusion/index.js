@@ -1,37 +1,62 @@
 import { Popper } from '../../../lib.js';
 import {
-    saveSettingsDebounced,
-    systemUserName,
-    getRequestHeaders,
-    event_types,
-    eventSource,
-    generateQuietPrompt,
-    this_chid,
-    getCurrentChatId,
     animation_duration,
     appendMediaToMessage,
-    getUserAvatar,
-    user_avatar,
-    getCharacterAvatar,
+    event_types,
+    eventSource,
     formatCharacterAvatar,
+    generateQuietPrompt,
+    getCharacterAvatar,
+    getCurrentChatId,
+    getRequestHeaders,
+    getUserAvatar,
+    saveSettingsDebounced,
     substituteParams,
     substituteParamsExtended,
+    systemUserName,
+    this_chid,
+    user_avatar,
 } from '../../../script.js';
-import { getApiUrl, getContext, extension_settings, doExtrasFetch, modules, renderExtensionTemplateAsync, writeExtensionField } from '../../extensions.js';
+import {
+    doExtrasFetch,
+    extension_settings,
+    getApiUrl,
+    getContext,
+    modules,
+    renderExtensionTemplateAsync,
+    writeExtensionField,
+} from '../../extensions.js';
 import { selected_group } from '../../group-chats.js';
-import { stringFormat, initScrollHeight, resetScrollHeight, getCharaFilename, saveBase64AsFile, getBase64Async, delay, isTrueBoolean, debounce, isFalseBoolean, deepMerge } from '../../utils.js';
+import {
+    debounce,
+    deepMerge,
+    delay,
+    getBase64Async,
+    getCharaFilename,
+    initScrollHeight,
+    isFalseBoolean,
+    isTrueBoolean,
+    resetScrollHeight,
+    saveBase64AsFile,
+    stringFormat,
+} from '../../utils.js';
 import { getMessageTimeStamp, humanizedDateTime } from '../../RossAscends-mods.js';
 import { SECRET_KEYS, secret_state, writeSecret } from '../../secrets.js';
-import { getNovelUnlimitedImageGeneration, getNovelAnlas, loadNovelSubscriptionData } from '../../nai-settings.js';
+import { getNovelAnlas, getNovelUnlimitedImageGeneration, loadNovelSubscriptionData } from '../../nai-settings.js';
 import { getMultimodalCaption } from '../shared.js';
 import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';
 import { SlashCommand } from '../../slash-commands/SlashCommand.js';
-import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../slash-commands/SlashCommandArgument.js';
+import {
+    ARGUMENT_TYPE,
+    SlashCommandArgument,
+    SlashCommandNamedArgument,
+} from '../../slash-commands/SlashCommandArgument.js';
 import { debounce_timeout } from '../../constants.js';
 import { SlashCommandEnumValue } from '../../slash-commands/SlashCommandEnumValue.js';
-import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from '../../popup.js';
+import { callGenericPopup, Popup, POPUP_RESULT, POPUP_TYPE } from '../../popup.js';
 import { commonEnumProviders } from '../../slash-commands/SlashCommandCommonEnumsProvider.js';
 import { ToolManager } from '../../tool-calling.js';
+
 export { MODULE_NAME };
 
 const MODULE_NAME = 'sd';
@@ -118,13 +143,13 @@ const triggerWords = {
 };
 
 const messageTrigger = {
-    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render|show)\b.{0,10}\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those|your)?)?(.+)/i,
+    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render|show)\b.{0,10}\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those|your)?\s+)?(.+)/i,
     specialCases: {
         [generationMode.CHARACTER]: ['you', 'yourself'],
         [generationMode.USER]: ['me', 'myself'],
         [generationMode.SCENARIO]: ['story', 'scenario', 'whole story'],
         [generationMode.NOW]: ['last message'],
-        [generationMode.FACE]: ['your face', 'your portrait', 'your selfie'],
+        [generationMode.FACE]: ['face', 'portrait', 'selfie'],
         [generationMode.BACKGROUND]: ['background', 'scene background', 'scene', 'scenery', 'surroundings', 'environment'],
     },
 };
@@ -343,7 +368,7 @@ function processTriggers(chat, _, abort) {
             return;
         }
 
-        console.log(`SD: Triggered by "${message}", detected subject: ${subject}"`);
+        console.log(`SD: Triggered by "${message}", detected subject: "${subject}"`);
 
         outer: for (const [specialMode, triggers] of Object.entries(messageTrigger.specialCases)) {
             for (const trigger of triggers) {
@@ -359,7 +384,6 @@ function processTriggers(chat, _, abort) {
         setTimeout(() => generatePicture(initiators.interactive, {}, subject, message), 1);
     } catch {
         console.log('SD: Failed to process triggers.');
-        return;
     }
 }
 
@@ -685,7 +709,7 @@ async function refinePrompt(prompt, isNegative) {
     return prompt;
 }
 
-function onChatChanged() {
+async function onChatChanged() {
     if (this_chid === undefined || selected_group) {
         $('#sd_character_prompt_block').hide();
         return;
@@ -713,7 +737,7 @@ function onChatChanged() {
     $('#sd_character_prompt').val(characterPrompt);
     $('#sd_character_negative_prompt').val(negativePrompt);
     $('#sd_character_prompt_share').prop('checked', hasSharedData);
-    adjustElementScrollHeight();
+    await adjustElementScrollHeight();
 }
 
 async function adjustElementScrollHeight() {
@@ -1285,8 +1309,7 @@ async function getAutoRemoteModel() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.text();
-        return data;
+        return await result.text();
     } catch (error) {
         console.error(error);
         return null;
@@ -1305,9 +1328,7 @@ async function getDrawthingsRemoteModel() {
             throw new Error('SD DrawThings API returned an error.');
         }
 
-        const data = await result.text();
-
-        return data;
+        return await result.text();
     } catch (error) {
         console.error(error);
         return null;
@@ -1330,8 +1351,7 @@ async function getAutoRemoteUpscalers() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         console.error(error);
         return [extension_settings.sd.hr_upscaler];
@@ -1350,8 +1370,7 @@ async function getAutoRemoteSchedulers() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         console.error(error);
         return ['N/A'];
@@ -1370,8 +1389,7 @@ async function getVladRemoteUpscalers() {
             throw new Error('SD.Next returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         console.error(error);
         return [extension_settings.sd.hr_upscaler];
@@ -1504,8 +1522,7 @@ async function loadHordeSamplers() {
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return data;
+        return await result.json();
     }
 
     return [];
@@ -1544,8 +1561,7 @@ async function loadAutoSamplers() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -1583,8 +1599,7 @@ async function loadVladSamplers() {
             throw new Error('SD.Next returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -1723,8 +1738,7 @@ async function loadPollinationsModels() {
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return data;
+        return await result.json();
     }
 
     return [];
@@ -1742,8 +1756,7 @@ async function loadTogetherAIModels() {
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return data;
+        return await result.json();
     }
 
     return [];
@@ -1781,8 +1794,7 @@ async function loadNanoGPTModels() {
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return data;
+        return await result.json();
     }
 
     return [];
@@ -1798,8 +1810,10 @@ async function loadHordeModels() {
     if (result.ok) {
         const data = await result.json();
         data.sort((a, b) => b.count - a.count);
-        const models = data.map(x => ({ value: x.name, text: `${x.name} (ETA: ${x.eta}s, Queue: ${x.queued}, Workers: ${x.count})` }));
-        return models;
+        return data.map(x => ({
+            value: x.name,
+            text: `${x.name} (ETA: ${x.eta}s, Queue: ${x.queued}, Workers: ${x.count})`,
+        }));
     }
 
     return [];
@@ -1824,8 +1838,7 @@ async function loadExtrasModels() {
 
     if (getModelsResult.ok) {
         const data = await getModelsResult.json();
-        const view_models = data.models.map(x => ({ value: x, text: x }));
-        return view_models;
+        return data.models.map(x => ({ value: x, text: x }));
     }
 
     return [];
@@ -1867,8 +1880,7 @@ async function loadAutoModels() {
             }
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -1953,8 +1965,7 @@ async function loadVladModels() {
             }
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -2242,7 +2253,7 @@ async function loadComfyWorkflows() {
             $('#sd_comfy_workflow').append(option);
         }
     } catch (error) {
-        return;
+        console.error(`Could not load ComfyUI workflows: ${error.message}`);
     }
 }
 
@@ -2361,7 +2372,8 @@ function ensureSelectionExists(setting, selector) {
  * @param {string} trigger Subject trigger word
  * @param {string} [message] Chat message
  * @param {function} [callback] Callback function
- * @returns {Promise<string>} Image path
+ * @returns {Promise<string|undefined>} Image path
+ * @throws {Error} If the prompt or image generation fails
  */
 async function generatePicture(initiator, args, trigger, message, callback) {
     if (!trigger || trigger.trim().length === 0) {
@@ -2379,7 +2391,9 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     trigger = trigger.trim();
     const generationType = getGenerationType(trigger);
-    console.log('Generation mode', generationType, 'triggered with', trigger);
+    const generationTypeKey = Object.keys(generationMode).find(key => generationMode[key] === generationType);
+    console.log(`Image generation mode ${generationTypeKey} triggered with "${trigger}"`);
+
     const quietPrompt = getQuietPrompt(generationType, trigger);
     const context = getContext();
 
@@ -2387,11 +2401,11 @@ async function generatePicture(initiator, args, trigger, message, callback) {
         ? context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString()
         : context.characters[context.characterId]?.name;
 
-    if (generationType == generationMode.BACKGROUND) {
+    if (generationType === generationMode.BACKGROUND) {
         const callbackOriginal = callback;
         callback = async function (prompt, imagePath, generationType, _negativePromptPrefix, _initiator, prefixedPrompt) {
             const imgUrl = `url("${encodeURI(imagePath)}")`;
-            eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
+            await eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
 
             if (typeof callbackOriginal === 'function') {
                 await callbackOriginal(prompt, imagePath, generationType, negativePromptPrefix, initiator, prefixedPrompt);
@@ -2415,6 +2429,8 @@ async function generatePicture(initiator, args, trigger, message, callback) {
 
     try {
         const combineNegatives = (prefix) => { negativePromptPrefix = combinePrefixes(negativePromptPrefix, prefix); };
+
+        // generate the text prompt for the image
         const prompt = await getPrompt(generationType, message, trigger, quietPrompt, combineNegatives);
         console.log('Processed image prompt:', prompt);
 
@@ -2425,11 +2441,16 @@ async function generatePicture(initiator, args, trigger, message, callback) {
             args._abortController.addEventListener('abort', stopListener);
         }
 
+        // generate the image
         imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiator, abortController.signal);
     } catch (err) {
         console.trace(err);
-        toastr.error('SD prompt text generation failed. Reason: ' + err, 'Image Generation');
-        throw new Error('SD prompt text generation failed. Reason: ' + err);
+        // errors here are most likely due to text generation failure
+        // sendGenerationRequest mostly deals with its own errors
+        const reason = err.error?.message || err.message || 'Unknown error';
+        const errorText = 'SD prompt text generation failed. ' + reason;
+        toastr.error(errorText, 'Image Generation');
+        throw new Error(errorText);
     }
     finally {
         $(stopButton).hide();
@@ -2446,12 +2467,12 @@ function setTypeSpecificDimensions(generationType) {
     const aspectRatio = extension_settings.sd.width / extension_settings.sd.height;
 
     // Face images are always portrait (pun intended)
-    if ((generationType == generationMode.FACE || generationType == generationMode.FACE_MULTIMODAL) && aspectRatio >= 1) {
+    if ((generationType === generationMode.FACE || generationType === generationMode.FACE_MULTIMODAL) && aspectRatio >= 1) {
         // Round to nearest multiple of 64
         extension_settings.sd.height = Math.round(extension_settings.sd.width * 1.5 / 64) * 64;
     }
 
-    if (generationType == generationMode.BACKGROUND) {
+    if (generationType === generationMode.BACKGROUND) {
         // Background images are always landscape
         if (aspectRatio <= 1) {
             // Round to nearest multiple of 64
@@ -2500,7 +2521,7 @@ function restoreOriginalDimensions(savedParams) {
  */
 async function getPrompt(generationType, message, trigger, quietPrompt, combineNegatives) {
     let prompt;
-
+    console.log('getPrompt: Generation mode', generationType, 'triggered with', trigger);
     switch (generationType) {
         case generationMode.RAW_LAST:
             prompt = message || getRawLastMessage();
@@ -2537,7 +2558,7 @@ async function getPrompt(generationType, message, trigger, quietPrompt, combineN
  */
 function generateFreeModePrompt(trigger, combineNegatives) {
     return trigger
-        .replace(/(?:^char(\s|,)|\{\{charPrefix\}\})/gi, (_, suffix) => {
+        .replace(/^char(\s|,)|{{charPrefix}}/gi, (_, suffix) => {
             const getLastCharacterKey = () => {
                 if (typeof this_chid !== 'undefined') {
                     return getCharaFilename(this_chid);
@@ -2545,9 +2566,7 @@ function generateFreeModePrompt(trigger, combineNegatives) {
                 const context = getContext();
                 for (let i = context.chat.length - 1; i >= 0; i--) {
                     const message = context.chat[i];
-                    if (message.is_user || message.is_system) {
-                        continue;
-                    } else if (typeof message.original_avatar === 'string') {
+                    if (!message.is_user && !message.is_system && typeof message.original_avatar === 'string') {
                         return message.original_avatar.replace(/\.[^/.]+$/, '');
                     }
                 }
@@ -2570,11 +2589,11 @@ function generateFreeModePrompt(trigger, combineNegatives) {
 async function generateMultimodalPrompt(generationType, quietPrompt) {
     let avatarUrl;
 
-    if (generationType == generationMode.USER_MULTIMODAL) {
+    if (generationType === generationMode.USER_MULTIMODAL) {
         avatarUrl = getUserAvatarUrl();
     }
 
-    if (generationType == generationMode.CHARACTER_MULTIMODAL || generationType === generationMode.FACE_MULTIMODAL) {
+    if (generationType === generationMode.CHARACTER_MULTIMODAL || generationType === generationMode.FACE_MULTIMODAL) {
         avatarUrl = getCharacterAvatarUrl();
     }
 
@@ -2718,7 +2737,7 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
             throw new Error('Endpoint did not return image data.');
         }
     } catch (err) {
-        console.error(err);
+        console.error('Image generation request error: ', err);
         toastr.error('Image generation failed. Please try again.' + '\n\n' + String(err), 'Image Generation');
         return;
     }
@@ -3182,8 +3201,8 @@ function getNovelParams() {
         const ratio = Math.sqrt(MAX_PIXELS / (width * height));
 
         // Calculate new width and height while maintaining aspect ratio.
-        var newWidth = Math.round(width * ratio);
-        var newHeight = Math.round(height * ratio);
+        let newWidth = Math.round(width * ratio);
+        let newHeight = Math.round(height * ratio);
 
         // Ensure new dimensions are multiples of 64. If not, reduce accordingly.
         if (newWidth % 64 !== 0) {
@@ -3479,9 +3498,9 @@ async function onComfyOpenWorkflowEditorClick() {
     const popupResult = popup.show();
     const checkPlaceholders = () => {
         workflow = $('#sd_comfy_workflow_editor_workflow').val().toString();
-        $('.sd_comfy_workflow_editor_placeholder_list > li[data-placeholder]').each(function (idx) {
+        $('.sd_comfy_workflow_editor_placeholder_list > li[data-placeholder]').each(function () {
             const key = this.getAttribute('data-placeholder');
-            const found = workflow.search(`"%${key}%"`) != -1;
+            const found = workflow.search(`"%${key}%"`) !== -1;
             this.classList[found ? 'remove' : 'add']('sd_comfy_workflow_editor_not_found');
         });
     };
@@ -3841,7 +3860,7 @@ async function sdMessageButton(e) {
         swipes.push(image);
 
         // If already contains an image and it's not inline - leave it as is
-        message.extra.inline_image = message.extra.image && !message.extra.inline_image ? false : true;
+        message.extra.inline_image = !(message.extra.image && !message.extra.inline_image);
         message.extra.image = image;
         message.extra.title = prompt;
         message.extra.generationType = generationType;

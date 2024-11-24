@@ -1827,6 +1827,30 @@ export function initDefaultSlashCommands() {
             </div>
         `,
     }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'upper',
+        aliases: ['uppercase', 'to-upper'],
+        callback: (_, text) => typeof text === 'string' ? text.toUpperCase() : '',
+        returns: 'uppercase string',
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'string', [ARGUMENT_TYPE.STRING], true, false,
+            ),
+        ],
+        helpString: 'Converts the provided string to uppercase.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'lower',
+        aliases: ['lowercase', 'to-lower'],
+        callback: (_, text) => typeof text === 'string' ? text.toLowerCase() : '',
+        returns: 'lowercase string',
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'string', [ARGUMENT_TYPE.STRING], true, false,
+            ),
+        ],
+        helpString: 'Converts the provided string to lowercase.',
+    }));
 
     registerVariableCommands();
 }

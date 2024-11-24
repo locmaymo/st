@@ -280,7 +280,7 @@ async function sendMakerSuiteRequest(request, response) {
             delete generationConfig.stopSequences;
         }
 
-        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.includes('gemini-exp-1114')) && request.body.use_makersuite_sysprompt;
+        const should_use_system_prompt = (model.includes('gemini-1.5-flash') || model.includes('gemini-1.5-pro') || model.includes('gemini-exp-1114') || model.includes('gemini-exp-1121')) && request.body.use_makersuite_sysprompt;
         const prompt = convertGooglePrompt(request.body.messages, model, should_use_system_prompt, request.body.char_name, request.body.user_name);
         let body = {
             contents: prompt.contents,
@@ -1051,8 +1051,12 @@ router.post('/generate', jsonParser, function (request, response) {
             }
         } catch (error) {
             console.log('Generation failed', error);
+            const message = error.code === 'ECONNREFUSED'
+                ? `Connection refused: ${error.message}`
+                : error.message || 'Unknown error occurred';
+
             if (!response.headersSent) {
-                response.send({ error: true });
+                response.status(502).send({ error: { message, ...error } });
             } else {
                 response.end();
             }
@@ -1068,7 +1072,7 @@ router.post('/generate', jsonParser, function (request, response) {
 
         const message = errorResponse.statusText || 'Unknown error occurred';
         const quota_error = errorResponse.status === 429 && errorData?.error?.type === 'insufficient_quota';
-        console.log(message, responseText);
+        console.log('Chat completion request error: ', message, responseText);
 
         if (!response.headersSent) {
             response.send({ error: { message }, quota_error: quota_error });
