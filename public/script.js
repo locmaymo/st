@@ -1238,8 +1238,9 @@ async function getStatusTextgen() {
 
         const wantsInstructDerivation = (power_user.instruct.enabled && power_user.instruct.derived);
         const wantsContextDerivation = power_user.context_derived;
+        const wantsContextSize = power_user.context_size_derived;
         const supportsChatTemplate = [textgen_types.KOBOLDCPP, textgen_types.LLAMACPP].includes(textgen_settings.type);
-        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
+        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation || wantsContextSize)) {
             const response = await fetch('/api/backends/text-completions/props', {
                 method: 'POST',
                 headers: getRequestHeaders(),
@@ -1253,6 +1254,16 @@ async function getStatusTextgen() {
                 const data = await response.json();
                 if (data) {
                     const { chat_template, chat_template_hash } = data;
+                    if (wantsContextSize && "default_generation_settings" in data) {
+                        const backend_max_context = data["default_generation_settings"]["n_ctx"];
+                        if (max_context !== backend_max_context) {
+                            console.log(`Auto-switching max context from ${max_context} to ${backend_max_context}`);
+                            toastr.info(`Context Size Changed: ${max_context} ⇒ ${backend_max_context}`);
+                            max_context = backend_max_context;
+                            $('#max_context').val(max_context);
+                            $('#max_context_counter').val(max_context);
+                        }
+                    }
                     console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
                     const templates = await deriveTemplatesFromChatTemplate(chat_template, chat_template_hash);
                     if (templates) {
