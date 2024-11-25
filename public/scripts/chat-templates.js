@@ -65,6 +65,11 @@ const parse_derivation = derivation => (typeof derivation === 'string') ? {
 } : derivation;
 
 export async function deriveTemplatesFromChatTemplate(chat_template, hash) {
+    if (chat_template.trim() === '') {
+        console.log('Missing chat template.');
+        return null;
+    }
+
     if (hash in hash_derivations) {
         return parse_derivation(hash_derivations[hash]);
     }
