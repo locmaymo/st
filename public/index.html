@@ -220,10 +220,6 @@
                                         <div data-preset-manager-delete="textgenerationwebui" class="margin0 menu_button_icon menu_button" title="Delete the preset" data-i18n="[title]Delete the preset">
                                             <i class="fa-fw fa-solid fa-trash-can"></i>
                                         </div>
-                                        <label for="context_size_derived" class="checkbox_label flex1" title="Use backend provided context size, when available." data-i18n="[title]context_size_derived">
-                                            <input id="context_size_derived" type="checkbox" style="display:none;" />
-                                            <small><i class="fa-solid fa-bolt menu_button margin0"></i></small>
-                                        </label>
                                     </div>
                                 </div>
                                 <div class="flex-container flexNoGap">
@@ -3271,6 +3267,12 @@
                         <span data-i18n="Auto-connect to Last Server">Auto-connect to Last Server</span>
                     </label>
                     <a id="viewSecrets" href="javascript:void(0);" data-i18n="[missing_key_text]Missing key;[key_saved_text]Key saved" missing_key_text="❌ Missing key" key_saved_text="✔️ Key saved"><span data-i18n="View hidden API keys">View hidden API keys</span></a>
+                </div>
+                <div>
+                    <label data-tg-type="koboldcpp, llamacpp" class="checkbox_label margin-bot-10px" for="context_size_derived">
+                        <input type="checkbox" id="context_size_derived" />
+                        <span data-i18n="Derive settings from backend">Derive settings from backend</span>
+                    </label>
                 </div>
             </div>
         </div>
