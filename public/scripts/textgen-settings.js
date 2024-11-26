@@ -1258,6 +1258,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'xtc_probability': settings.xtc_probability,
         'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
+        'no_repeat_ngram_size': settings.no_repeat_ngram_size,
     };
 
     if (settings.type === OPENROUTER) {
