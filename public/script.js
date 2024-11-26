@@ -1256,12 +1256,13 @@ async function getStatusTextgen() {
                     const { chat_template, chat_template_hash } = data;
                     if (wantsContextSize && "default_generation_settings" in data) {
                         const backend_max_context = data["default_generation_settings"]["n_ctx"];
+                        const old_value = max_context;
                         if (max_context !== backend_max_context) {
-                            console.log(`Auto-switching max context from ${max_context} to ${backend_max_context}`);
-                            toastr.info(`Context Size Changed: ${max_context} ⇒ ${backend_max_context}`);
-                            max_context = backend_max_context;
-                            $('#max_context').val(max_context);
-                            $('#max_context_counter').val(max_context);
+                            setGenerationParamsFromPreset({ max_length: backend_max_context }, true);
+                        }
+                        if (old_value !== max_context) {
+                            console.log(`Auto-switched max context from ${old_value} to ${max_context}`);
+                            toastr.info(`Context Size Changed: ${old_value} ⇒ ${max_context}`);
                         }
                     }
                     console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
@@ -6832,9 +6833,19 @@ export async function saveSettings(type) {
     });
 }
 
-export function setGenerationParamsFromPreset(preset) {
+export function setGenerationParamsFromPreset(preset, keep_context_lock) {
     const needsUnlock = (preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT || (preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT;
-    $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
+    if (!keep_context_lock || $('#max_context_unlocked').prop('checked')) {
+        $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
+    } else if (needsUnlock) {
+        // cap values
+        if ((preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT) {
+            preset.max_length = MAX_CONTEXT_DEFAULT;
+        }
+        if ((preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT) {
+            preset.genamt = MAX_RESPONSE_DEFAULT;
+        }
+    }
 
     if (preset.genamt !== undefined) {
         amount_gen = preset.genamt;
