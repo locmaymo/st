@@ -1,9 +1,9 @@
 ## Input Sources to printCharacters
 
-
 `printCharacters` is the main function that triggers the fuzzy search process if fuzzy search is enabled.
 
 ```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 50}}}%%
 flowchart TD
     subgraph User Actions
         UA1[Character Search Input]
