@@ -443,17 +443,11 @@ export class FilterHelper {
 
     /**
      * Clears fuzzy search caches
-     * @param {keyof typeof fuzzySearchCategories} [type] Optional cache type to clear. If not provided, clears all caches
      */
-    clearFuzzySearchCaches(type = null) {
-        if (type && this.fuzzySearchCaches[type]) {
-            this.fuzzySearchCaches[type].resultMap.clear();
-            console.log(`Fuzzy search cache cleared for: ${type}`);
-        } else {
-            for (const cache of Object.values(this.fuzzySearchCaches)) {
-                cache.resultMap.clear();
-            }
-            console.log('All fuzzy search caches cleared');
+    clearFuzzySearchCaches() {
+        for (const cache of Object.values(this.fuzzySearchCaches)) {
+            cache.resultMap.clear();
         }
+        console.log('All fuzzy search caches cleared');
     }
 }
