@@ -91,11 +91,10 @@ export function convertClaudePrompt(messages, addAssistantPostfix, addAssistantP
  * @param {string}   prefillString User determined prefill string
  * @param {boolean}  useSysPrompt See if we want to use a system prompt
  * @param {boolean}  useTools See if we want to use tools
- * @param {string}   humanMsgFix Add Human message between system prompt and assistant.
  * @param {string}   charName Character name
  * @param {string}   userName User name
  */
-export function convertClaudeMessages(messages, prefillString, useSysPrompt, useTools, humanMsgFix, charName = '', userName = '') {
+export function convertClaudeMessages(messages, prefillString, useSysPrompt, useTools, charName, userName) {
     let systemPrompt = [];
     if (useSysPrompt) {
         // Collect all the system messages up until the first instance of a non-system message, and then remove them from the messages array.
@@ -122,10 +121,10 @@ export function convertClaudeMessages(messages, prefillString, useSysPrompt, use
 
         // Check if the first message in the array is of type user, if not, interject with humanMsgFix or a blank message.
         // Also prevents erroring out if the messages array is empty.
-        if (messages.length === 0 || (messages.length > 0 && messages[0].role !== 'user')) {
+        if (messages.length === 0) {
             messages.unshift({
                 role: 'user',
-                content: humanMsgFix || PROMPT_PLACEHOLDER,
+                content: PROMPT_PLACEHOLDER,
             });
         }
     }

@@ -102,7 +102,7 @@ async function sendClaudeRequest(request, response) {
         const additionalHeaders = {};
         const useTools = request.body.model.startsWith('claude-3') && Array.isArray(request.body.tools) && request.body.tools.length > 0;
         const useSystemPrompt = (request.body.model.startsWith('claude-2') || request.body.model.startsWith('claude-3')) && request.body.claude_use_sysprompt;
-        const convertedPrompt = convertClaudeMessages(request.body.messages, request.body.assistant_prefill, useSystemPrompt, useTools, request.body.human_sysprompt_message, request.body.char_name, request.body.user_name);
+        const convertedPrompt = convertClaudeMessages(request.body.messages, request.body.assistant_prefill, useSystemPrompt, useTools, request.body.char_name, request.body.user_name);
         // Add custom stop sequences
         const stopSequences = [];
         if (Array.isArray(request.body.stop)) {
@@ -1051,8 +1051,12 @@ router.post('/generate', jsonParser, function (request, response) {
             }
         } catch (error) {
             console.log('Generation failed', error);
+            const message = error.code === 'ECONNREFUSED'
+                ? `Connection refused: ${error.message}`
+                : error.message || 'Unknown error occurred';
+
             if (!response.headersSent) {
-                response.send({ error: true });
+                response.status(502).send({ error: { message, ...error } });
             } else {
                 response.end();
             }
@@ -1068,7 +1072,7 @@ router.post('/generate', jsonParser, function (request, response) {
 
         const message = errorResponse.statusText || 'Unknown error occurred';
         const quota_error = errorResponse.status === 429 && errorData?.error?.type === 'insufficient_quota';
-        console.log(message, responseText);
+        console.log('Chat completion request error: ', message, responseText);
 
         if (!response.headersSent) {
             response.send({ error: { message }, quota_error: quota_error });
