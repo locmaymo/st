@@ -53,6 +53,7 @@ import { SlashCommandEnumValue, enumTypes } from './slash-commands/SlashCommandE
 import { commonEnumProviders, enumIcons } from './slash-commands/SlashCommandCommonEnumsProvider.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { loadSystemPrompts } from './sysprompt.js';
+import { fuzzySearchCategories } from './filters.js';
 
 export {
     loadPowerUserSettings,
@@ -327,22 +328,6 @@ const contextControls = [
 
 let browser_has_focus = true;
 const debug_functions = [];
-
-const fuzzySearchCaches = {
-    characters: { resultMap: new Map() },
-    worldInfo: { resultMap: new Map() },
-    personas: { resultMap: new Map() },
-    tags: { resultMap: new Map() },
-    groups: { resultMap: new Map() },
-};
-
-const fuzzySearchCategories = {
-    characters: 'characters',
-    worldInfo: 'worldInfo',
-    personas: 'personas',
-    tags: 'tags',
-    groups: 'groups',
-};
 
 const setHotswapsDebounced = debounce(favsToHotswap);
 
@@ -1845,19 +1830,26 @@ async function loadContextSettings() {
     });
 }
 
+
 /**
  * Common function to perform fuzzy search with caching
  * @param {string} type - Type of search from fuzzySearchCategories
  * @param {any[]} data - Data array to search in
  * @param {Array<{name: string, weight: number, getFn?: Function}>} keys - Fuse.js keys configuration
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-function performFuzzySearch(type, data, keys, searchValue) {
+function performFuzzySearch(type, data, keys, searchValue, fuzzySearchCaches) {
+    let startTime = performance.now();
     const cache = fuzzySearchCaches[type];
 
     // Check cache for existing results
     if (cache.resultMap.has(searchValue)) {
+        let endTime = performance.now();
+        if (endTime - startTime > 1.0) {
+            console.log(`Fuzzy search for ${type} took ${endTime - startTime}ms (cached)`);
+        }
         return cache.resultMap.get(searchValue);
     }
 
@@ -1872,26 +1864,20 @@ function performFuzzySearch(type, data, keys, searchValue) {
 
     const results = fuse.search(searchValue);
     cache.resultMap.set(searchValue, results);
-    return results;
-}
-
-
-/**
- * Clears all fuzzy search caches
- */
-export function clearFuzzySearchCaches() {
-    for (const cache of Object.values(fuzzySearchCaches)) {
-        cache.resultMap.clear();
+    let endTime = performance.now();
+    if (endTime - startTime > 1.0) {
+        console.log(`Fuzzy search for ${type} took ${endTime - startTime}ms`);
     }
-    console.log('Fuzzy search caches cleared');
+    return results;
 }
 
 /**
  * Fuzzy search characters by a search term
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-export function fuzzySearchCharacters(searchValue) {
+export function fuzzySearchCharacters(searchValue, fuzzySearchCaches) {
     const keys = [
         { name: 'data.name', weight: 20 },
         { name: '#tags', weight: 10, getFn: (character) => getTagsList(character.avatar).map(x => x.name).join('||') },
@@ -1906,16 +1892,17 @@ export function fuzzySearchCharacters(searchValue) {
         { name: 'data.alternate_greetings', weight: 1 },
     ];
 
-    return performFuzzySearch(fuzzySearchCategories.characters, characters, keys, searchValue);
+    return performFuzzySearch(fuzzySearchCategories.characters, characters, keys, searchValue, fuzzySearchCaches);
 }
 
 /**
  * Fuzzy search world info entries by a search term
  * @param {*[]} data - WI items data array
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-export function fuzzySearchWorldInfo(data, searchValue) {
+export function fuzzySearchWorldInfo(data, searchValue, fuzzySearchCaches) {
     const keys = [
         { name: 'key', weight: 20 },
         { name: 'group', weight: 15 },
@@ -1926,16 +1913,17 @@ export function fuzzySearchWorldInfo(data, searchValue) {
         { name: 'automationId', weight: 1 },
     ];
 
-    return performFuzzySearch(fuzzySearchCategories.worldInfo, data, keys, searchValue);
+    return performFuzzySearch(fuzzySearchCategories.worldInfo, data, keys, searchValue, fuzzySearchCaches);
 }
 
 /**
  * Fuzzy search persona entries by a search term
  * @param {*[]} data - persona data array
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-export function fuzzySearchPersonas(data, searchValue) {
+export function fuzzySearchPersonas(data, searchValue, fuzzySearchCaches) {
     const mappedData = data.map(x => ({
         key: x,
         name: power_user.personas[x] ?? '',
@@ -1947,28 +1935,30 @@ export function fuzzySearchPersonas(data, searchValue) {
         { name: 'description', weight: 3 },
     ];
 
-    return performFuzzySearch(fuzzySearchCategories.personas, mappedData, keys, searchValue);
+    return performFuzzySearch(fuzzySearchCategories.personas, mappedData, keys, searchValue, fuzzySearchCaches);
 }
 
 /**
  * Fuzzy search tags by a search term
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-export function fuzzySearchTags(searchValue) {
+export function fuzzySearchTags(searchValue, fuzzySearchCaches) {
     const keys = [
         { name: 'name', weight: 1 },
     ];
 
-    return performFuzzySearch(fuzzySearchCategories.tags, tags, keys, searchValue);
+    return performFuzzySearch(fuzzySearchCategories.tags, tags, keys, searchValue, fuzzySearchCaches);
 }
 
 /**
  * Fuzzy search groups by a search term
  * @param {string} searchValue - The search term
+ * @param {Object.<string, { resultMap: Map<string, any> }>} fuzzySearchCaches - Fuzzy search caches
  * @returns {import('fuse.js').FuseResult<any>[]} Results as items with their score
  */
-export function fuzzySearchGroups(searchValue) {
+export function fuzzySearchGroups(searchValue, fuzzySearchCaches) {
     const keys = [
         { name: 'name', weight: 20 },
         { name: 'members', weight: 15 },
@@ -1976,7 +1966,7 @@ export function fuzzySearchGroups(searchValue) {
         { name: 'id', weight: 1 },
     ];
 
-    return performFuzzySearch(fuzzySearchCategories.groups, groups, keys, searchValue);
+    return performFuzzySearch(fuzzySearchCategories.groups, groups, keys, searchValue, fuzzySearchCaches);
 }
 
 /**

@@ -268,7 +268,6 @@ import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { deriveTemplatesFromChatTemplate } from './scripts/chat-templates.js';
-import { clearFuzzySearchCaches } from './scripts/power-user.js';
 
 //exporting functions and vars for mods
 export {
@@ -1516,7 +1515,6 @@ export async function printCharacters(fullRefresh = false) {
     });
 
     favsToHotswap();
-    clearFuzzySearchCaches();
 }
 
 /** Checks the state of the current search, and adds/removes the search sorting option accordingly */
@@ -1623,7 +1621,7 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
             subEntities = filterByTagState(entities, { subForEntity: entity });
             if (doFilter) {
                 // sub entities filter "hacked" because folder filter should not be applied there, so even in "only folders" mode characters show up
-                subEntities = entitiesFilter.applyFilters(subEntities, { clearScoreCache: false, tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED } });
+                subEntities = entitiesFilter.applyFilters(subEntities, { clearScoreCache: false, tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED }, clearFuzzySearchCaches: false });
             }
             if (doSort) {
                 sortEntitiesList(subEntities);
@@ -1636,11 +1634,11 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
     // Second run filters, hiding whatever should be filtered later
     if (doFilter) {
         const beforeFinalEntities = filterByTagState(entities, { globalDisplayFilters: true });
-        entities = entitiesFilter.applyFilters(beforeFinalEntities);
+        entities = entitiesFilter.applyFilters(beforeFinalEntities, { clearFuzzySearchCaches: false });
 
         // Magic for folder filter. If that one is enabled, and no folders are display anymore, we remove that filter to actually show the characters.
         if (isFilterState(entitiesFilter.getFilterData(FILTER_TYPES.FOLDER), FILTER_STATES.SELECTED) && entities.filter(x => x.type == 'tag').length == 0) {
-            entities = entitiesFilter.applyFilters(beforeFinalEntities, { tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED } });
+            entities = entitiesFilter.applyFilters(beforeFinalEntities, { tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED }, clearFuzzySearchCaches: false });
         }
     }
 
@@ -1656,6 +1654,7 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
     if (doSort) {
         sortEntitiesList(entities);
     }
+    entitiesFilter.clearFuzzySearchCaches();
     return entities;
 }
 
@@ -1751,6 +1750,7 @@ export async function getCharacters() {
         }
 
         await getGroups();
+        // clearFuzzySearchCaches();
         await printCharacters(true);
     }
 }
