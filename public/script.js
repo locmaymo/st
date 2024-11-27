@@ -1750,7 +1750,6 @@ export async function getCharacters() {
         }
 
         await getGroups();
-        // clearFuzzySearchCaches();
         await printCharacters(true);
     }
 }
