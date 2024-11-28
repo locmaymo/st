@@ -24,6 +24,7 @@ export const publicLibConfig = {
         hints: false,
     },
     output: {
+        path: path.resolve(process.cwd(), 'dist'),
         filename: 'lib.js',
         libraryTarget: 'module',
     },
