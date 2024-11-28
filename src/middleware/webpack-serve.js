@@ -1,4 +1,3 @@
-import process from 'node:process';
 import path from 'node:path';
 import webpack from 'webpack';
 import { publicLibConfig } from '../../webpack.config.js';
@@ -7,16 +6,6 @@ export default function getWebpackServeMiddleware() {
     const outputPath = publicLibConfig.output?.path;
     const outputFile = publicLibConfig.output?.filename;
     const compiler = webpack(publicLibConfig);
-
-    if (process.env.NODE_ENV === 'production' || process.platform === 'android') {
-        compiler.hooks.done.tap('serve', () => {
-            if (compiler.watching) {
-                compiler.watching.close(() => { });
-            }
-            compiler.watchFileSystem = null;
-            compiler.watchMode = false;
-        });
-    }
 
     /**
      * A very spartan recreation of webpack-dev-middleware.
