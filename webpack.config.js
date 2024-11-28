@@ -8,6 +8,8 @@ export const publicLibConfig = {
     cache: {
         type: 'filesystem',
         cacheDirectory: path.resolve(process.cwd(), 'dist/webpack'),
+        store: 'pack',
+        compression: 'gzip',
     },
     devtool: false,
     watch: false,
@@ -16,6 +18,8 @@ export const publicLibConfig = {
         preset: 'minimal',
         assets: false,
         modules: false,
+        colors: true,
+        timings: true,
     },
     experiments: {
         outputModule: true,
