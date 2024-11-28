@@ -696,7 +696,7 @@ export class LimitedMap {
      * @returns {number}
      */
     static estimateStringSize(str) {
-        return str.length * 2;
+        return str ? str.length * 2 : 0;
     }
 
     /**
