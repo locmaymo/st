@@ -19,7 +19,7 @@ export class ContextMenu {
         this.itemList = this.build(qr).children;
         this.itemList.forEach(item => {
             item.onExpand = () => {
-                this.itemList.filter(it => it != item)
+                this.itemList.filter(it => it !== item)
                     .forEach(it => it.collapse());
             };
         });
@@ -36,7 +36,9 @@ export class ContextMenu {
             icon: qr.icon,
             showLabel: qr.showLabel,
             label: qr.label,
+            title: qr.title,
             message: (chainedMessage && qr.message ? `${chainedMessage} | ` : '') + qr.message,
+            isHidden: qr.isHidden,
             children: [],
         };
         qr.contextList.forEach((cl) => {
@@ -51,7 +53,9 @@ export class ContextMenu {
                         subTree.icon,
                         subTree.showLabel,
                         subTree.label,
+                        subTree.title,
                         subTree.message,
+                        subTree.isHidden,
                         (evt) => {
                             evt.stopPropagation();
                             const finalQr = Object.assign(new QuickReply(), subQr);
