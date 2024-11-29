@@ -14,7 +14,7 @@ export default function getWebpackServeMiddleware() {
      * @param {import('express').NextFunction} next Next function.
      * @type {import('express').RequestHandler}
      */
-    async function devMiddleware(req, res, next) {
+    function devMiddleware(req, res, next) {
         if (req.method === 'GET' && path.parse(req.path).base === outputFile) {
             return res.sendFile(outputFile, { root: outputPath });
         }
