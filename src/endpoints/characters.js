@@ -14,7 +14,7 @@ import jimp from 'jimp';
 
 import { AVATAR_WIDTH, AVATAR_HEIGHT } from '../constants.js';
 import { jsonParser, urlencodedParser } from '../express-common.js';
-import { deepMerge, humanizedISO8601DateTime, tryParse, extractFileFromZipBuffer, LimitedMap } from '../util.js';
+import { deepMerge, humanizedISO8601DateTime, tryParse, extractFileFromZipBuffer, MemoryLimitedMap } from '../util.js';
 import { TavernCardValidator } from '../validator/TavernCardValidator.js';
 import { parse, write } from '../character-card-parser.js';
 import { readWorldInfoFile } from './worldinfo.js';
@@ -24,7 +24,7 @@ const defaultAvatarPath = './public/img/ai4.png';
 
 // KV-store for parsed character data
 // 100 MB limit. Would take roughly 3000 characters to reach this limit
-const characterDataCache = new LimitedMap(1024 * 1024 * 100);
+const characterDataCache = new MemoryLimitedMap(1024 * 1024 * 100);
 // Some Android devices require tighter memory management
 const isAndroid = process.platform === 'android';
 

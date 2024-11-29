@@ -672,11 +672,11 @@ export function isValidUrl(url) {
 }
 
 /**
- * LimitedMap class that limits the memory usage of string values.
+ * MemoryLimitedMap class that limits the memory usage of string values.
  */
-export class LimitedMap {
+export class MemoryLimitedMap {
     /**
-     * Creates an instance of LimitedMap.
+     * Creates an instance of MemoryLimitedMap.
      * @param {number} maxMemoryInBytes - The maximum allowed memory in bytes for string values.
      */
     constructor(maxMemoryInBytes) {
@@ -710,7 +710,7 @@ export class LimitedMap {
             return;
         }
 
-        const newValueSize = LimitedMap.estimateStringSize(value);
+        const newValueSize = MemoryLimitedMap.estimateStringSize(value);
 
         // If the new value itself exceeds the max memory, reject it
         if (newValueSize > this.maxMemory) {
@@ -720,7 +720,7 @@ export class LimitedMap {
         // Check if the key already exists to adjust memory accordingly
         if (this.map.has(key)) {
             const oldValue = this.map.get(key);
-            const oldValueSize = LimitedMap.estimateStringSize(oldValue);
+            const oldValueSize = MemoryLimitedMap.estimateStringSize(oldValue);
             this.currentMemory -= oldValueSize;
             // Remove the key from its current position in the queue
             const index = this.queue.indexOf(key);
@@ -733,7 +733,7 @@ export class LimitedMap {
         while (this.currentMemory + newValueSize > this.maxMemory && this.queue.length > 0) {
             const oldestKey = this.queue.shift();
             const oldestValue = this.map.get(oldestKey);
-            const oldestValueSize = LimitedMap.estimateStringSize(oldestValue);
+            const oldestValueSize = MemoryLimitedMap.estimateStringSize(oldestValue);
             this.map.delete(oldestKey);
             this.currentMemory -= oldestValueSize;
         }
@@ -777,7 +777,7 @@ export class LimitedMap {
             return false;
         }
         const value = this.map.get(key);
-        const valueSize = LimitedMap.estimateStringSize(value);
+        const valueSize = MemoryLimitedMap.estimateStringSize(value);
         this.map.delete(key);
         this.currentMemory -= valueSize;
 
@@ -842,7 +842,7 @@ export class LimitedMap {
     }
 
     /**
-     * Makes the LimitedMap iterable.
+     * Makes the MemoryLimitedMap iterable.
      * @returns {Iterator} - Iterator over [key, value] pairs.
      */
     [Symbol.iterator]() {
