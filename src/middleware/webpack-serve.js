@@ -28,10 +28,13 @@ export default function getWebpackServeMiddleware() {
      */
     devMiddleware.runWebpackCompiler = () => {
         return new Promise((resolve) => {
+            console.log();
+            console.log('Compiling frontend libraries...');
             compiler.run((_error, stats) => {
                 const output = stats?.toString(publicLibConfig.stats);
                 if (output) {
                     console.log(output);
+                    console.log();
                 }
                 resolve();
             });
