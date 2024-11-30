@@ -6833,9 +6833,14 @@ export async function saveSettings(type) {
     });
 }
 
-export function setGenerationParamsFromPreset(preset, keep_context_lock) {
+/**
+ * Sets the generation parameters from a preset object.
+ * @param {{ genamt?: number, max_length?: number }} preset Preset object
+ * @param {boolean?} keepContextLock If true, will not unlock context if it needs to be unlocked
+ */
+export function setGenerationParamsFromPreset(preset, keepContextLock = false) {
     const needsUnlock = (preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT || (preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT;
-    if (!keep_context_lock || $('#max_context_unlocked').prop('checked')) {
+    if (!keepContextLock || $('#max_context_unlocked').prop('checked')) {
         $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
     } else if (needsUnlock) {
         // cap values
