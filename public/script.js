@@ -1254,8 +1254,8 @@ async function getStatusTextgen() {
                 const data = await response.json();
                 if (data) {
                     const { chat_template, chat_template_hash } = data;
-                    if (wantsContextSize && "default_generation_settings" in data) {
-                        const backend_max_context = data["default_generation_settings"]["n_ctx"];
+                    if (wantsContextSize && 'default_generation_settings' in data) {
+                        const backend_max_context = data['default_generation_settings']['n_ctx'];
                         const old_value = max_context;
                         if (max_context !== backend_max_context) {
                             setGenerationParamsFromPreset({ max_length: backend_max_context }, true);
