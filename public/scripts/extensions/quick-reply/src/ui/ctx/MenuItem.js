@@ -6,7 +6,6 @@ export class MenuItem {
     /**@type {string}*/ label;
     /**@type {string}*/ title;
     /**@type {object}*/ value;
-    /**@type {boolean}*/ isHidden = false;
     /**@type {function}*/ callback;
     /**@type {MenuItem[]}*/ childList = [];
     /**@type {SubMenu}*/ subMenu;
@@ -25,53 +24,26 @@ export class MenuItem {
      * @param {string} label
      * @param {?string} title Tooltip
      * @param {object} value
-     * @param {boolean} isHidden QR is Invisible (auto-execute only)
      * @param {function} callback
      * @param {MenuItem[]} children
      */
-    constructor(icon, showLabel, label, title, value, isHidden, callback, children = []) {
+    constructor(icon, showLabel, label, title, value, callback, children = []) {
         this.icon = icon;
         this.showLabel = showLabel;
         this.label = label;
         this.title = title;
         this.value = value;
-        this.isHidden = isHidden;
         this.callback = callback;
         this.childList = children;
     }
 
 
-    /**
-     * Renders the MenuItem
-     *
-     * A .qr--hidden class is added to:
-     * - the item if it is "Invisible (auto-execute only)"
-     * - the icon if no icon is set
-     * - the label if an icon is set and showLabel is false
-     *
-     * There is no .qr--hidden class defined in default CSS, since having items
-     * that are invisible on the QR bar but visible in the context menu,
-     * or icon-only on the QR bar but labelled in the context menu, is a valid use case.
-     *
-     * To hide optional labels when icons are present, add this user CSS:
-     * .ctx-menu .ctx-item .qr--button-label.qr--hidden {display: none;}
-     * To hide icons when no icon is present (removes unwanted padding):
-     * .ctx-menu .ctx-item .qr--button-icon.qr--hidden {display: none;}
-     * To hide items that are set "invisible":
-     * .ctx-menu .ctx-item.qr--hidden {display: none;}
-     * To target submenus only, use .ctx-menu .ctx-sub-menu .qr--hidden {display: none;}
-     *
-     * @returns {HTMLElement}
-     */
     render() {
         if (!this.root) {
             const item = document.createElement('li'); {
                 this.root = item;
                 item.classList.add('list-group-item');
                 item.classList.add('ctx-item');
-
-                // if this item is Invisible, add the hidden class
-                if (this.isHidden) item.classList.add('qr--hidden');
 
                 // if a title/tooltip is set, add it, otherwise use the QR content
                 // same as for the main QR list
