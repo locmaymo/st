@@ -1262,7 +1262,7 @@ async function getStatusTextgen() {
                         }
                         if (old_value !== max_context) {
                             console.log(`Auto-switched max context from ${old_value} to ${max_context}`);
-                            toastr.info(`Context Size Changed: ${old_value} ⇒ ${max_context}`);
+                            toastr.info(`${old_value} ⇒ ${max_context}`, 'Context Size Changed');
                         }
                     }
                     console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
