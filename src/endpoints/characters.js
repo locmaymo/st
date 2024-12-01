@@ -14,7 +14,7 @@ import jimp from 'jimp';
 
 import { AVATAR_WIDTH, AVATAR_HEIGHT } from '../constants.js';
 import { jsonParser, urlencodedParser } from '../express-common.js';
-import { deepMerge, humanizedISO8601DateTime, tryParse, extractFileFromZipBuffer } from '../util.js';
+import { deepMerge, humanizedISO8601DateTime, tryParse, extractFileFromZipBuffer, MemoryLimitedMap } from '../util.js';
 import { TavernCardValidator } from '../validator/TavernCardValidator.js';
 import { parse, write } from '../character-card-parser.js';
 import { readWorldInfoFile } from './worldinfo.js';
@@ -23,7 +23,8 @@ import { importRisuSprites } from './sprites.js';
 const defaultAvatarPath = './public/img/ai4.png';
 
 // KV-store for parsed character data
-const characterDataCache = new Map();
+// 100 MB limit. Would take roughly 3000 characters to reach this limit
+const characterDataCache = new MemoryLimitedMap(1024 * 1024 * 100);
 // Some Android devices require tighter memory management
 const isAndroid = process.platform === 'android';
 
@@ -58,6 +59,9 @@ async function writeCharacterData(inputFile, data, outputFile, request, crop = u
     try {
         // Reset the cache
         for (const key of characterDataCache.keys()) {
+            if (Buffer.isBuffer(inputFile)) {
+                break;
+            }
             if (key.startsWith(inputFile)) {
                 characterDataCache.delete(key);
                 break;

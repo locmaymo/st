@@ -99,7 +99,6 @@ const default_wi_format = '{0}';
 const default_new_chat_prompt = '[Start a new Chat]';
 const default_new_group_chat_prompt = '[Start a new group chat. Group members: {{group}}]';
 const default_new_example_chat_prompt = '[Example Chat]';
-const default_claude_human_sysprompt_message = 'Let\'s get started. Please generate your response based on the information and instructions provided above.';
 const default_continue_nudge_prompt = '[Continue the following message. Do not include ANY parts of the original message. Use capitalization and punctuation as if your reply is a part of the original message: {{lastChatMessage}}]';
 const default_bias = 'Default (none)';
 const default_personality_format = '[{{char}}\'s personality: {{personality}}]';
@@ -276,7 +275,6 @@ const default_settings = {
     proxy_password: '',
     assistant_prefill: '',
     assistant_impersonation: '',
-    human_sysprompt_message: default_claude_human_sysprompt_message,
     claude_use_sysprompt: false,
     use_makersuite_sysprompt: true,
     use_alt_scale: false,
@@ -353,7 +351,6 @@ const oai_settings = {
     proxy_password: '',
     assistant_prefill: '',
     assistant_impersonation: '',
-    human_sysprompt_message: default_claude_human_sysprompt_message,
     claude_use_sysprompt: false,
     use_makersuite_sysprompt: true,
     use_alt_scale: false,
@@ -1892,7 +1889,6 @@ async function sendOpenAIRequest(type, messages, signal) {
         generate_data['top_k'] = Number(oai_settings.top_k_openai);
         generate_data['claude_use_sysprompt'] = oai_settings.claude_use_sysprompt;
         generate_data['stop'] = getCustomStoppingStrings(); // Claude shouldn't have limits on stop strings.
-        generate_data['human_sysprompt_message'] = substituteParams(oai_settings.human_sysprompt_message);
         // Don't add a prefill on quiet gens (summarization) and when using continue prefill.
         if (!isQuiet && !(isContinue && oai_settings.continue_prefill)) {
             generate_data['assistant_prefill'] = isImpersonate ? substituteParams(oai_settings.assistant_impersonation) : substituteParams(oai_settings.assistant_prefill);
@@ -3030,7 +3026,6 @@ function loadOpenAISettings(data, settings) {
     oai_settings.proxy_password = settings.proxy_password ?? default_settings.proxy_password;
     oai_settings.assistant_prefill = settings.assistant_prefill ?? default_settings.assistant_prefill;
     oai_settings.assistant_impersonation = settings.assistant_impersonation ?? default_settings.assistant_impersonation;
-    oai_settings.human_sysprompt_message = settings.human_sysprompt_message ?? default_settings.human_sysprompt_message;
     oai_settings.image_inlining = settings.image_inlining ?? default_settings.image_inlining;
     oai_settings.inline_image_quality = settings.inline_image_quality ?? default_settings.inline_image_quality;
     oai_settings.bypass_status_check = settings.bypass_status_check ?? default_settings.bypass_status_check;
@@ -3070,7 +3065,6 @@ function loadOpenAISettings(data, settings) {
     $('#openai_proxy_password').val(oai_settings.proxy_password);
     $('#claude_assistant_prefill').val(oai_settings.assistant_prefill);
     $('#claude_assistant_impersonation').val(oai_settings.assistant_impersonation);
-    $('#claude_human_sysprompt_textarea').val(oai_settings.human_sysprompt_message);
     $('#openai_image_inlining').prop('checked', oai_settings.image_inlining);
     $('#openai_bypass_status_check').prop('checked', oai_settings.bypass_status_check);
 
@@ -3400,7 +3394,6 @@ async function saveOpenAIPreset(name, settings, triggerUi = true) {
         show_external_models: settings.show_external_models,
         assistant_prefill: settings.assistant_prefill,
         assistant_impersonation: settings.assistant_impersonation,
-        human_sysprompt_message: settings.human_sysprompt_message,
         claude_use_sysprompt: settings.claude_use_sysprompt,
         use_makersuite_sysprompt: settings.use_makersuite_sysprompt,
         use_alt_scale: settings.use_alt_scale,
@@ -3825,7 +3818,6 @@ function onSettingsPresetChange() {
         proxy_password: ['#openai_proxy_password', 'proxy_password', false],
         assistant_prefill: ['#claude_assistant_prefill', 'assistant_prefill', false],
         assistant_impersonation: ['#claude_assistant_impersonation', 'assistant_impersonation', false],
-        human_sysprompt_message: ['#claude_human_sysprompt_textarea', 'human_sysprompt_message', false],
         claude_use_sysprompt: ['#claude_use_sysprompt', 'claude_use_sysprompt', true],
         use_makersuite_sysprompt: ['#use_makersuite_sysprompt', 'use_makersuite_sysprompt', true],
         use_alt_scale: ['#use_alt_scale', 'use_alt_scale', true],
@@ -4677,10 +4669,6 @@ function toggleChatCompletionForms() {
         const validSources = $(this).data('source').split(',');
         $(this).toggle(validSources.includes(oai_settings.chat_completion_source));
     });
-
-    if (chat_completion_sources.CLAUDE == oai_settings.chat_completion_source) {
-        $('#claude_human_sysprompt_message_block').toggle(oai_settings.claude_use_sysprompt);
-    }
 }
 
 async function testApiConnection() {
@@ -5036,7 +5024,6 @@ export function initOpenAI() {
 
     $('#claude_use_sysprompt').on('change', function () {
         oai_settings.claude_use_sysprompt = !!$('#claude_use_sysprompt').prop('checked');
-        $('#claude_human_sysprompt_message_block').toggle(oai_settings.claude_use_sysprompt);
         saveSettingsDebounced();
     });
 
@@ -5110,12 +5097,6 @@ export function initOpenAI() {
     $('#newchat_prompt_restore').on('click', function () {
         oai_settings.new_chat_prompt = default_new_chat_prompt;
         $('#newchat_prompt_textarea').val(oai_settings.new_chat_prompt);
-        saveSettingsDebounced();
-    });
-
-    $('#claude_human_sysprompt_message_restore').on('click', function () {
-        oai_settings.human_sysprompt_message = default_claude_human_sysprompt_message;
-        $('#claude_human_sysprompt_textarea').val(oai_settings.human_sysprompt_message);
         saveSettingsDebounced();
     });
 
@@ -5207,11 +5188,6 @@ export function initOpenAI() {
 
     $('#claude_assistant_impersonation').on('input', function () {
         oai_settings.assistant_impersonation = String($(this).val());
-        saveSettingsDebounced();
-    });
-
-    $('#claude_human_sysprompt_textarea').on('input', function () {
-        oai_settings.human_sysprompt_message = String($('#claude_human_sysprompt_textarea').val());
         saveSettingsDebounced();
     });
 
