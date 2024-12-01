@@ -246,6 +246,7 @@ let power_user = {
     },
 
     context_derived: false,
+    context_size_derived: false,
 
     sysprompt: {
         enabled: true,
@@ -1482,6 +1483,7 @@ async function loadPowerUserSettings(settings, data) {
     $('#example_messages_behavior').val(getExampleMessagesBehavior());
     $(`#example_messages_behavior option[value="${getExampleMessagesBehavior()}"]`).prop('selected', true);
     $('#context_derived').parent().find('i').toggleClass('toggleEnabled', !!power_user.context_derived);
+    $('#context_size_derived').prop('checked', !!power_user.context_size_derived);
 
     $('#console_log_prompts').prop('checked', power_user.console_log_prompts);
     $('#request_token_probabilities').prop('checked', power_user.request_token_probabilities);
@@ -3077,6 +3079,16 @@ $(document).ready(() => {
 
     $('#context_derived').on('change', function () {
         $('#context_derived').parent().find('i').toggleClass('toggleEnabled', !!power_user.context_derived);
+    });
+
+    $('#context_size_derived').on('input', function () {
+        const value = !!$(this).prop('checked');
+        power_user.context_size_derived = value;
+        saveSettingsDebounced();
+    });
+
+    $('#context_size_derived').on('change', function () {
+        $('#context_size_derived').prop('checked', !!power_user.context_size_derived);
     });
 
     $('#always-force-name2-checkbox').change(function () {
