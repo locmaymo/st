@@ -1258,7 +1258,7 @@ async function getStatusTextgen() {
                         const backend_max_context = data['default_generation_settings']['n_ctx'];
                         const old_value = max_context;
                         if (max_context !== backend_max_context) {
-                            setGenerationParamsFromPreset({ max_length: backend_max_context }, true);
+                            setGenerationParamsFromPreset({ max_length: backend_max_context });
                         }
                         if (old_value !== max_context) {
                             console.log(`Auto-switched max context from ${old_value} to ${max_context}`);
@@ -6837,21 +6837,10 @@ export async function saveSettings(type) {
 /**
  * Sets the generation parameters from a preset object.
  * @param {{ genamt?: number, max_length?: number }} preset Preset object
- * @param {boolean?} keepContextLock If true, will not unlock context if it needs to be unlocked
  */
-export function setGenerationParamsFromPreset(preset, keepContextLock = false) {
+export function setGenerationParamsFromPreset(preset) {
     const needsUnlock = (preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT || (preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT;
-    if (!keepContextLock || $('#max_context_unlocked').prop('checked')) {
-        $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
-    } else if (needsUnlock) {
-        // cap values
-        if ((preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT) {
-            preset.max_length = MAX_CONTEXT_DEFAULT;
-        }
-        if ((preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT) {
-            preset.genamt = MAX_RESPONSE_DEFAULT;
-        }
-    }
+    $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
 
     if (preset.genamt !== undefined) {
         amount_gen = preset.genamt;
