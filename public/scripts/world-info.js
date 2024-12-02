@@ -3548,6 +3548,11 @@ async function getCharacterLore() {
             continue;
         }
 
+        if (power_user.persona_description_lorebook === worldName) {
+            console.debug(`[WI] Character ${name}'s world ${worldName} is already activated in persona lore! Skipping...`);
+            continue;
+        }
+
         const data = await loadWorldInfo(worldName);
         const newEntries = data ? Object.keys(data.entries).map((x) => data.entries[x]).map(({ uid, ...rest }) => ({ uid, world: worldName, ...rest })) : [];
         entries = entries.concat(newEntries);
@@ -3598,11 +3603,45 @@ async function getChatLore() {
     return entries;
 }
 
+async function getPersonaLore() {
+    const chatWorld = chat_metadata[METADATA_KEY];
+    const personaWorld = power_user.persona_description_lorebook;
+
+    if (!personaWorld) {
+        return [];
+    }
+
+    if (chatWorld === personaWorld) {
+        console.debug(`[WI] Persona world ${personaWorld} is already activated in chat world! Skipping...`);
+        return [];
+    }
+
+    if (selected_world_info.includes(personaWorld)) {
+        console.debug(`[WI] Persona world ${personaWorld} is already activated in global world info! Skipping...`);
+        return [];
+    }
+
+    const data = await loadWorldInfo(personaWorld);
+    const entries = data ? Object.keys(data.entries).map((x) => data.entries[x]).map(({ uid, ...rest }) => ({ uid, world: personaWorld, ...rest })) : [];
+
+    console.debug(`[WI] Persona lore has ${entries.length} entries`, [personaWorld]);
+
+    return entries;
+}
+
 export async function getSortedEntries() {
     try {
-        const globalLore = await getGlobalLore();
-        const characterLore = await getCharacterLore();
-        const chatLore = await getChatLore();
+        const [
+            globalLore,
+            characterLore,
+            chatLore,
+            personaLore,
+        ] = await Promise.all([
+            getGlobalLore(),
+            getCharacterLore(),
+            getChatLore(),
+            getPersonaLore(),
+        ]);
 
         let entries;
 
@@ -3622,8 +3661,8 @@ export async function getSortedEntries() {
                 break;
         }
 
-        // Chat lore always goes first
-        entries = [...chatLore.sort(sortFn), ...entries];
+        // Chat lore always goes first, then persona lore, then the rest
+        entries = [...chatLore.sort(sortFn), ...personaLore.sort(sortFn), ...entries];
 
         // Calculate hash and parse decorators. Split maps to preserve old hashes.
         entries = entries.map((entry) => {
@@ -4816,9 +4855,9 @@ export async function importWorldInfo(file) {
     });
 }
 
-export function assignLorebookToChat() {
+export async function assignLorebookToChat() {
     const selectedName = chat_metadata[METADATA_KEY];
-    const template = $('#chat_world_template .chat_world').clone();
+    const template = $(await renderTemplateAsync('chatLorebook'));
 
     const worldSelect = template.find('select');
     const chatName = template.find('.chat_name');
@@ -4846,7 +4885,7 @@ export function assignLorebookToChat() {
         saveMetadata();
     });
 
-    callPopup(template, 'text');
+    callGenericPopup(template, POPUP_TYPE.TEXT);
 }
 
 jQuery(() => {
