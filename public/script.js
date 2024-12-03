@@ -242,7 +242,7 @@ import { BulkEditOverlay, CharacterContextMenu } from './scripts/BulkEditOverlay
 import { loadFeatherlessModels, loadMancerModels, loadOllamaModels, loadTogetherAIModels, loadInfermaticAIModels, loadOpenRouterModels, loadVllmModels, loadAphroditeModels, loadDreamGenModels, initTextGenModels, loadTabbyModels } from './scripts/textgen-models.js';
 import { appendFileContent, hasPendingFileAttachment, populateFileAttachment, decodeStyleTags, encodeStyleTags, isExternalMediaAllowed, getCurrentEntityId, preserveNeutralChat, restoreNeutralChat } from './scripts/chats.js';
 import { initPresetManager } from './scripts/preset-manager.js';
-import { MacrosParser, evaluateMacros, getLastMessageId } from './scripts/macros.js';
+import { MacrosParser, evaluateMacros, getLastMessageId, initMacros } from './scripts/macros.js';
 import { currentUser, setUserControls } from './scripts/user.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup, fixToastrForDialogs } from './scripts/popup.js';
 import { renderTemplate, renderTemplateAsync } from './scripts/templates.js';
@@ -957,6 +957,7 @@ async function firstLoadInit() {
     initDynamicStyles();
     initTags();
     initBookmarks();
+    initMacros();
     await getUserAvatars(true, user_avatar);
     await getCharacters();
     await getBackgrounds();
@@ -1238,8 +1239,9 @@ async function getStatusTextgen() {
 
         const wantsInstructDerivation = (power_user.instruct.enabled && power_user.instruct.derived);
         const wantsContextDerivation = power_user.context_derived;
+        const wantsContextSize = power_user.context_size_derived;
         const supportsChatTemplate = [textgen_types.KOBOLDCPP, textgen_types.LLAMACPP].includes(textgen_settings.type);
-        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation)) {
+        if (supportsChatTemplate && (wantsInstructDerivation || wantsContextDerivation || wantsContextSize)) {
             const response = await fetch('/api/backends/text-completions/props', {
                 method: 'POST',
                 headers: getRequestHeaders(),
@@ -1253,6 +1255,17 @@ async function getStatusTextgen() {
                 const data = await response.json();
                 if (data) {
                     const { chat_template, chat_template_hash } = data;
+                    if (wantsContextSize && 'default_generation_settings' in data) {
+                        const backend_max_context = data['default_generation_settings']['n_ctx'];
+                        const old_value = max_context;
+                        if (max_context !== backend_max_context) {
+                            setGenerationParamsFromPreset({ max_length: backend_max_context });
+                        }
+                        if (old_value !== max_context) {
+                            console.log(`Auto-switched max context from ${old_value} to ${max_context}`);
+                            toastr.info(`${old_value} ⇒ ${max_context}`, 'Context Size Changed');
+                        }
+                    }
                     console.log(`We have chat template ${chat_template.split('\n')[0]}...`);
                     const templates = await deriveTemplatesFromChatTemplate(chat_template, chat_template_hash);
                     if (templates) {
@@ -6822,6 +6835,10 @@ export async function saveSettings(type) {
     });
 }
 
+/**
+ * Sets the generation parameters from a preset object.
+ * @param {{ genamt?: number, max_length?: number }} preset Preset object
+ */
 export function setGenerationParamsFromPreset(preset) {
     const needsUnlock = (preset.max_length ?? max_context) > MAX_CONTEXT_DEFAULT || (preset.genamt ?? amount_gen) > MAX_RESPONSE_DEFAULT;
     $('#max_context_unlocked').prop('checked', needsUnlock).trigger('change');
