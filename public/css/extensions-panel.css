@@ -65,7 +65,7 @@ label[for="extensions_autoconnect"] {
 }
 
 .extensions_info .extension_enabled {
-    color: green;
+    font-weight: bold;
 }
 
 .extensions_info .extension_disabled {
@@ -74,6 +74,42 @@ label[for="extensions_autoconnect"] {
 
 .extensions_info .extension_missing {
     color: gray;
+}
+
+.extensions_info .extension_modules {
+    font-size: 0.8em;
+    font-weight: normal;
+}
+
+.extensions_info .extension_block {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 10px;
+    margin-bottom: 5px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.extensions_info .extension_name {
+    font-size: 1.05em;
+}
+
+.extensions_info .extension_version {
+    opacity: 0.8;
+    font-size: 0.8em;
+    font-weight: normal;
+    margin-left: 5px;
+}
+
+.extensions_info .extension_block a {
+    color: var(--SmartThemeBodyColor);
+}
+
+.extensions_info .extension_name.update_available {
+    color: limegreen;
 }
 
 input.extension_missing[type="checkbox"] {
