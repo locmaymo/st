@@ -89,6 +89,22 @@ const OOBA_DEFAULT_ORDER = [
     'encoder_repetition_penalty',
     'no_repeat_ngram',
 ];
+const APHRODITE_DEFAULT_ORDER = [
+    'dry',
+    'penalties',
+    'no_repeat_ngram',
+    'temperature',
+    'top_nsigma',
+    'top_p_top_k',
+    'top_a',
+    'min_p',
+    'tfs',
+    'eta_cutoff',
+    'epsilon_cutoff',
+    'typical_p',
+    'quadratic',
+    'xtc'
+];
 const BIAS_KEY = '#textgenerationwebui_api-settings';
 
 // Maybe let it be configurable in the future?
@@ -170,6 +186,7 @@ const settings = {
     banned_tokens: '',
     sampler_priority: OOBA_DEFAULT_ORDER,
     samplers: LLAMACPP_DEFAULT_ORDER,
+    samplers_priorties: APHRODITE_DEFAULT_ORDER,
     ignore_eos_token: false,
     spaces_between_special_tokens: true,
     speculative_ngram: false,
@@ -259,6 +276,7 @@ export const setting_names = [
     'sampler_order',
     'sampler_priority',
     'samplers',
+    'samplers_priorities',
     'n',
     'logit_bias',
     'custom_model',
@@ -627,6 +645,13 @@ jQuery(function () {
         saveSettingsDebounced();
     });
 
+    $('#aphrodite_default_order').on('click', function () {
+        sortOobaItemsByOrder(APHRODITE_DEFAULT_ORDER);
+        settings.samplers_priorties = APHRODITE_DEFAULT_ORDER;
+        console.log('Default samplers order loaded:', settings.samplers_priorties);
+        saveSettingsDebounced();
+    });
+
     $('#textgen_type').on('change', function () {
         const type = String($(this).val());
         settings.type = type;
@@ -832,6 +857,14 @@ function setSettingByName(setting, value, trigger) {
         insertMissingArrayItems(OOBA_DEFAULT_ORDER, value);
         sortOobaItemsByOrder(value);
         settings.sampler_priority = value;
+        return;
+    }
+
+    if ('samplers_priority' === setting) {
+        value = Array.isArray(value) ? value : APHRODITE_DEFAULT_ORDER;
+        insertMissingArrayItems(APHRODITE_DEFAULT_ORDER, value);
+        sortOobaItemsByOrder(value);
+        settings.samplers_priorties = value;
         return;
     }
 
@@ -1259,6 +1292,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
         'no_repeat_ngram_size': settings.no_repeat_ngram_size,
+        'sampler_priority': settings.samplers_priorties,
     };
 
     if (settings.type === OPENROUTER) {
