@@ -4885,7 +4885,7 @@ export async function assignLorebookToChat() {
         saveMetadata();
     });
 
-    callGenericPopup(template, POPUP_TYPE.TEXT);
+    return callGenericPopup(template, POPUP_TYPE.TEXT);
 }
 
 jQuery(() => {
