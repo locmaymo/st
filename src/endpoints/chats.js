@@ -561,10 +561,14 @@ router.post('/search', jsonParser, function (request, response) {
 
             let targetGroup;
             for (const groupFile of groupFiles) {
-                const groupData = JSON.parse(fs.readFileSync(path.join(groupDir, groupFile), 'utf8'));
-                if (groupData.id === group_id) {
-                    targetGroup = groupData;
-                    break;
+                try {
+                    const groupData = JSON.parse(fs.readFileSync(path.join(groupDir, groupFile), 'utf8'));
+                    if (groupData.id === group_id) {
+                        targetGroup = groupData;
+                        break;
+                    }
+                } catch (error) {
+                    console.error(groupFile, 'group file is corrupted:', error);
                 }
             }
 
