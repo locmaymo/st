@@ -7754,25 +7754,31 @@ export async function saveChatConditional() {
     }
 }
 
-async function importCharacterChat(formData) {
-    await jQuery.ajax({
-        type: 'POST',
-        url: '/api/chats/import',
-        data: formData,
-        beforeSend: function () {
-        },
-        cache: false,
-        contentType: false,
-        processData: false,
-        success: async function (data) {
-            if (data.res) {
-                await displayPastChats();
-            }
-        },
-        error: function () {
-            $('#create_button').removeAttr('disabled');
-        },
+/**
+ * Saves the chat to the server.
+ * @param {FormData} formData Form data to send to the server.
+ * @param {EventTarget} eventTarget Event target to trigger the event on.
+ */
+async function importCharacterChat(formData, eventTarget) {
+    const headers = getRequestHeaders();
+    delete headers['Content-Type'];
+    const fetchResult = await fetch('/api/chats/import', {
+        method: 'POST',
+        body: formData,
+        headers: headers,
+        cache: 'no-cache',
     });
+
+    if (fetchResult.ok) {
+        const data = await fetchResult.json();
+        if (data.res) {
+            await displayPastChats();
+        }
+    }
+
+    if (eventTarget instanceof HTMLInputElement) {
+        eventTarget.value = '';
+    }
 }
 
 function updateViewMessageIds(startFromZero = false) {
@@ -10829,13 +10835,13 @@ jQuery(async function () {
     });
 
     $('#chat_import_file').on('change', async function (e) {
-        var file = e.target.files[0];
+        const file = e.target.files[0];
 
         if (!file) {
             return;
         }
 
-        var ext = file.name.match(/\.(\w+)$/);
+        const ext = file.name.match(/\.(\w+)$/);
         if (
             !ext ||
             (ext[1].toLowerCase() != 'json' && ext[1].toLowerCase() != 'jsonl')
@@ -10848,17 +10854,17 @@ jQuery(async function () {
             return;
         }
 
-        var format = ext[1].toLowerCase();
+        const format = ext[1].toLowerCase();
         $('#chat_import_file_type').val(format);
 
-        var formData = new FormData($('#form_import_chat').get(0));
+        const formData = new FormData($('#form_import_chat').get(0));
         formData.append('user_name', name1);
         $('#select_chat_div').html('');
 
         if (selected_group) {
-            await importGroupChat(formData);
+            await importGroupChat(formData, e.originalEvent.target);
         } else {
-            await importCharacterChat(formData);
+            await importCharacterChat(formData, e.originalEvent.target);
         }
     });
 

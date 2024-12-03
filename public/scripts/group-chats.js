@@ -1863,32 +1863,38 @@ export async function deleteGroupChat(groupId, chatId) {
     }
 }
 
-export async function importGroupChat(formData) {
-    await jQuery.ajax({
-        type: 'POST',
-        url: '/api/chats/group/import',
-        data: formData,
-        beforeSend: function () {
-        },
-        cache: false,
-        contentType: false,
-        processData: false,
-        success: async function (data) {
-            if (data.res) {
-                const chatId = data.res;
-                const group = groups.find(x => x.id == selected_group);
-
-                if (group) {
-                    group.chats.push(chatId);
-                    await editGroup(selected_group, true, true);
-                    await displayPastChats();
-                }
-            }
-        },
-        error: function () {
-            $('#create_button').removeAttr('disabled');
-        },
+/**
+ * Imports a group chat from a file and adds it to the group.
+ * @param {FormData} formData Form data to send to the server
+ * @param {EventTarget} eventTarget Element that triggered the import
+ */
+export async function importGroupChat(formData, eventTarget) {
+    const headers = getRequestHeaders();
+    delete headers['Content-Type'];
+    const fetchResult = await fetch('/api/chats/group/import', {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+        cache: 'no-cache',
     });
+
+    if (fetchResult.ok) {
+        const data = await fetchResult.json();
+        if (data.res) {
+            const chatId = data.res;
+            const group = groups.find(x => x.id == selected_group);
+
+            if (group) {
+                group.chats.push(chatId);
+                await editGroup(selected_group, true, true);
+                await displayPastChats();
+            }
+        }
+    }
+
+    if (eventTarget instanceof HTMLInputElement) {
+        eventTarget.value = '';
+    }
 }
 
 export async function saveGroupBookmarkChat(groupId, name, metadata, mesId) {
