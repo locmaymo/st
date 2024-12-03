@@ -1268,6 +1268,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
 
     if (settings.type === KOBOLDCPP) {
         params.grammar = settings.grammar_string;
+        params.trim_stop = true;
     }
 
     if (settings.type === HUGGINGFACE) {
