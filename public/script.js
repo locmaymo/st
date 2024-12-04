@@ -1637,7 +1637,7 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
                 subEntities = entitiesFilter.applyFilters(subEntities, { clearScoreCache: false, tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED }, clearFuzzySearchCaches: false });
             }
             if (doSort) {
-                sortEntitiesList(subEntities);
+                sortEntitiesList(subEntities, false);
             }
             entity.entities = subEntities;
             entity.hidden = subCount - subEntities.length;
@@ -1665,7 +1665,7 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
 
     // Sort before returning if requested
     if (doSort) {
-        sortEntitiesList(entities);
+        sortEntitiesList(entities, false);
     }
     entitiesFilter.clearFuzzySearchCaches();
     return entities;

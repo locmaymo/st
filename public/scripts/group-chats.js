@@ -1267,14 +1267,15 @@ function getGroupCharacters({ doFilter, onlyMembers } = {}) {
         .filter((x) => isGroupMember(thisGroup, x.avatar) == onlyMembers)
         .map((x, index) => ({ item: x, id: index, type: 'character' }));
 
+    if (doFilter) {
+        candidates = groupCandidatesFilter.applyFilters(candidates);
+    }
+
     if (onlyMembers) {
         candidates.sort(sortMembersFn);
     } else {
-        sortEntitiesList(candidates);
-    }
-
-    if (doFilter) {
-        candidates = groupCandidatesFilter.applyFilters(candidates);
+        const useFilterOrder = doFilter && !!$('#rm_group_filter').val();
+        sortEntitiesList(candidates, useFilterOrder);
     }
 
     return candidates;

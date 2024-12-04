@@ -60,7 +60,6 @@ export {
     loadMovingUIState,
     collapseNewlines,
     playMessageSound,
-    sortEntitiesList,
     fixMarkdown,
     power_user,
     send_on_enter_options,
@@ -2080,8 +2079,9 @@ const compareFunc = (first, second) => {
 /**
  * Sorts an array of entities based on the current sort settings
  * @param {any[]} entities An array of objects with an `item` property
+ * @param {boolean} forceSearch Whether to force search sorting
  */
-function sortEntitiesList(entities) {
+export function sortEntitiesList(entities, forceSearch) {
     if (power_user.sort_field == undefined || entities.length === 0) {
         return;
     }
@@ -2091,7 +2091,7 @@ function sortEntitiesList(entities) {
         return;
     }
 
-    const isSearch = $('#character_sort_order option[data-field="search"]').is(':selected');
+    const isSearch = forceSearch || $('#character_sort_order option[data-field="search"]').is(':selected');
 
     entities.sort((a, b) => {
         // Sort tags/folders will always be at the top
