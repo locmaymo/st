@@ -23,7 +23,7 @@ import { FILTER_TYPES, FilterHelper } from './filters.js';
 import { selected_group } from './group-chats.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { t } from './i18n.js';
-import { world_names } from './world-info.js';
+import { openWorldInfoEditor, world_names } from './world-info.js';
 import { renderTemplateAsync } from './templates.js';
 
 let savePersonasPage = 0;
@@ -783,12 +783,21 @@ function onPersonaDescriptionDepthRoleInput() {
     saveSettingsDebounced();
 }
 
-async function onPersonaLoreButtonClick() {
+/**
+ * Opens a popup to set the lorebook for the current persona.
+ * @param {PointerEvent} event Click event
+ */
+async function onPersonaLoreButtonClick(event) {
     const personaName = power_user.personas[user_avatar];
     const selectedLorebook = power_user.persona_description_lorebook;
 
     if (!personaName) {
         toastr.warning(t`You must bind a name to this persona before you can set a lorebook.`, t`Persona name not set`);
+        return;
+    }
+
+    if (event.altKey && selectedLorebook) {
+        openWorldInfoEditor(selectedLorebook);
         return;
     }
 

@@ -4855,8 +4855,32 @@ export async function importWorldInfo(file) {
     });
 }
 
-export async function assignLorebookToChat() {
+/**
+ * Forces the world info editor to open on a specific world.
+ * @param {string} worldName The name of the world to open
+ */
+export function openWorldInfoEditor(worldName) {
+    console.log(`Opening lorebook for ${worldName}`);
+    if (!$('#WorldInfo').is(':visible')) {
+        $('#WIDrawerIcon').trigger('click');
+    }
+    const index = world_names.indexOf(worldName);
+    $('#world_editor_select').val(index).trigger('change');
+}
+
+/**
+ * Assigns a lorebook to the current chat.
+ * @param {PointerEvent} event Pointer event
+ * @returns {Promise<void>}
+ */
+export async function assignLorebookToChat(event) {
     const selectedName = chat_metadata[METADATA_KEY];
+
+    if (selectedName && event.altKey) {
+        openWorldInfoEditor(selectedName);
+        return;
+    }
+
     const template = $(await renderTemplateAsync('chatLorebook'));
 
     const worldSelect = template.find('select');
@@ -5036,11 +5060,7 @@ jQuery(() => {
             const worldName = characters[chid]?.data?.extensions?.world;
             const hasEmbed = checkEmbeddedWorld(chid);
             if (worldName && world_names.includes(worldName) && !event.shiftKey) {
-                if (!$('#WorldInfo').is(':visible')) {
-                    $('#WIDrawerIcon').trigger('click');
-                }
-                const index = world_names.indexOf(worldName);
-                $('#world_editor_select').val(index).trigger('change');
+                openWorldInfoEditor(worldName);
             } else if (hasEmbed && !event.shiftKey) {
                 await importEmbeddedWorldInfo();
                 saveCharacterDebounced();
