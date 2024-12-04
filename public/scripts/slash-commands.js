@@ -3025,7 +3025,7 @@ async function sendUserMessageCallback(args, text) {
     let insertAt = Number(args?.at);
 
     // Convert possible depth parameter to index
-    if (!isNaN(insertAt) && (insertAt < 0 || insertAt === Number(-0))) {
+    if (!isNaN(insertAt) && (insertAt < 0 || Object.is(insertAt, -0))) {
         // Negative value means going back from current chat length. (E.g.: 8 messages, Depth 1 means insert at index 7)
         insertAt = chat.length + insertAt;
     }
@@ -3399,7 +3399,7 @@ export async function sendMessageAs(args, text) {
     let insertAt = Number(args.at);
 
     // Convert possible depth parameter to index
-    if (!isNaN(insertAt) && (insertAt < 0 || insertAt === Number(-0))) {
+    if (!isNaN(insertAt) && (insertAt < 0 || Object.is(insertAt, -0))) {
         // Negative value means going back from current chat length. (E.g.: 8 messages, Depth 1 means insert at index 7)
         insertAt = chat.length + insertAt;
     }
@@ -3453,7 +3453,7 @@ export async function sendNarratorMessage(args, text) {
     let insertAt = Number(args.at);
 
     // Convert possible depth parameter to index
-    if (!isNaN(insertAt) && (insertAt < 0 || insertAt === Number(-0))) {
+    if (!isNaN(insertAt) && (insertAt < 0 || Object.is(insertAt, -0))) {
         // Negative value means going back from current chat length. (E.g.: 8 messages, Depth 1 means insert at index 7)
         insertAt = chat.length + insertAt;
     }
@@ -3542,7 +3542,7 @@ async function sendCommentMessage(args, text) {
     let insertAt = Number(args.at);
 
     // Convert possible depth parameter to index
-    if (!isNaN(insertAt) && (insertAt < 0 || insertAt === Number(-0))) {
+    if (!isNaN(insertAt) && (insertAt < 0 || Object.is(insertAt, -0))) {
         // Negative value means going back from current chat length. (E.g.: 8 messages, Depth 1 means insert at index 7)
         insertAt = chat.length + insertAt;
     }
