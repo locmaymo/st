@@ -88,7 +88,7 @@ router.post('/login', jsonParser, async (request, response) => {
 
         await loginLimiter.delete(ip);
         request.session.handle = user.handle;
-        console.log('Login successful:', user.handle, 'from', ip, 'at', Date().toLocaleString());
+        console.log('Login successful:', user.handle, 'from', ip, 'at', new Date().toLocaleString());
         return response.json({ handle: user.handle });
     } catch (error) {
         if (error instanceof RateLimiterRes) {
