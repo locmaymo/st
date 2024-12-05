@@ -2607,15 +2607,18 @@ export function substituteParams(content, _name1, _name2, _original, _group, _re
         };
     }
 
-    const getGroupValue = () => {
+    const getGroupValue = (includeMuted) => {
         if (typeof _group === 'string') {
             return _group;
         }
 
         if (selected_group) {
             const members = groups.find(x => x.id === selected_group)?.members;
+            /** @type {string[]} */
+            const disabledMembers = groups.find(x => x.id === selected_group)?.disabled_members ?? [];
+            const isMuted = x => includeMuted ? true : !disabledMembers.includes(x);
             const names = Array.isArray(members)
-                ? members.map(m => characters.find(c => c.avatar === m)?.name).filter(Boolean).join(', ')
+                ? members.filter(isMuted).map(m => characters.find(c => c.avatar === m)?.name).filter(Boolean).join(', ')
                 : '';
             return names;
         } else {
@@ -2639,7 +2642,8 @@ export function substituteParams(content, _name1, _name2, _original, _group, _re
     // Must be substituted last so that they're replaced inside {{description}}
     environment.user = _name1 ?? name1;
     environment.char = _name2 ?? name2;
-    environment.group = environment.charIfNotGroup = getGroupValue();
+    environment.group = environment.charIfNotGroup = getGroupValue(true);
+    environment.groupNotMuted = getGroupValue(false);
     environment.model = getGeneratingModel();
 
     if (additionalMacro && typeof additionalMacro === 'object') {
