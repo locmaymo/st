@@ -1699,6 +1699,49 @@ export function initDefaultSlashCommands() {
         helpString: 'Sets the model for the current API. Gets the current model name if no argument is provided.',
     }));
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'getpromptentry',
+        aliases: ['getpromptentries'],
+        callback: getPromptEntryCallback,
+        returns: 'true/false state of prompt(s)',
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({
+                name: 'identifier',
+                description: 'Prompt entry identifier(s) to retrieve',
+                typeList: [ARGUMENT_TYPE.STRING, ARGUMENT_TYPE.LIST],
+                acceptsMultiple: true,
+                enumProvider: () =>
+                    promptManager.serviceSettings.prompts
+                        .map(prompt => prompt.identifier)
+                        .map(identifier => new SlashCommandEnumValue(identifier, identifier)),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'name',
+                description: 'Prompt entry name(s) to retrieve',
+                typeList: [ARGUMENT_TYPE.STRING, ARGUMENT_TYPE.LIST],
+                acceptsMultiple: true,
+                enumProvider: () =>
+                    promptManager.serviceSettings.prompts
+                        .map(prompt => prompt.name)
+                        .map(name => new SlashCommandEnumValue(name, name)),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'return',
+                description: 'Whether the return will be simple, a list, or a dict.',
+                typeList: [ARGUMENT_TYPE.STRING],
+                defaultValue: 'simple',
+                enumList: ['simple', 'list', 'dict'],
+            }),
+        ],
+        helpString: `
+            <div>
+                Gets the state of the specified prompt entries.
+            </div>
+            <div>
+                If <code>return</code> is <code>simple</code> (default) then the return will be a single value if only one value was retrieved; otherwise uses a dict (if the identifier parameter was used) or a list.
+            </div>
+        `,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
         name: 'setpromptentry',
         aliases: ['setpromptentries'],
         callback: setPromptEntryCallback,
@@ -3784,6 +3827,75 @@ function modelCallback(args, model) {
         !quiet && toastr.warning(`No model found with name "${model}"`);
         return '';
     }
+}
+
+/**
+ * Gets the state of prompt entries (toggles) either via identifier/uuid or name.
+ * @param {object} args Object containing arguments
+ * @param {string} args.identifier Select prompt entry using an identifier (uuid)
+ * @param {string} args.name Select prompt entry using name
+ * @returns {Object} An object containing the states of the requested prompt entries
+ */
+function getPromptEntryCallback(args) {
+    const promptManager = setupChatCompletionPromptManager(oai_settings);
+    const prompts = promptManager.serviceSettings.prompts;
+    let returnType = args.return ?? 'simple';
+
+    function parseArgs(arg) {
+        // Arg is already an array
+        if (Array.isArray(arg)) {
+            return arg;
+        }
+        const list = [];
+        try {
+            // Arg is a JSON-stringified array
+            const parsedArg = JSON.parse(arg);
+            list.push(...Array.isArray(parsedArg) ? parsedArg : [arg]);
+        } catch {
+            // Arg is a string
+            list.push(arg);
+        }
+        return list;
+    }
+
+    let identifiersList = parseArgs(args.identifier);
+    let nameList = parseArgs(args.name);
+
+    // Check if identifiers exists in prompt, else remove from list
+    if (identifiersList.length !== 0) {
+        identifiersList = identifiersList.filter(identifier => prompts.some(prompt => prompt.identifier === identifier));
+    }
+
+    if (nameList.length !== 0) {
+        nameList.forEach(name => {
+            let identifiers = prompts
+                .filter(entry => entry.name === name)
+                .map(entry => entry.identifier);
+            identifiersList = identifiersList.concat(identifiers);
+        });
+    }
+
+    // Get the state for each prompt entry
+    let promptStates = new Map();
+    identifiersList.forEach(identifier => {
+        const promptOrderEntry = promptManager.getPromptOrderEntry(promptManager.activeCharacter, identifier);
+        if (promptOrderEntry) {
+            promptStates.set(identifier, promptOrderEntry.enabled);
+        }
+    });
+
+    // If return is simple (default) but more than one prompt state was retrieved, then change return type
+    if (returnType === 'simple' && promptStates.size > 1) {
+        returnType = args.identifier ? 'dict' : 'list';
+    }
+
+    const result = (() => {
+        if (returnType === 'list') return [...promptStates.values()];
+        if (returnType === 'dict') return Object.fromEntries(promptStates);
+        return [...promptStates.values()][0];
+    })();
+
+    return result;
 }
 
 /**
