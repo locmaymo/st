@@ -52,7 +52,7 @@ import { hideChatMessageRange } from './chats.js';
 import { getContext, saveMetadataDebounced } from './extensions.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { findGroupMemberId, groups, is_group_generating, openGroupById, resetSelectedGroup, saveGroupChat, selected_group } from './group-chats.js';
-import { chat_completion_sources, oai_settings, setupChatCompletionPromptManager } from './openai.js';
+import { chat_completion_sources, oai_settings, promptManager } from './openai.js';
 import { autoSelectPersona, retriggerFirstMessageOnEmptyChat, setPersonaLockState, togglePersonaLock, user_avatar } from './personas.js';
 import { addEphemeralStoppingString, chat_styles, flushEphemeralStoppingStrings, power_user } from './power-user.js';
 import { SERVER_INPUTS, textgen_types, textgenerationwebui_settings } from './textgen-settings.js';
@@ -1712,7 +1712,7 @@ export function initDefaultSlashCommands() {
                 enumProvider: () =>
                     promptManager.serviceSettings.prompts
                         .map(prompt => prompt.identifier)
-                        .map(identifier => new SlashCommandEnumValue(identifier, identifier)),
+                        .map(identifier => new SlashCommandEnumValue(identifier)),
             }),
             SlashCommandNamedArgument.fromProps({
                 name: 'name',
@@ -1722,7 +1722,7 @@ export function initDefaultSlashCommands() {
                 enumProvider: () =>
                     promptManager.serviceSettings.prompts
                         .map(prompt => prompt.name)
-                        .map(name => new SlashCommandEnumValue(name, name)),
+                        .map(name => new SlashCommandEnumValue(name)),
             }),
             SlashCommandNamedArgument.fromProps({
                 name: 'return',
@@ -1752,7 +1752,6 @@ export function initDefaultSlashCommands() {
                 typeList: [ARGUMENT_TYPE.STRING, ARGUMENT_TYPE.LIST],
                 acceptsMultiple: true,
                 enumProvider: () => {
-                    const promptManager = setupChatCompletionPromptManager(oai_settings);
                     const prompts = promptManager.serviceSettings.prompts;
                     return prompts.map(prompt => new SlashCommandEnumValue(prompt.identifier, prompt.name, enumTypes.enum));
                 },
@@ -1763,7 +1762,6 @@ export function initDefaultSlashCommands() {
                 typeList: [ARGUMENT_TYPE.STRING, ARGUMENT_TYPE.LIST],
                 acceptsMultiple: true,
                 enumProvider: () => {
-                    const promptManager = setupChatCompletionPromptManager(oai_settings);
                     const prompts = promptManager.serviceSettings.prompts;
                     return prompts.map(prompt => new SlashCommandEnumValue(prompt.name, prompt.identifier, enumTypes.enum));
                 },
@@ -3834,10 +3832,10 @@ function modelCallback(args, model) {
  * @param {object} args Object containing arguments
  * @param {string} args.identifier Select prompt entry using an identifier (uuid)
  * @param {string} args.name Select prompt entry using name
+ * @param {string} args.return The type of return value to use (simple, list, dict)
  * @returns {Object} An object containing the states of the requested prompt entries
  */
 function getPromptEntryCallback(args) {
-    const promptManager = setupChatCompletionPromptManager(oai_settings);
     const prompts = promptManager.serviceSettings.prompts;
     let returnType = args.return ?? 'simple';
 
@@ -3908,7 +3906,6 @@ function getPromptEntryCallback(args) {
  */
 function setPromptEntryCallback(args, targetState) {
     // needs promptManager to manipulate prompt entries
-    const promptManager = setupChatCompletionPromptManager(oai_settings);
     const prompts = promptManager.serviceSettings.prompts;
 
     function parseArgs(arg) {

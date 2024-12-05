@@ -379,8 +379,8 @@ export let selected_proxy = proxies[0];
 let openai_setting_names;
 let openai_settings;
 
-
-let promptManager = null;
+/** @type {import('./PromptManager.js').PromptManager} */
+export let promptManager = null;
 
 async function validateReverseProxy() {
     if (!oai_settings.reverse_proxy) {
