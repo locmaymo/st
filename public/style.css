@@ -1045,7 +1045,7 @@ body .panelControlBar {
 }
 
 body:not(.swipeAllMessages) .mes:not(.last_mes) .swipes-counter {
-    display: none;
+    opacity: 0;
 }
 
 body.swipeAllMessages .mes:not(.last_mes) .swipes-counter {
