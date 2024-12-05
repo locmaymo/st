@@ -472,9 +472,9 @@ function switchCompactInputArea() {
     $('#compact_input_area').prop('checked', power_user.compact_input_area);
 }
 
-export function switchSwipeNumAllMessages() {
+function switchSwipeNumAllMessages() {
     $('#show_swipe_num_all_messages').prop('checked', power_user.show_swipe_num_all_messages);
-    $('.mes:not(.last_mes) .swipes-counter').css('opacity', '').toggle(power_user.show_swipe_num_all_messages);
+    $('body').toggleClass('swipeAllMessages', !!power_user.show_swipe_num_all_messages);
 }
 
 var originalSliderValues = [];

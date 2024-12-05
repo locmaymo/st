@@ -98,7 +98,6 @@ import {
     resetMovableStyles,
     forceCharacterEditorTokenize,
     applyPowerUserSettings,
-    switchSwipeNumAllMessages,
 } from './scripts/power-user.js';
 
 import {
@@ -7660,14 +7659,12 @@ export function showSwipeButtons() {
     //allows for writing individual swipe counters for past messages
     const lastSwipeCounter = $('.last_mes .swipes-counter');
     lastSwipeCounter.text(swipeCounterText).show();
-
-    switchSwipeNumAllMessages();
 }
 
 export function hideSwipeButtons() {
-    $('#chat').find('.swipe_right').hide();
-    $('#chat').find('.last_mes .swipes-counter').hide();
-    $('#chat').find('.swipe_left').hide();
+    chatElement.find('.swipe_right').hide();
+    chatElement.find('.last_mes .swipes-counter').hide();
+    chatElement.find('.swipe_left').hide();
 }
 
 /**
@@ -8538,6 +8535,8 @@ const swipe_right = () => {
     }
     if (run_generate) {               //hide swipe arrows while generating
         this_div.css('display', 'none');
+        const swipesCounter = currentMessage.find('.swipes-counter');
+        swipesCounter.hide();
     }
     // handles animated transitions when swipe right, specifically height transitions between messages
     if (run_generate || run_swipe_right) {

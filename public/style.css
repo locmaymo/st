@@ -1044,6 +1044,16 @@ body .panelControlBar {
     opacity: 0.3;
 }
 
+body:not(.swipeAllMessages) .mes:not(.last_mes) .swipes-counter {
+    display: none;
+}
+
+body.swipeAllMessages .mes:not(.last_mes) .swipes-counter {
+    /* Avoid expensive DOM queries */
+    opacity: 0.3 !important;
+    display: flex !important;
+}
+
 .swipe_left {
     right: auto;
     left: 20px;
