@@ -4,7 +4,7 @@
 
 #sd_dropdown {
     z-index: 30000;
-    backdrop-filter: blur(calc(var(--SmartThemeBlurStrength)));
+    backdrop-filter: blur(var(--SmartThemeBlurStrength));
 }
 
 #sd_comfy_open_workflow_editor {
