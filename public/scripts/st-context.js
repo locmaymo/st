@@ -54,7 +54,7 @@ import { hideLoader, showLoader } from './loader.js';
 import { MacrosParser } from './macros.js';
 import { oai_settings } from './openai.js';
 import { callGenericPopup, Popup, POPUP_RESULT, POPUP_TYPE } from './popup.js';
-import { registerDebugFunction } from './power-user.js';
+import { power_user, registerDebugFunction } from './power-user.js';
 import { isMobile, shouldSendOnEnter } from './RossAscends-mods.js';
 import { ScraperManager } from './scrapers.js';
 import { executeSlashCommands, executeSlashCommandsWithOptions, registerSlashCommand } from './slash-commands.js';
@@ -69,8 +69,6 @@ import { timestampToMoment } from './utils.js';
 
 export function getContext() {
     return {
-        chatCompletionSettings: oai_settings,
-        textCompletionSettings: textgenerationwebui_settings,
         chat,
         characters,
         groups,
@@ -101,8 +99,8 @@ export function getContext() {
         getTokenCount,
         getTokenCountAsync,
         extensionPrompts: extension_prompts,
-        setExtensionPrompt: setExtensionPrompt,
-        updateChatMetadata: updateChatMetadata,
+        setExtensionPrompt,
+        updateChatMetadata,
         saveChat: saveChatConditional,
         openCharacterChat,
         openGroupChat,
@@ -132,11 +130,11 @@ export function getContext() {
         unregisterFunctionTool: ToolManager.unregisterFunctionTool.bind(ToolManager),
         isToolCallingSupported: ToolManager.isToolCallingSupported.bind(ToolManager),
         canPerformToolCalls: ToolManager.canPerformToolCalls.bind(ToolManager),
-        registerDebugFunction: registerDebugFunction,
+        registerDebugFunction,
         /** @deprecated Use renderExtensionTemplateAsync instead. */
-        renderExtensionTemplate: renderExtensionTemplate,
-        renderExtensionTemplateAsync: renderExtensionTemplateAsync,
-        registerDataBankScraper: ScraperManager.registerDataBankScraper,
+        renderExtensionTemplate,
+        renderExtensionTemplateAsync,
+        registerDataBankScraper: ScraperManager.registerDataBankScraper.bind(ScraperManager),
         /** @deprecated Use callGenericPopup or Popup instead. */
         callPopup,
         callGenericPopup,
@@ -161,9 +159,12 @@ export function getContext() {
         createCharacterData: create_save,
         /** @deprecated Legacy snake-case naming, compatibility with old extensions */
         event_types: event_types,
-        Popup: Popup,
+        Popup,
         POPUP_TYPE,
         POPUP_RESULT,
+        chatCompletionSettings: oai_settings,
+        textCompletionSettings: textgenerationwebui_settings,
+        powerUserSettings: power_user,
     };
 }
 
