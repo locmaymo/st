@@ -1040,12 +1040,8 @@ body .panelControlBar {
     height: var(--swipeCounterHeight);
 }
 
-.mes:not(.last_mes) .swipes-counter {
-    opacity: 0.3;
-}
-
 body:not(.swipeAllMessages) .mes:not(.last_mes) .swipes-counter {
-    opacity: 0;
+    visibility: hidden;
 }
 
 body.swipeAllMessages .mes:not(.last_mes) .swipes-counter {
