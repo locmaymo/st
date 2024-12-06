@@ -8535,8 +8535,6 @@ const swipe_right = () => {
     }
     if (run_generate) {               //hide swipe arrows while generating
         this_div.css('display', 'none');
-        const swipesCounter = currentMessage.find('.swipes-counter');
-        swipesCounter.hide();
     }
     // handles animated transitions when swipe right, specifically height transitions between messages
     if (run_generate || run_swipe_right) {
