@@ -220,8 +220,8 @@ import {
     instruct_presets,
     selectContextPreset,
 } from './scripts/instruct-mode.js';
-import { initLocales, t, translate } from './scripts/i18n.js';
-import { getFriendlyTokenizerName, getTokenCount, getTokenCountAsync, getTokenizerModel, initTokenizers, saveTokenCache, TOKENIZER_SUPPORTED_KEY } from './scripts/tokenizers.js';
+import { initLocales, t } from './scripts/i18n.js';
+import { getFriendlyTokenizerName, getTokenCount, getTokenCountAsync, initTokenizers, saveTokenCache, TOKENIZER_SUPPORTED_KEY } from './scripts/tokenizers.js';
 import {
     user_avatar,
     getUserAvatars,
@@ -534,7 +534,7 @@ let displayVersion = 'SillyTavern';
 
 let generatedPromptCache = '';
 let generation_started = new Date();
-/** @type {import('scripts/char-data.js').v1CharData[]} */
+/** @type {import('./scripts/char-data.js').v1CharData[]} */
 export let characters = [];
 export let this_chid;
 let saveCharactersPage = 0;
