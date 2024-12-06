@@ -13,7 +13,7 @@ import {
     default as libs,
 } from './lib.js';
 
-import { humanizedDateTime, favsToHotswap, getMessageTimeStamp, dragElement, isMobile, initRossMods, shouldSendOnEnter } from './scripts/RossAscends-mods.js';
+import { humanizedDateTime, favsToHotswap, getMessageTimeStamp, dragElement, isMobile, initRossMods } from './scripts/RossAscends-mods.js';
 import { userStatsHandler, statMesProcess, initStats } from './scripts/stats.js';
 import {
     generateKoboldWithStreaming,
@@ -36,8 +36,6 @@ import {
     parseTextgenLogprobs,
     parseTabbyLogprobs,
 } from './scripts/textgen-settings.js';
-
-const { MANCER, TOGETHERAI, OOBA, VLLM, APHRODITE, TABBY, OLLAMA, INFERMATICAI, DREAMGEN, OPENROUTER, FEATHERLESS } = textgen_types;
 
 import {
     world_info,
@@ -67,9 +65,7 @@ import {
     getGroupChat,
     renameGroupMember,
     createNewGroupChat,
-    getGroupPastChats,
     getGroupAvatar,
-    openGroupChat,
     editGroup,
     deleteGroupChat,
     renameGroupChat,
@@ -174,8 +170,8 @@ import {
 } from './scripts/utils.js';
 import { debounce_timeout } from './scripts/constants.js';
 
-import { ModuleWorkerWrapper, doDailyExtensionUpdatesCheck, extension_settings, getContext, initExtensions, loadExtensionSettings, renderExtensionTemplate, renderExtensionTemplateAsync, runGenerationInterceptors, saveMetadataDebounced, writeExtensionField } from './scripts/extensions.js';
-import { COMMENT_NAME_DEFAULT, executeSlashCommands, executeSlashCommandsOnChatInput, executeSlashCommandsWithOptions, getSlashCommandsHelp, initDefaultSlashCommands, isExecutingCommandsFromChatInput, pauseScriptExecution, processChatSlashCommands, registerSlashCommand, stopScriptExecution } from './scripts/slash-commands.js';
+import { doDailyExtensionUpdatesCheck, extension_settings, initExtensions, loadExtensionSettings, runGenerationInterceptors, saveMetadataDebounced } from './scripts/extensions.js';
+import { COMMENT_NAME_DEFAULT, executeSlashCommandsOnChatInput, getSlashCommandsHelp, initDefaultSlashCommands, isExecutingCommandsFromChatInput, pauseScriptExecution, processChatSlashCommands, stopScriptExecution } from './scripts/slash-commands.js';
 import {
     tag_map,
     tags,
@@ -242,11 +238,11 @@ import { BulkEditOverlay, CharacterContextMenu } from './scripts/BulkEditOverlay
 import { loadFeatherlessModels, loadMancerModels, loadOllamaModels, loadTogetherAIModels, loadInfermaticAIModels, loadOpenRouterModels, loadVllmModels, loadAphroditeModels, loadDreamGenModels, initTextGenModels, loadTabbyModels } from './scripts/textgen-models.js';
 import { appendFileContent, hasPendingFileAttachment, populateFileAttachment, decodeStyleTags, encodeStyleTags, isExternalMediaAllowed, getCurrentEntityId, preserveNeutralChat, restoreNeutralChat } from './scripts/chats.js';
 import { getPresetManager, initPresetManager } from './scripts/preset-manager.js';
-import { MacrosParser, evaluateMacros, getLastMessageId, initMacros } from './scripts/macros.js';
+import { evaluateMacros, getLastMessageId, initMacros } from './scripts/macros.js';
 import { currentUser, setUserControls } from './scripts/user.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup, fixToastrForDialogs } from './scripts/popup.js';
 import { renderTemplate, renderTemplateAsync } from './scripts/templates.js';
-import { initScrapers, ScraperManager } from './scripts/scrapers.js';
+import { initScrapers } from './scripts/scrapers.js';
 import { SlashCommandParser } from './scripts/slash-commands/SlashCommandParser.js';
 import { SlashCommand } from './scripts/slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from './scripts/slash-commands/SlashCommandArgument.js';
@@ -268,6 +264,13 @@ import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { deriveTemplatesFromChatTemplate } from './scripts/chat-templates.js';
+import { getContext } from './scripts/st-context.js';
+
+// API OBJECT FOR EXTERNAL WIRING
+globalThis.SillyTavern = {
+    libs,
+    getContext,
+};
 
 //exporting functions and vars for mods
 export {
@@ -426,10 +429,6 @@ DOMPurify.addHook('uponSanitizeElement', (node, _, config) => {
         }
     }
 });
-
-// API OBJECT FOR EXTERNAL WIRING
-window['SillyTavern'] = {};
-window['SillyTavern'].libs = libs;
 
 // Event source init
 export const event_types = {
@@ -812,7 +811,7 @@ export let menu_type = '';
 export let selected_button = ''; //which button pressed
 
 //create pole save
-let create_save = {
+export let create_save = {
     name: '',
     description: '',
     creator_notes: '',
@@ -864,7 +863,7 @@ export let amount_gen = 80; //default max length of AI generated responses
 export let max_context = 2048;
 
 var swipes = true;
-let extension_prompts = {};
+export let extension_prompts = {};
 
 export let main_api;// = "kobold";
 //novel settings
@@ -1175,7 +1174,7 @@ async function getStatusTextgen() {
         return resultCheckStatus();
     }
 
-    if (textgen_settings.type == OOBA && textgen_settings.bypass_status_check) {
+    if (textgen_settings.type == textgen_types.OOBA && textgen_settings.bypass_status_check) {
         setOnlineStatus('Status check bypassed');
         return resultCheckStatus();
     }
@@ -1193,34 +1192,34 @@ async function getStatusTextgen() {
 
         const data = await response.json();
 
-        if (textgen_settings.type === MANCER) {
+        if (textgen_settings.type === textgen_types.MANCER) {
             loadMancerModels(data?.data);
             setOnlineStatus(textgen_settings.mancer_model);
-        } else if (textgen_settings.type === TOGETHERAI) {
+        } else if (textgen_settings.type === textgen_types.TOGETHERAI) {
             loadTogetherAIModels(data?.data);
             setOnlineStatus(textgen_settings.togetherai_model);
-        } else if (textgen_settings.type === OLLAMA) {
+        } else if (textgen_settings.type === textgen_types.OLLAMA) {
             loadOllamaModels(data?.data);
             setOnlineStatus(textgen_settings.ollama_model || 'Connected');
-        } else if (textgen_settings.type === INFERMATICAI) {
+        } else if (textgen_settings.type === textgen_types.INFERMATICAI) {
             loadInfermaticAIModels(data?.data);
             setOnlineStatus(textgen_settings.infermaticai_model);
-        } else if (textgen_settings.type === DREAMGEN) {
+        } else if (textgen_settings.type === textgen_types.DREAMGEN) {
             loadDreamGenModels(data?.data);
             setOnlineStatus(textgen_settings.dreamgen_model);
-        } else if (textgen_settings.type === OPENROUTER) {
+        } else if (textgen_settings.type === textgen_types.OPENROUTER) {
             loadOpenRouterModels(data?.data);
             setOnlineStatus(textgen_settings.openrouter_model);
-        } else if (textgen_settings.type === VLLM) {
+        } else if (textgen_settings.type === textgen_types.VLLM) {
             loadVllmModels(data?.data);
             setOnlineStatus(textgen_settings.vllm_model);
-        } else if (textgen_settings.type === APHRODITE) {
+        } else if (textgen_settings.type === textgen_types.APHRODITE) {
             loadAphroditeModels(data?.data);
             setOnlineStatus(textgen_settings.aphrodite_model);
-        } else if (textgen_settings.type === FEATHERLESS) {
+        } else if (textgen_settings.type === textgen_types.FEATHERLESS) {
             loadFeatherlessModels(data?.data);
             setOnlineStatus(textgen_settings.featherless_model);
-        } else if (textgen_settings.type === TABBY) {
+        } else if (textgen_settings.type === textgen_types.TABBY) {
             loadTabbyModels(data?.data);
             setOnlineStatus(textgen_settings.tabby_model || data?.result);
         } else {
@@ -5542,7 +5541,7 @@ function extractMultiSwipes(data, type) {
         return swipes;
     }
 
-    if (main_api === 'openai' || (main_api === 'textgenerationwebui' && [MANCER, VLLM, APHRODITE, TABBY, INFERMATICAI].includes(textgen_settings.type))) {
+    if (main_api === 'openai' || (main_api === 'textgenerationwebui' && [textgen_types.MANCER, textgen_types.VLLM, textgen_types.APHRODITE, textgen_types.TABBY, textgen_types.INFERMATICAI].includes(textgen_settings.type))) {
         if (!Array.isArray(data.choices)) {
             return swipes;
         }
@@ -5705,7 +5704,7 @@ export function cleanUpMessage(getMessage, isImpersonate, isContinue, displayInc
     return getMessage;
 }
 
-async function saveReply(type, getMessage, fromStreaming, title, swipes) {
+export async function saveReply(type, getMessage, fromStreaming, title, swipes) {
     if (type != 'append' && type != 'continue' && type != 'appendFinal' && chat.length && (chat[chat.length - 1]['swipe_id'] === undefined ||
         chat[chat.length - 1]['is_user'])) {
         type = 'normal';
@@ -8236,102 +8235,6 @@ async function createOrEditCharacter(e) {
         }
     }
 }
-
-window['SillyTavern'].getContext = function () {
-    return {
-        chat: chat,
-        characters: characters,
-        groups: groups,
-        name1: name1,
-        name2: name2,
-        characterId: this_chid,
-        groupId: selected_group,
-        chatId: selected_group
-            ? groups.find(x => x.id == selected_group)?.chat_id
-            : (this_chid && characters[this_chid] && characters[this_chid].chat),
-        getCurrentChatId: getCurrentChatId,
-        getRequestHeaders: getRequestHeaders,
-        reloadCurrentChat: reloadCurrentChat,
-        renameChat: renameChat,
-        saveSettingsDebounced: saveSettingsDebounced,
-        onlineStatus: online_status,
-        maxContext: Number(max_context),
-        chatMetadata: chat_metadata,
-        streamingProcessor,
-        eventSource: eventSource,
-        eventTypes: event_types,
-        addOneMessage: addOneMessage,
-        generate: Generate,
-        sendStreamingRequest: sendStreamingRequest,
-        sendGenerationRequest: sendGenerationRequest,
-        stopGeneration: stopGeneration,
-        getTokenCount: getTokenCount,
-        extensionPrompts: extension_prompts,
-        setExtensionPrompt: setExtensionPrompt,
-        updateChatMetadata: updateChatMetadata,
-        saveChat: saveChatConditional,
-        openCharacterChat: openCharacterChat,
-        openGroupChat: openGroupChat,
-        saveMetadata: saveMetadata,
-        sendSystemMessage: sendSystemMessage,
-        activateSendButtons,
-        deactivateSendButtons,
-        saveReply,
-        substituteParams,
-        substituteParamsExtended,
-        SlashCommandParser,
-        SlashCommand,
-        SlashCommandArgument,
-        SlashCommandNamedArgument,
-        ARGUMENT_TYPE,
-        executeSlashCommandsWithOptions,
-        /** @deprecated Use SlashCommandParser.addCommandObject() instead */
-        registerSlashCommand: registerSlashCommand,
-        /** @deprecated Use executeSlashCommandWithOptions instead */
-        executeSlashCommands: executeSlashCommands,
-        timestampToMoment: timestampToMoment,
-        /** @deprecated Handlebars for extensions are no longer supported. */
-        registerHelper: () => { },
-        registerMacro: MacrosParser.registerMacro.bind(MacrosParser),
-        unregisterMacro: MacrosParser.unregisterMacro.bind(MacrosParser),
-        registerFunctionTool: ToolManager.registerFunctionTool.bind(ToolManager),
-        unregisterFunctionTool: ToolManager.unregisterFunctionTool.bind(ToolManager),
-        isToolCallingSupported: ToolManager.isToolCallingSupported.bind(ToolManager),
-        canPerformToolCalls: ToolManager.canPerformToolCalls.bind(ToolManager),
-        registerDebugFunction: registerDebugFunction,
-        /** @deprecated Use renderExtensionTemplateAsync instead. */
-        renderExtensionTemplate: renderExtensionTemplate,
-        renderExtensionTemplateAsync: renderExtensionTemplateAsync,
-        registerDataBankScraper: ScraperManager.registerDataBankScraper,
-        /** @deprecated Use callGenericPopup or Popup instead. */
-        callPopup: callPopup,
-        callGenericPopup: callGenericPopup,
-        showLoader: showLoader,
-        hideLoader: hideLoader,
-        mainApi: main_api,
-        extensionSettings: extension_settings,
-        ModuleWorkerWrapper: ModuleWorkerWrapper,
-        getTokenizerModel: getTokenizerModel,
-        generateQuietPrompt: generateQuietPrompt,
-        writeExtensionField: writeExtensionField,
-        getThumbnailUrl: getThumbnailUrl,
-        selectCharacterById: selectCharacterById,
-        messageFormatting: messageFormatting,
-        shouldSendOnEnter: shouldSendOnEnter,
-        isMobile: isMobile,
-        t: t,
-        translate: translate,
-        tags: tags,
-        tagMap: tag_map,
-        menuType: menu_type,
-        createCharacterData: create_save,
-        /** @deprecated Legacy snake-case naming, compatibility with old extensions */
-        event_types: event_types,
-        Popup: Popup,
-        POPUP_TYPE: POPUP_TYPE,
-        POPUP_RESULT: POPUP_RESULT,
-    };
-};
 
 /**
  * Formats a counter for a swipe view.
