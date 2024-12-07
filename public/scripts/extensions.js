@@ -8,19 +8,16 @@ import { isSubsetOf, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
 import { isAdmin } from './user.js';
 import { t } from './i18n.js';
+import { debounce_timeout } from './constants.js';
+
 export {
     getContext,
     getApiUrl,
-    loadExtensionSettings,
-    runGenerationInterceptors,
-    doExtrasFetch,
-    modules,
-    extension_settings,
-    ModuleWorkerWrapper,
 };
 
 /** @type {string[]} */
 export let extensionNames = [];
+
 /**
  * Holds the type of each extension.
  * Don't use this directly, use getExtensionType instead!
@@ -28,13 +25,35 @@ export let extensionNames = [];
  */
 export let extensionTypes = {};
 
-let manifests = {};
-const defaultUrl = 'http://localhost:5100';
+/**
+ * A list of active modules provided by the Extras API.
+ * @type {string[]}
+ */
+export let modules = [];
 
-let saveMetadataTimeout = null;
+/**
+ * A set of active extensions.
+ * @type {Set<string>}
+ */
+let activeExtensions = new Set();
+
+const getApiUrl = () => extension_settings.apiUrl;
+let connectedToApi = false;
+
+/**
+ * Holds manifest data for each extension.
+ * @type {Record<string, object>}
+ */
+let manifests = {};
+
+/**
+ * Default URL for the Extras API.
+ */
+const defaultUrl = 'http://localhost:5100';
 
 let requiresReload = false;
 let stateChanged = false;
+let saveMetadataTimeout = null;
 
 export function saveMetadataDebounced() {
     const context = getContext();
@@ -59,9 +78,9 @@ export function saveMetadataDebounced() {
         }
 
         console.debug('Saving metadata...');
-        newContext.saveMetadata();
+        await newContext.saveMetadata();
         console.debug('Saved metadata...');
-    }, 1000);
+    }, debounce_timeout.relaxed);
 }
 
 /**
@@ -91,7 +110,7 @@ export function renderExtensionTemplateAsync(extensionName, templateId, template
 }
 
 // Disables parallel updates
-class ModuleWorkerWrapper {
+export class ModuleWorkerWrapper {
     constructor(callback) {
         this.isBusy = false;
         this.callback = callback;
@@ -115,7 +134,7 @@ class ModuleWorkerWrapper {
     }
 }
 
-const extension_settings = {
+export const extension_settings = {
     apiUrl: defaultUrl,
     apiKey: '',
     autoConnect: false,
@@ -180,12 +199,6 @@ const extension_settings = {
     disabled_attachments: [],
 };
 
-let modules = [];
-let activeExtensions = new Set();
-
-const getApiUrl = () => extension_settings.apiUrl;
-let connectedToApi = false;
-
 function showHideExtensionsMenu() {
     // Get the number of menu items that are not hidden
     const hasMenuItems = $('#extensionsMenu').children().filter((_, child) => $(child).css('display') !== 'none').length > 0;
@@ -212,7 +225,13 @@ function getExtensionType(externalId) {
     return id ? extensionTypes[id] : '';
 }
 
-async function doExtrasFetch(endpoint, args) {
+/**
+ * Performs a fetch of the Extras API.
+ * @param {string|URL} endpoint Extras API endpoint
+ * @param {RequestInit} args Request arguments
+ * @returns {Promise<Response>} Response from the fetch
+ */
+export async function doExtrasFetch(endpoint, args = {}) {
     if (!args) {
         args = {};
     }
@@ -231,8 +250,7 @@ async function doExtrasFetch(endpoint, args) {
         });
     }
 
-    const response = await fetch(endpoint, args);
-    return response;
+    return await fetch(endpoint, args);
 }
 
 /**
@@ -267,6 +285,11 @@ function onEnableExtensionClick() {
     enableExtension(name, false);
 }
 
+/**
+ * Enables an extension by name.
+ * @param {string} name Extension name
+ * @param {boolean} [reload=true] If true, reload the page after enabling the extension
+ */
 export async function enableExtension(name, reload = true) {
     extension_settings.disabledExtensions = extension_settings.disabledExtensions.filter(x => x !== name);
     stateChanged = true;
@@ -278,6 +301,11 @@ export async function enableExtension(name, reload = true) {
     }
 }
 
+/**
+ * Disables an extension by name.
+ * @param {string} name Extension name
+ * @param {boolean} [reload=true] If true, reload the page after disabling the extension
+ */
 export async function disableExtension(name, reload = true) {
     extension_settings.disabledExtensions.push(name);
     stateChanged = true;
@@ -289,6 +317,11 @@ export async function disableExtension(name, reload = true) {
     }
 }
 
+/**
+ * Loads manifest.json files for extensions.
+ * @param {string[]} names Array of extension names
+ * @returns {Promise<Record<string, object>>} Object with extension names as keys and their manifests as values
+ */
 async function getManifests(names) {
     const obj = {};
     const promises = [];
@@ -316,6 +349,10 @@ async function getManifests(names) {
     return obj;
 }
 
+/**
+ * Tries to activate all available extensions that are not already active.
+ * @returns {Promise<void>}
+ */
 async function activateExtensions() {
     const extensions = Object.entries(manifests).sort((a, b) => a[1].loading_order - b[1].loading_order);
     const promises = [];
@@ -323,36 +360,25 @@ async function activateExtensions() {
     for (let entry of extensions) {
         const name = entry[0];
         const manifest = entry[1];
-        const elementExists = document.getElementById(name) !== null;
 
-        if (elementExists || activeExtensions.has(name)) {
+        if (activeExtensions.has(name)) {
             continue;
         }
 
-        // all required modules are active (offline extensions require none)
-        if (isSubsetOf(modules, manifest.requires)) {
+        const meetsModuleRequirements = !Array.isArray(manifest.requires) || isSubsetOf(modules, manifest.requires);
+        const isDisabled = extension_settings.disabledExtensions.includes(name);
+
+        if (meetsModuleRequirements && !isDisabled) {
             try {
-                const isDisabled = extension_settings.disabledExtensions.includes(name);
-                const li = document.createElement('li');
-
-                if (!isDisabled) {
-                    const promise = Promise.all([addExtensionScript(name, manifest), addExtensionStyle(name, manifest)]);
-                    await promise
-                        .then(() => activeExtensions.add(name))
-                        .catch(err => console.log('Could not activate extension: ' + name, err));
-                    promises.push(promise);
-                }
-                else {
-                    li.classList.add('disabled');
-                }
-
-                li.id = name;
-                li.innerText = manifest.display_name;
-
-                $('#extensions_list').append(li);
+                console.debug('Activating extension', name);
+                const promise = Promise.all([addExtensionScript(name, manifest), addExtensionStyle(name, manifest)]);
+                await promise
+                    .then(() => activeExtensions.add(name))
+                    .catch(err => console.log('Could not activate extension', name, err));
+                promises.push(promise);
             }
             catch (error) {
-                console.error(`Could not activate extension: ${name}`);
+                console.error('Could not activate extension', name);
                 console.error(error);
             }
         }
@@ -362,8 +388,8 @@ async function activateExtensions() {
 }
 
 async function connectClickHandler() {
-    const baseUrl = $('#extensions_url').val();
-    extension_settings.apiUrl = String(baseUrl);
+    const baseUrl = String($('#extensions_url').val());
+    extension_settings.apiUrl = baseUrl;
     const testApiKey = $('#extensions_api_key').val();
     extension_settings.apiKey = String(testApiKey);
     saveSettingsDebounced();
@@ -423,21 +449,11 @@ function notifyUpdatesInputHandler() {
     }
 }
 
-/*     $(document).on('click', function (e) {
-        const target = $(e.target);
-        if (target.is(dropdown)) return;
-        if (target.is(button) && dropdown.is(':hidden')) {
-            dropdown.toggle(200);
-            popper.update();
-        }
-        if (target !== dropdown &&
-            target !== button &&
-            dropdown.is(":visible")) {
-            dropdown.hide(200);
-        }
-    });
-} */
-
+/**
+ * Connects to the Extras API.
+ * @param {string} baseUrl Extras API base URL
+ * @returns {Promise<void>}
+ */
 async function connectToApi(baseUrl) {
     if (!baseUrl) {
         return;
@@ -453,7 +469,7 @@ async function connectToApi(baseUrl) {
             const data = await getExtensionsResult.json();
             modules = data.modules;
             await activateExtensions();
-            eventSource.emit(event_types.EXTRAS_CONNECTED, modules);
+            await eventSource.emit(event_types.EXTRAS_CONNECTED, modules);
         }
 
         updateStatus(getExtensionsResult.ok);
@@ -463,6 +479,10 @@ async function connectToApi(baseUrl) {
     }
 }
 
+/**
+ * Updates the status of Extras API connection.
+ * @param {boolean} success Whether the connection was successful
+ */
 function updateStatus(success) {
     connectedToApi = success;
     const _text = success ? t`Connected to API` : t`Could not connect to API`;
@@ -977,7 +997,7 @@ export async function installExtension(url, global) {
  * @param {boolean} versionChanged Is this a version change?
  * @param {boolean} enableAutoUpdate Enable auto-update
  */
-async function loadExtensionSettings(settings, versionChanged, enableAutoUpdate) {
+export async function loadExtensionSettings(settings, versionChanged, enableAutoUpdate) {
     if (settings.extension_settings) {
         Object.assign(extension_settings, settings.extension_settings);
     }
@@ -1149,7 +1169,7 @@ async function autoUpdateExtensions(forceAll) {
  * @param {number} contextSize Context size
  * @returns {Promise<boolean>} True if generation should be aborted
  */
-async function runGenerationInterceptors(chat, contextSize) {
+export async function runGenerationInterceptors(chat, contextSize) {
     let aborted = false;
     let exitImmediately = false;
 
