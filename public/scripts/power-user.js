@@ -1756,7 +1756,7 @@ async function loadContextSettings() {
         } else {
             $element.val(power_user.context[control.property]);
         }
-        console.log(`Setting ${$element.prop('id')} to ${power_user.context[control.property]}`);
+        console.debug(`Setting ${$element.prop('id')} to ${power_user.context[control.property]}`);
 
         // If the setting already exists, no need to duplicate it
         // TODO: Maybe check the power_user object for the setting instead of a flag?
@@ -1767,7 +1767,7 @@ async function loadContextSettings() {
             } else {
                 power_user.context[control.property] = value;
             }
-            console.log(`Setting ${$element.prop('id')} to ${value}`);
+            console.debug(`Setting ${$element.prop('id')} to ${value}`);
             if (!CSS.supports('field-sizing', 'content') && $(this).is('textarea')) {
                 await resetScrollHeight($(this));
             }
