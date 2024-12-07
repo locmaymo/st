@@ -4761,6 +4761,7 @@ export function isImageInliningSupported() {
         'gemini-1.5-flash-8b-exp-0924',
         'gemini-exp-1114',
         'gemini-exp-1121',
+        'gemini-exp-1206',
         'gemini-1.0-pro-vision-latest',
         'gemini-1.5-pro',
         'gemini-1.5-pro-latest',
