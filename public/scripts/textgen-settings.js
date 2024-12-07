@@ -18,13 +18,6 @@ import { getCurrentDreamGenModelTokenizer, getCurrentOpenRouterModelTokenizer } 
 import { ENCODE_TOKENIZERS, TEXTGEN_TOKENIZERS, getTextTokens, tokenizers } from './tokenizers.js';
 import { getSortableDelay, onlyUnique } from './utils.js';
 
-export {
-    settings as textgenerationwebui_settings,
-    loadTextGenSettings,
-    generateTextGenWithStreaming,
-    formatTextGenURL,
-};
-
 export const textgen_types = {
     OOBA: 'ooba',
     MANCER: 'mancer',
@@ -214,6 +207,10 @@ const settings = {
     featherless_model: '',
 };
 
+export {
+    settings as textgenerationwebui_settings,
+};
+
 export let textgenerationwebui_banned_in_macros = [];
 
 export let textgenerationwebui_presets = [];
@@ -345,7 +342,7 @@ async function selectPreset(name) {
     saveSettingsDebounced();
 }
 
-function formatTextGenURL(value) {
+export function formatTextGenURL(value) {
     try {
         const noFormatTypes = [MANCER, TOGETHERAI, INFERMATICAI, DREAMGEN, OPENROUTER];
         if (noFormatTypes.includes(settings.type)) {
@@ -483,7 +480,7 @@ function calculateLogitBias() {
     return result;
 }
 
-function loadTextGenSettings(data, loadedSettings) {
+export function loadTextGenSettings(data, loadedSettings) {
     textgenerationwebui_presets = convertPresets(data.textgenerationwebui_presets);
     textgenerationwebui_preset_names = data.textgenerationwebui_preset_names ?? [];
     Object.assign(settings, loadedSettings.textgenerationwebui_settings ?? {});
@@ -922,7 +919,7 @@ function setSettingByName(setting, value, trigger) {
  * @returns {Promise<(function(): AsyncGenerator<{swipes: [], text: string, toolCalls: [], logprobs: {token: string, topLogprobs: Candidate[]}|null}, void, *>)|*>}
  * @throws {Error} - If the response status is not OK, or from within the generator
  */
-async function generateTextGenWithStreaming(generate_data, signal) {
+export async function generateTextGenWithStreaming(generate_data, signal) {
     generate_data.stream = true;
 
     const response = await fetch('/api/backends/text-completions/generate', {
@@ -1302,6 +1299,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
 
     if (settings.type === KOBOLDCPP) {
         params.grammar = settings.grammar_string;
+        params.trim_stop = true;
     }
 
     if (settings.type === HUGGINGFACE) {
@@ -1373,6 +1371,9 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
             'dry_sequence_breakers': sequenceBreakers,
         };
         params = Object.assign(params, llamaCppParams);
+        if (!Array.isArray(sequenceBreakers) || sequenceBreakers.length === 0) {
+            delete params.dry_sequence_breakers;
+        }
     }
 
     eventSource.emitAndWait(event_types.TEXT_COMPLETION_SETTINGS_READY, params);
