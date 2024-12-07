@@ -6,6 +6,8 @@ import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { renderTemplate, renderTemplateAsync } from './templates.js';
 import { isSubsetOf, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
+import { isAdmin } from './user.js';
+import { t } from './i18n.js';
 export {
     getContext,
     getApiUrl,
@@ -19,6 +21,8 @@ export {
 
 /** @type {string[]} */
 export let extensionNames = [];
+/** @type {Record<string, string>} */
+export let extensionTypes = {};
 
 let manifests = {};
 const defaultUrl = 'http://localhost:5100';
@@ -217,6 +221,10 @@ async function doExtrasFetch(endpoint, args) {
     return response;
 }
 
+/**
+ * Discovers extensions from the API.
+ * @returns {Promise<{name: string, type: string}[]>}
+ */
 async function discoverExtensions() {
     try {
         const response = await fetch('/api/extensions/discover');
@@ -702,7 +710,14 @@ async function showExtensionsDetails() {
  * If the extension is not up to date, it updates the extension and displays a success message with the new commit hash.
  */
 async function onUpdateClick() {
+    const isCurrentUserAdmin = isAdmin();
     const extensionName = $(this).data('name');
+    const isGlobal = extensionTypes[extensionName] === 'global';
+    if (isGlobal && !isCurrentUserAdmin) {
+        toastr.error(t`You don't have permission to update global extensions.`);
+        return;
+    }
+
     $(this).find('i').addClass('fa-spin');
     await updateExtension(extensionName, false);
 }
@@ -717,7 +732,10 @@ async function updateExtension(extensionName, quiet) {
         const response = await fetch('/api/extensions/update', {
             method: 'POST',
             headers: getRequestHeaders(),
-            body: JSON.stringify({ extensionName }),
+            body: JSON.stringify({
+                extensionName,
+                global: extensionTypes[extensionName] === 'global',
+            }),
         });
 
         const data = await response.json();
@@ -746,6 +764,13 @@ async function updateExtension(extensionName, quiet) {
  */
 async function onDeleteClick() {
     const extensionName = $(this).data('name');
+    const isCurrentUserAdmin = isAdmin();
+    const isGlobal = extensionTypes[extensionName] === 'global';
+    if (isGlobal && !isCurrentUserAdmin) {
+        toastr.error(t`You don't have permission to delete global extensions.`);
+        return;
+    }
+
     // use callPopup to create a popup for the user to confirm before delete
     const confirmation = await callGenericPopup(`Are you sure you want to delete ${extensionName}?`, POPUP_TYPE.CONFIRM, '', {});
     if (confirmation === POPUP_RESULT.AFFIRMATIVE) {
@@ -753,12 +778,19 @@ async function onDeleteClick() {
     }
 }
 
+/**
+ * Deletes an extension via the API.
+ * @param {string} extensionName Extension name to delete
+ */
 export async function deleteExtension(extensionName) {
     try {
         await fetch('/api/extensions/delete', {
             method: 'POST',
             headers: getRequestHeaders(),
-            body: JSON.stringify({ extensionName }),
+            body: JSON.stringify({
+                extensionName,
+                global: extensionTypes[extensionName] === 'global',
+            }),
         });
     } catch (error) {
         console.error('Error:', error);
@@ -796,9 +828,10 @@ async function getExtensionVersion(extensionName) {
 /**
  * Installs a third-party extension via the API.
  * @param {string} url Extension repository URL
+ * @param {boolean} global Is the extension global?
  * @returns {Promise<void>}
  */
-export async function installExtension(url) {
+export async function installExtension(url, global) {
     console.debug('Extension installation started', url);
 
     toastr.info('Please wait...', 'Installing extension');
@@ -806,7 +839,10 @@ export async function installExtension(url) {
     const request = await fetch('/api/extensions/install', {
         method: 'POST',
         headers: getRequestHeaders(),
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({
+            url,
+            global,
+        }),
     });
 
     if (!request.ok) {
@@ -841,7 +877,9 @@ async function loadExtensionSettings(settings, versionChanged, enableAutoUpdate)
 
     // Activate offline extensions
     await eventSource.emit(event_types.EXTENSIONS_FIRST_LOAD);
-    extensionNames = await discoverExtensions();
+    const extensions = await discoverExtensions();
+    extensionNames = extensions.map(x => x.name);
+    extensionTypes = Object.fromEntries(extensions.map(x => [x.name, x.type]));
     manifests = await getManifests(extensionNames);
 
     if (versionChanged && enableAutoUpdate) {
@@ -926,10 +964,16 @@ async function checkForExtensionUpdates(force) {
         localStorage.setItem(STORAGE_NAG_KEY, currentDate);
     }
 
+    const isCurrentUserAdmin = isAdmin();
     const updatesAvailable = [];
     const promises = [];
 
     for (const [id, manifest] of Object.entries(manifests)) {
+        const isGlobal = extensionTypes[id] === 'global';
+        if (isGlobal && !isCurrentUserAdmin) {
+            console.debug(`Skipping global extension: ${manifest.display_name} (${id}) for non-admin user`);
+            continue;
+        }
         if (manifest.auto_update && id.startsWith('third-party')) {
             const promise = new Promise(async (resolve, reject) => {
                 try {
@@ -965,8 +1009,14 @@ async function autoUpdateExtensions(forceAll) {
     }
 
     const banner = toastr.info('Auto-updating extensions. This may take several minutes.', 'Please wait...', { timeOut: 10000, extendedTimeOut: 10000 });
+    const isCurrentUserAdmin = isAdmin();
     const promises = [];
     for (const [id, manifest] of Object.entries(manifests)) {
+        const isGlobal = extensionTypes[id] === 'global';
+        if (isGlobal && !isCurrentUserAdmin) {
+            console.debug(`Skipping global extension: ${manifest.display_name} (${id}) for non-admin user`);
+            continue;
+        }
         if ((forceAll || manifest.auto_update) && id.startsWith('third-party')) {
             console.debug(`Auto-updating 3rd-party extension: ${manifest.display_name} (${id})`);
             promises.push(updateExtension(id.replace('third-party', ''), true));
@@ -1068,8 +1118,23 @@ export async function writeExtensionField(characterId, key, value) {
  * @returns {Promise<void>}
  */
 export async function openThirdPartyExtensionMenu(suggestUrl = '') {
-    const html = await renderTemplateAsync('installExtension');
-    const input = await callGenericPopup(html, POPUP_TYPE.INPUT, suggestUrl ?? '');
+    const isCurrentUserAdmin = isAdmin();
+    const html = await renderTemplateAsync('installExtension', { isCurrentUserAdmin });
+    const okButton = isCurrentUserAdmin ? t`Install just for me` : t`Install`;
+
+    let global = false;
+    const installForAllButton = {
+        text: t`Install for all`,
+        appendAtEnd: false,
+        action: async () => {
+            global = true;
+            await popup.complete(POPUP_RESULT.AFFIRMATIVE);
+        },
+    };
+
+    const customButtons = isCurrentUserAdmin ? [installForAllButton] : [];
+    const popup = new Popup(html, POPUP_TYPE.INPUT, suggestUrl ?? '', { okButton, customButtons });
+    const input = await popup.show();
 
     if (!input) {
         console.debug('Extension install cancelled');
@@ -1077,10 +1142,8 @@ export async function openThirdPartyExtensionMenu(suggestUrl = '') {
     }
 
     const url = String(input).trim();
-    await installExtension(url);
+    await installExtension(url, global);
 }
-
-
 
 export async function initExtensions() {
     await addExtensionsButtonAndMenu();

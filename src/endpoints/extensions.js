@@ -73,8 +73,18 @@ router.post('/install', jsonParser, async (request, response) => {
             fs.mkdirSync(path.join(request.user.directories.extensions));
         }
 
-        const url = request.body.url;
-        const extensionPath = path.join(request.user.directories.extensions, path.basename(url, '.git'));
+        if (!fs.existsSync(PUBLIC_DIRECTORIES.globalExtensions)) {
+            fs.mkdirSync(PUBLIC_DIRECTORIES.globalExtensions);
+        }
+
+        const { url, global } = request.body;
+
+        if (global && !request.user.profile.admin) {
+            return response.status(403).send('Forbidden: No permission to install global extensions.');
+        }
+
+        const basePath = global ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const extensionPath = path.join(basePath, sanitize(path.basename(url, '.git')));
 
         if (fs.existsSync(extensionPath)) {
             return response.status(409).send(`Directory already exists at ${extensionPath}`);
@@ -83,9 +93,7 @@ router.post('/install', jsonParser, async (request, response) => {
         await git.clone(url, extensionPath, { '--depth': 1 });
         console.log(`Extension has been cloned at ${extensionPath}`);
 
-
         const { version, author, display_name } = await getManifest(extensionPath);
-
 
         return response.send({ version, author, display_name, extensionPath });
     } catch (error) {
@@ -112,8 +120,14 @@ router.post('/update', jsonParser, async (request, response) => {
     }
 
     try {
-        const extensionName = request.body.extensionName;
-        const extensionPath = path.join(request.user.directories.extensions, extensionName);
+        const { extensionName, global } = request.body;
+
+        if (global && !request.user.profile.admin) {
+            return response.status(403).send('Forbidden: No permission to update global extensions.');
+        }
+
+        const basePath = global ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const extensionPath = path.join(basePath, extensionName);
 
         if (!fs.existsSync(extensionPath)) {
             return response.status(404).send(`Directory does not exist at ${extensionPath}`);
@@ -122,7 +136,6 @@ router.post('/update', jsonParser, async (request, response) => {
         const { isUpToDate, remoteUrl } = await checkIfRepoIsUpToDate(extensionPath);
         const currentBranch = await git.cwd(extensionPath).branch();
         if (!isUpToDate) {
-
             await git.cwd(extensionPath).pull('origin', currentBranch.current);
             console.log(`Extension has been updated at ${extensionPath}`);
         } else {
@@ -157,8 +170,9 @@ router.post('/version', jsonParser, async (request, response) => {
     }
 
     try {
-        const extensionName = request.body.extensionName;
-        const extensionPath = path.join(request.user.directories.extensions, extensionName);
+        const { extensionName, global } = request.body;
+        const basePath = global ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const extensionPath = path.join(basePath, sanitize(extensionName));
 
         if (!fs.existsSync(extensionPath)) {
             return response.status(404).send(`Directory does not exist at ${extensionPath}`);
@@ -193,11 +207,15 @@ router.post('/delete', jsonParser, async (request, response) => {
         return response.status(400).send('Bad Request: extensionName is required in the request body.');
     }
 
-    // Sanitize the extension name to prevent directory traversal
-    const extensionName = sanitize(request.body.extensionName);
-
     try {
-        const extensionPath = path.join(request.user.directories.extensions, extensionName);
+        const { extensionName, global } = request.body;
+
+        if (global && !request.user.profile.admin) {
+            return response.status(403).send('Forbidden: No permission to delete global extensions.');
+        }
+
+        const basePath = global ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const extensionPath = path.join(basePath, sanitize(extensionName));
 
         if (!fs.existsSync(extensionPath)) {
             return response.status(404).send(`Directory does not exist at ${extensionPath}`);
@@ -219,26 +237,36 @@ router.post('/delete', jsonParser, async (request, response) => {
  * If the folder is called third-party, search for subfolders instead
  */
 router.get('/discover', jsonParser, function (request, response) {
-    // get all folders in the extensions folder, except third-party
-    const extensions = fs
-        .readdirSync(PUBLIC_DIRECTORIES.extensions)
-        .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.extensions, f)).isDirectory())
-        .filter(f => f !== 'third-party');
-
-    // get all folders in the third-party folder, if it exists
-
     if (!fs.existsSync(path.join(request.user.directories.extensions))) {
-        return response.send(extensions);
+        fs.mkdirSync(path.join(request.user.directories.extensions));
     }
 
-    const thirdPartyExtensions = fs
+    if (!fs.existsSync(PUBLIC_DIRECTORIES.globalExtensions)) {
+        fs.mkdirSync(PUBLIC_DIRECTORIES.globalExtensions);
+    }
+
+    // Get all folders in system extensions folder, excluding third-party
+    const buildInExtensions = fs
+        .readdirSync(PUBLIC_DIRECTORIES.extensions)
+        .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.extensions, f)).isDirectory())
+        .filter(f => f !== 'third-party')
+        .map(f => ({ type: 'system', name: f }));
+
+    // Get all folders in global extensions folder
+    const globalExtensions = fs
+        .readdirSync(PUBLIC_DIRECTORIES.globalExtensions)
+        .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.globalExtensions, f)).isDirectory())
+        .map(f => ({ type: 'global', name: `third-party/${f}` }));
+
+    // Get all folders in local extensions folder
+    const userExtensions = fs
         .readdirSync(path.join(request.user.directories.extensions))
-        .filter(f => fs.statSync(path.join(request.user.directories.extensions, f)).isDirectory());
+        .filter(f => fs.statSync(path.join(request.user.directories.extensions, f)).isDirectory())
+        .map(f => ({ type: 'local', name: `third-party/${f}` }));
 
-    // add the third-party extensions to the extensions array
-    extensions.push(...thirdPartyExtensions.map(f => `third-party/${f}`));
-    console.log(extensions);
+    // Combine all extensions
+    const allExtensions = Array.from(new Set([...buildInExtensions, ...globalExtensions, ...userExtensions]));
+    console.log(allExtensions);
 
-
-    return response.send(extensions);
+    return response.send(allExtensions);
 });
