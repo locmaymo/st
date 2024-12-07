@@ -571,6 +571,15 @@ function sortOobaItemsByOrder(orderArray) {
     });
 }
 
+function sortAphroditeItemsByOrder(orderArray) {
+    const $container = $('#sampler_priority_container_aphrodite');
+
+    orderArray.forEach((name) => {
+        const $item = $container.find(`[data-name="${name}"]`).detach();
+        $container.append($item);
+    });
+}
+
 jQuery(function () {
     $('#koboldcpp_order').sortable({
         delay: getSortableDelay(),
@@ -624,6 +633,19 @@ jQuery(function () {
         },
     });
 
+    $('#sampler_priority_container_aphrodite').sortable({
+        delay: getSortableDelay(),
+        stop: function () {
+            const order = [];
+            $('#sampler_priority_container_aphrodite').children().each(function () {
+                order.push($(this).data('name'));
+            });
+            settings.samplers_priorities = order;
+            console.log('Samplers reordered:', settings.samplers_priorities);
+            saveSettingsDebounced();
+        },
+    });
+
     $('#tabby_json_schema').on('input', function () {
         const json_schema_string = String($(this).val());
 
@@ -643,9 +665,9 @@ jQuery(function () {
     });
 
     $('#aphrodite_default_order').on('click', function () {
-        sortOobaItemsByOrder(APHRODITE_DEFAULT_ORDER);
-        settings.samplers_priorties = APHRODITE_DEFAULT_ORDER;
-        console.log('Default samplers order loaded:', settings.samplers_priorties);
+        sortAphroditeItemsByOrder(APHRODITE_DEFAULT_ORDER);
+        settings.samplers_priorities = APHRODITE_DEFAULT_ORDER;
+        console.log('Default samplers order loaded:', settings.samplers_priorities);
         saveSettingsDebounced();
     });
 
@@ -860,8 +882,8 @@ function setSettingByName(setting, value, trigger) {
     if ('samplers_priority' === setting) {
         value = Array.isArray(value) ? value : APHRODITE_DEFAULT_ORDER;
         insertMissingArrayItems(APHRODITE_DEFAULT_ORDER, value);
-        sortOobaItemsByOrder(value);
-        settings.samplers_priorties = value;
+        sortAphroditeItemsByOrder(value);
+        settings.samplers_priorities = value;
         return;
     }
 
@@ -1289,7 +1311,7 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
         'no_repeat_ngram_size': settings.no_repeat_ngram_size,
-        'sampler_priority': settings.samplers_priorties,
+        'sampler_priority': settings.type === APHRODITE ? settings.samplers_priorities : undefined,
     };
 
     if (settings.type === OPENROUTER) {
