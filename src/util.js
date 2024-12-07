@@ -680,8 +680,9 @@ export class MemoryLimitedMap {
      * @param {number} maxMemoryInBytes - The maximum allowed memory in bytes for string values.
      */
     constructor(maxMemoryInBytes) {
-        if (typeof maxMemoryInBytes !== 'number' || maxMemoryInBytes <= 0) {
-            throw new Error('maxMemoryInBytes must be a positive number');
+        if (typeof maxMemoryInBytes !== 'number' || maxMemoryInBytes <= 0 || isNaN(maxMemoryInBytes)) {
+            console.warn('Invalid maxMemoryInBytes, using a fallback value of 1 GB.');
+            maxMemoryInBytes = 1024 * 1024 * 1024; // 1 GB
         }
         this.maxMemory = maxMemoryInBytes;
         this.currentMemory = 0;

@@ -669,7 +669,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,claude,windowai,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai">
+                                <div class="range-block" data-source="openai,claude,windowai,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt">
                                     <div class="range-block-title" data-i18n="Temperature">
                                         Temperature
                                     </div>
@@ -682,7 +682,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai">
+                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt">
                                     <div class="range-block-title" data-i18n="Frequency Penalty">
                                         Frequency Penalty
                                     </div>
@@ -695,7 +695,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai">
+                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt">
                                     <div class="range-block-title" data-i18n="Presence Penalty">
                                         Presence Penalty
                                     </div>
@@ -721,7 +721,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,claude,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai">
+                                <div class="range-block" data-source="openai,claude,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt">
                                     <div class="range-block-title" data-i18n="Top P">
                                         Top P
                                     </div>
@@ -958,7 +958,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,openrouter,mistralai,custom,cohere,groq">
+                                <div class="range-block" data-source="openai,openrouter,mistralai,custom,cohere,groq,nanogpt">
                                     <div class="range-block-title justifyLeft" data-i18n="Seed">
                                         Seed
                                     </div>
@@ -1425,7 +1425,7 @@
                                                 <input class="neo-range-slider" type="range" id="dry_allowed_length_textgenerationwebui" min="1" max="20" step="1" />
                                                 <input class="neo-range-input" type="number" min="1" max="20" step="1" data-for="dry_allowed_length_textgenerationwebui" id="dry_allowed_length_counter_textgenerationwebui">
                                             </div>
-                                            <div class="alignItemsCenter flex-container flexFlowColumn flexBasis48p flexGrow flexShrink gap0" data-tg-type="llamacpp, koboldcpp, tabby">
+                                            <div class="alignItemsCenter flex-container flexFlowColumn flexBasis48p flexGrow flexShrink gap0" data-tg-type="llamacpp, koboldcpp, tabby, aphrodite">
                                                 <small data-i18n="Penalty Range">Penalty Range</small>
                                                 <input class="neo-range-slider" type="range" id="dry_penalty_last_n_textgenerationwebui" min="0" max="8192" step="1" />
                                                 <input class="neo-range-input" type="number" min="0" max="8192" step="1" data-for="dry_penalty_last_n_textgenerationwebui" id="dry_penalty_last_n_counter_textgenerationwebui">
@@ -2987,6 +2987,7 @@
                                     <optgroup label="Subversions">
                                         <option value="gemini-exp-1121">Gemini Experimental 2024-11-21</option>
                                         <option value="gemini-exp-1114">Gemini Experimental 2024-11-14</option>
+                                        <option value="gemini-exp-1206">Gemini Experimental 2024-12-06</option>
                                         <option value="gemini-1.5-pro-exp-0801">Gemini 1.5 Pro Experiment 2024-08-01</option>
                                         <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Experiment 2024-08-27</option>
                                         <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro [latest]</option>
@@ -4183,7 +4184,7 @@
                                 </label>
                                 <label for="show_swipe_num_all_messages" class="checkbox_label" title="Display swipe numbers for all messages, not just the last." data-i18n="[title]Display swipe numbers for all messages, not just the last.">
                                     <input id="show_swipe_num_all_messages" type="checkbox" />
-                                    <small data-i18n="Swipe # for All Messages">Swipe # for All Messages</small><i class="fa-solid fa-mobile-screen-button"></i>
+                                    <small data-i18n="Swipe # for All Messages">Swipe # for All Messages</small>
                                 </label>
                                 <label for="hotswapEnabled" class="checkbox_label" title="In the Character Management panel, show quick selection buttons for favorited characters." data-i18n="[title]In the Character Management panel, show quick selection buttons for favorited characters">
                                     <input id="hotswapEnabled" type="checkbox" />
