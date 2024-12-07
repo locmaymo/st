@@ -1265,18 +1265,20 @@ function getGroupCharacters({ doFilter, onlyMembers } = {}) {
     const thisGroup = openGroupId && groups.find((x) => x.id == openGroupId);
     let candidates = characters
         .filter((x) => isGroupMember(thisGroup, x.avatar) == onlyMembers)
-        .map((x, index) => ({ item: x, id: index, type: 'character' }));
-
-    if (onlyMembers) {
-        candidates.sort(sortMembersFn);
-    } else {
-        sortEntitiesList(candidates);
-    }
+        .map((x) => ({ item: x, id: characters.indexOf(x), type: 'character' }));
 
     if (doFilter) {
         candidates = groupCandidatesFilter.applyFilters(candidates);
     }
 
+    if (onlyMembers) {
+        candidates.sort(sortMembersFn);
+    } else {
+        const useFilterOrder = doFilter && !!$('#rm_group_filter').val();
+        sortEntitiesList(candidates, useFilterOrder, groupCandidatesFilter);
+    }
+
+    groupCandidatesFilter.clearFuzzySearchCaches();
     return candidates;
 }
 
