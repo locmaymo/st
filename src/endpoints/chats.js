@@ -32,6 +32,13 @@ function backupChat(directory, name, chat) {
         writeFileAtomicSync(backupFile, chat, 'utf-8');
 
         removeOldBackups(directory, `chat_${name}_`);
+
+        const maxTotalChatBackups = Number(getConfigValue('maxTotalChatBackups', 500));
+        if (isNaN(maxTotalChatBackups) || maxTotalChatBackups < 0) {
+            return;
+        }
+
+        removeOldBackups(directory, 'chat_', maxTotalChatBackups);
     } catch (err) {
         console.log(`Could not backup chat for ${name}`, err);
     }
