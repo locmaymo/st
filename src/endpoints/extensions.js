@@ -246,17 +246,11 @@ router.get('/discover', jsonParser, function (request, response) {
     }
 
     // Get all folders in system extensions folder, excluding third-party
-    const buildInExtensions = fs
+    const builtInExtensions = fs
         .readdirSync(PUBLIC_DIRECTORIES.extensions)
         .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.extensions, f)).isDirectory())
         .filter(f => f !== 'third-party')
         .map(f => ({ type: 'system', name: f }));
-
-    // Get all folders in global extensions folder
-    const globalExtensions = fs
-        .readdirSync(PUBLIC_DIRECTORIES.globalExtensions)
-        .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.globalExtensions, f)).isDirectory())
-        .map(f => ({ type: 'global', name: `third-party/${f}` }));
 
     // Get all folders in local extensions folder
     const userExtensions = fs
@@ -264,8 +258,16 @@ router.get('/discover', jsonParser, function (request, response) {
         .filter(f => fs.statSync(path.join(request.user.directories.extensions, f)).isDirectory())
         .map(f => ({ type: 'local', name: `third-party/${f}` }));
 
+    // Get all folders in global extensions folder
+    // In case of a conflict, the extension will be loaded from the user folder
+    const globalExtensions = fs
+        .readdirSync(PUBLIC_DIRECTORIES.globalExtensions)
+        .filter(f => fs.statSync(path.join(PUBLIC_DIRECTORIES.globalExtensions, f)).isDirectory())
+        .map(f => ({ type: 'global', name: `third-party/${f}` }))
+        .filter(f => !userExtensions.some(e => e.name === f.name));
+
     // Combine all extensions
-    const allExtensions = Array.from(new Set([...buildInExtensions, ...globalExtensions, ...userExtensions]));
+    const allExtensions = [...builtInExtensions, ...userExtensions, ...globalExtensions];
     console.log(allExtensions);
 
     return response.send(allExtensions);

@@ -21,7 +21,11 @@ export {
 
 /** @type {string[]} */
 export let extensionNames = [];
-/** @type {Record<string, string>} */
+/**
+ * Holds the type of each extension.
+ * Don't use this directly, use getExtensionType instead!
+ * @type {Record<string, string>}
+ */
 export let extensionTypes = {};
 
 let manifests = {};
@@ -197,6 +201,16 @@ function showHideExtensionsMenu() {
 
 // Periodically check for new extensions
 const menuInterval = setInterval(showHideExtensionsMenu, 1000);
+
+/**
+ * Gets the type of an extension based on its external ID.
+ * @param {string} externalId External ID of the extension (excluding or including the leading 'third-party/')
+ * @returns {string} Type of the extension (global, local, system, or empty string if not found)
+ */
+function getExtensionType(externalId) {
+    const id = Object.keys(extensionTypes).find(id => id === externalId || (id.startsWith('third-party') && id.endsWith(externalId)));
+    return id ? extensionTypes[id] : '';
+}
 
 async function doExtrasFetch(endpoint, args) {
     if (!args) {
@@ -457,62 +471,71 @@ function updateStatus(success) {
     $('#extensions_status').attr('class', _class);
 }
 
+/**
+ * Adds a CSS file for an extension.
+ * @param {string} name Extension name
+ * @param {object} manifest Extension manifest
+ * @returns {Promise<void>} When the CSS is loaded
+ */
 function addExtensionStyle(name, manifest) {
-    if (manifest.css) {
-        return new Promise((resolve, reject) => {
-            const url = `/scripts/extensions/${name}/${manifest.css}`;
-
-            if ($(`link[id="${name}"]`).length === 0) {
-                const link = document.createElement('link');
-                link.id = name;
-                link.rel = 'stylesheet';
-                link.type = 'text/css';
-                link.href = url;
-                link.onload = function () {
-                    resolve();
-                };
-                link.onerror = function (e) {
-                    reject(e);
-                };
-                document.head.appendChild(link);
-            }
-        });
+    if (!manifest.css) {
+        return Promise.resolve();
     }
 
-    return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const url = `/scripts/extensions/${name}/${manifest.css}`;
+
+        if ($(`link[id="${name}"]`).length === 0) {
+            const link = document.createElement('link');
+            link.id = name;
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = url;
+            link.onload = function () {
+                resolve();
+            };
+            link.onerror = function (e) {
+                reject(e);
+            };
+            document.head.appendChild(link);
+        }
+    });
 }
 
+/**
+ * Loads a JS file for an extension.
+ * @param {string} name Extension name
+ * @param {object} manifest Extension manifest
+ * @returns {Promise<void>} When the script is loaded
+ */
 function addExtensionScript(name, manifest) {
-    if (manifest.js) {
-        return new Promise((resolve, reject) => {
-            const url = `/scripts/extensions/${name}/${manifest.js}`;
-            let ready = false;
-
-            if ($(`script[id="${name}"]`).length === 0) {
-                const script = document.createElement('script');
-                script.id = name;
-                script.type = 'module';
-                script.src = url;
-                script.async = true;
-                script.onerror = function (err) {
-                    reject(err, script);
-                };
-                script.onload = script.onreadystatechange = function () {
-                    // console.log(this.readyState); // uncomment this line to see which ready states are called.
-                    if (!ready && (!this.readyState || this.readyState == 'complete')) {
-                        ready = true;
-                        resolve();
-                    }
-                };
-                document.body.appendChild(script);
-            }
-        });
+    if (!manifest.js) {
+        return Promise.resolve();
     }
 
-    return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const url = `/scripts/extensions/${name}/${manifest.js}`;
+        let ready = false;
+
+        if ($(`script[id="${name}"]`).length === 0) {
+            const script = document.createElement('script');
+            script.id = name;
+            script.type = 'module';
+            script.src = url;
+            script.async = true;
+            script.onerror = function (err) {
+                reject(err);
+            };
+            script.onload = function () {
+                if (!ready) {
+                    ready = true;
+                    resolve();
+                }
+            };
+            document.body.appendChild(script);
+        }
+    });
 }
-
-
 
 /**
  * Generates HTML string for displaying an extension in the UI.
@@ -526,6 +549,22 @@ function addExtensionScript(name, manifest) {
  * @return {string} - The HTML string that represents the extension.
  */
 function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal, checkboxClass) {
+    function getExtensionIcon() {
+        const type = getExtensionType(name);
+        switch (type) {
+            case 'global':
+                return '<i class="fa-fw fa-solid fa-server" data-i18n="[title]ext_type_global" title="This is a global extension, available for all users."></i>';
+            case 'local':
+                return '<i class="fa-fw fa-solid fa-user" data-i18n="[title]ext_type_local" title="This is a local extension, available only for you."></i>';
+            case 'system':
+                return '<i class="fa-fw fa-solid fa-cog" data-i18n="[title]ext_type_system" title="This is a built-in extension. It cannot be deleted and updates with the app."></i>';
+            default:
+                return '<i class="fa-fw fa-solid fa-question" title="Unknown extension type."></i>';
+        }
+    }
+
+    const isUserAdmin = isAdmin();
+    const extensionIcon = getExtensionIcon();
     const displayName = manifest.display_name;
     let displayVersion = manifest.version ? ` v${manifest.version}` : '';
     const externalId = name.replace('third-party', '');
@@ -540,6 +579,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
 
     let deleteButton = isExternal ? `<button class="btn_delete menu_button" data-name="${externalId}" title="Delete"><i class="fa-fw fa-solid fa-trash-can"></i></button>` : '';
     let updateButton = isExternal ? `<button class="btn_update menu_button displayNone" data-name="${externalId}" title="Update available"><i class="fa-solid fa-download fa-fw"></i></button>` : '';
+    let moveButton = isExternal && isUserAdmin ? `<button class="btn_move menu_button" data-name="${externalId}" title="Move"><i class="fa-solid fa-folder-tree fa-fw"></i></button>` : '';
     let modulesInfo = '';
 
     if (isActive && Array.isArray(manifest.optional)) {
@@ -565,6 +605,9 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
             <div class="extension_toggle">
                 ${toggleElement}
             </div>
+            <div class="extension_icon">
+                ${extensionIcon}
+            </div>
             <div class="flexGrow">
                 ${originHtml}
                 <span class="${isActive ? 'extension_enabled' : isDisabled ? 'extension_disabled' : 'extension_missing'}">
@@ -577,6 +620,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
 
             <div class="extension_actions flex-container alignItemsCenter">
                 ${updateButton}
+                ${moveButton}
                 ${deleteButton}
             </div>
         </div>`;
@@ -622,6 +666,7 @@ function getModuleInformation() {
  * Generates the HTML strings for all extensions and displays them in a popup.
  */
 async function showExtensionsDetails() {
+    const abortController = new AbortController();
     let popupPromise;
     try {
         const htmlDefault = $('<div class="marginBot10"><h3 class="textAlignCenter">Built-in Extensions:</h3></div>');
@@ -688,20 +733,20 @@ async function showExtensionsDetails() {
             },
         });
         popupPromise = popup.show();
-        checkForUpdatesManual().finally(() => htmlLoading.remove());
+        checkForUpdatesManual(abortController.signal).finally(() => htmlLoading.remove());
     } catch (error) {
         toastr.error('Error loading extensions. See browser console for details.');
         console.error(error);
     }
     if (popupPromise) {
         await popupPromise;
+        abortController.abort();
     }
     if (requiresReload) {
         showLoader();
         location.reload();
     }
 }
-
 
 /**
  * Handles the click event for the update button of an extension.
@@ -712,7 +757,7 @@ async function showExtensionsDetails() {
 async function onUpdateClick() {
     const isCurrentUserAdmin = isAdmin();
     const extensionName = $(this).data('name');
-    const isGlobal = extensionTypes[extensionName] === 'global';
+    const isGlobal = getExtensionType(extensionName) === 'global';
     if (isGlobal && !isCurrentUserAdmin) {
         toastr.error(t`You don't have permission to update global extensions.`);
         return;
@@ -734,7 +779,7 @@ async function updateExtension(extensionName, quiet) {
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 extensionName,
-                global: extensionTypes[extensionName] === 'global',
+                global: getExtensionType(extensionName) === 'global',
             }),
         });
 
@@ -765,7 +810,7 @@ async function updateExtension(extensionName, quiet) {
 async function onDeleteClick() {
     const extensionName = $(this).data('name');
     const isCurrentUserAdmin = isAdmin();
-    const isGlobal = extensionTypes[extensionName] === 'global';
+    const isGlobal = getExtensionType(extensionName) === 'global';
     if (isGlobal && !isCurrentUserAdmin) {
         toastr.error(t`You don't have permission to delete global extensions.`);
         return;
@@ -776,6 +821,18 @@ async function onDeleteClick() {
     if (confirmation === POPUP_RESULT.AFFIRMATIVE) {
         await deleteExtension(extensionName);
     }
+}
+
+async function onMoveClick() {
+    const extensionName = $(this).data('name');
+    const isCurrentUserAdmin = isAdmin();
+    const isGlobal = getExtensionType(extensionName) === 'global';
+    if (isGlobal && !isCurrentUserAdmin) {
+        toastr.error(t`You don't have permission to move extensions.`);
+        return;
+    }
+
+    toastr.info('Not implemented yet');
 }
 
 /**
@@ -789,7 +846,7 @@ export async function deleteExtension(extensionName) {
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 extensionName,
-                global: extensionTypes[extensionName] === 'global',
+                global: getExtensionType(extensionName) === 'global',
             }),
         });
     } catch (error) {
@@ -806,16 +863,21 @@ export async function deleteExtension(extensionName) {
  * Fetches the version details of a specific extension.
  *
  * @param {string} extensionName - The name of the extension.
+ * @param {AbortSignal} [abortSignal] - The signal to abort the operation.
  * @return {Promise<object>} - An object containing the extension's version details.
  * This object includes the currentBranchName, currentCommitHash, isUpToDate, and remoteUrl.
  * @throws {error} - If there is an error during the fetch operation, it logs the error to the console.
  */
-async function getExtensionVersion(extensionName) {
+async function getExtensionVersion(extensionName, abortSignal) {
     try {
         const response = await fetch('/api/extensions/version', {
             method: 'POST',
             headers: getRequestHeaders(),
-            body: JSON.stringify({ extensionName }),
+            body: JSON.stringify({
+                extensionName,
+                global: getExtensionType(extensionName) === 'global',
+            }),
+            signal: abortSignal,
         });
 
         const data = await response.json();
@@ -900,13 +962,18 @@ export function doDailyExtensionUpdatesCheck() {
     }, 1);
 }
 
-async function checkForUpdatesManual() {
+/**
+ * Performs a manual check for updates on all 3rd-party extensions.
+ * @param {AbortSignal} abortSignal Signal to abort the operation
+ * @returns {Promise<any[]>}
+ */
+async function checkForUpdatesManual(abortSignal) {
     const promises = [];
     for (const id of Object.keys(manifests).filter(x => x.startsWith('third-party'))) {
         const externalId = id.replace('third-party', '');
         const promise = new Promise(async (resolve, reject) => {
             try {
-                const data = await getExtensionVersion(externalId);
+                const data = await getExtensionVersion(externalId, abortSignal);
                 const extensionBlock = document.querySelector(`.extension_block[data-name="${externalId}"]`);
                 if (extensionBlock) {
                     if (data.isUpToDate === false) {
@@ -969,7 +1036,7 @@ async function checkForExtensionUpdates(force) {
     const promises = [];
 
     for (const [id, manifest] of Object.entries(manifests)) {
-        const isGlobal = extensionTypes[id] === 'global';
+        const isGlobal = getExtensionType(id) === 'global';
         if (isGlobal && !isCurrentUserAdmin) {
             console.debug(`Skipping global extension: ${manifest.display_name} (${id}) for non-admin user`);
             continue;
@@ -1012,7 +1079,7 @@ async function autoUpdateExtensions(forceAll) {
     const isCurrentUserAdmin = isAdmin();
     const promises = [];
     for (const [id, manifest] of Object.entries(manifests)) {
-        const isGlobal = extensionTypes[id] === 'global';
+        const isGlobal = getExtensionType(id) === 'global';
         if (isGlobal && !isCurrentUserAdmin) {
             console.debug(`Skipping global extension: ${manifest.display_name} (${id}) for non-admin user`);
             continue;
@@ -1043,9 +1110,9 @@ async function runGenerationInterceptors(chat, contextSize) {
 
     for (const manifest of Object.values(manifests).sort((a, b) => a.loading_order - b.loading_order)) {
         const interceptorKey = manifest.generate_interceptor;
-        if (typeof window[interceptorKey] === 'function') {
+        if (typeof globalThis[interceptorKey] === 'function') {
             try {
-                await window[interceptorKey](chat, contextSize, abort);
+                await globalThis[interceptorKey](chat, contextSize, abort);
             } catch (e) {
                 console.error(`Failed running interceptor for ${manifest.display_name}`, e);
             }
@@ -1124,7 +1191,7 @@ export async function openThirdPartyExtensionMenu(suggestUrl = '') {
 
     let global = false;
     const installForAllButton = {
-        text: t`Install for all`,
+        text: t`Install for all users`,
         appendAtEnd: false,
         action: async () => {
             global = true;
@@ -1153,10 +1220,11 @@ export async function initExtensions() {
     $('#extensions_autoconnect').on('input', autoConnectInputHandler);
     $('#extensions_details').on('click', showExtensionsDetails);
     $('#extensions_notify_updates').on('input', notifyUpdatesInputHandler);
-    $(document).on('click', '.toggle_disable', onDisableExtensionClick);
-    $(document).on('click', '.toggle_enable', onEnableExtensionClick);
-    $(document).on('click', '.btn_update', onUpdateClick);
-    $(document).on('click', '.btn_delete', onDeleteClick);
+    $(document).on('click', '.extensions_info .extension_block .toggle_disable', onDisableExtensionClick);
+    $(document).on('click', '.extensions_info .extension_block .toggle_enable', onEnableExtensionClick);
+    $(document).on('click', '.extensions_info .extension_block .btn_update', onUpdateClick);
+    $(document).on('click', '.extensions_info .extension_block .btn_delete', onDeleteClick);
+    $(document).on('click', '.extensions_info .extension_block .btn_move', onMoveClick);
 
     /**
      * Handles the click event for the third-party extension import button.

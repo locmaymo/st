@@ -90,7 +90,7 @@ label[for="extensions_autoconnect"] {
     border-radius: 10px;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 5px;
 }
 
 .extensions_info .extension_name {
