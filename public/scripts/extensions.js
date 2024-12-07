@@ -465,7 +465,7 @@ async function connectToApi(baseUrl) {
 
 function updateStatus(success) {
     connectedToApi = success;
-    const _text = success ? 'Connected to API' : 'Could not connect to API';
+    const _text = success ? t`Connected to API` : t`Could not connect to API`;
     const _class = success ? 'success' : 'failure';
     $('#extensions_status').text(_text);
     $('#extensions_status').attr('class', _class);
@@ -723,7 +723,7 @@ async function showExtensionsDetails() {
                 }
                 if (stateChanged) {
                     waitingForSave = true;
-                    const toast = toastr.info('The page will be reloaded shortly...', 'Extensions state changed');
+                    const toast = toastr.info(t`The page will be reloaded shortly...`, t`Extensions state changed`);
                     await saveSettings();
                     toastr.clear(toast);
                     waitingForSave = false;
@@ -735,7 +735,7 @@ async function showExtensionsDetails() {
         popupPromise = popup.show();
         checkForUpdatesManual(abortController.signal).finally(() => htmlLoading.remove());
     } catch (error) {
-        toastr.error('Error loading extensions. See browser console for details.');
+        toastr.error(t`Error loading extensions. See browser console for details.`);
         console.error(error);
     }
     if (popupPromise) {
@@ -817,7 +817,7 @@ async function onDeleteClick() {
     }
 
     // use callPopup to create a popup for the user to confirm before delete
-    const confirmation = await callGenericPopup(`Are you sure you want to delete ${extensionName}?`, POPUP_TYPE.CONFIRM, '', {});
+    const confirmation = await callGenericPopup(t`Are you sure you want to delete ${extensionName}?`, POPUP_TYPE.CONFIRM, '', {});
     if (confirmation === POPUP_RESULT.AFFIRMATIVE) {
         await deleteExtension(extensionName);
     }
@@ -832,7 +832,57 @@ async function onMoveClick() {
         return;
     }
 
-    toastr.info('Not implemented yet');
+    const source = getExtensionType(extensionName);
+    const destination = source === 'global' ? 'local' : 'global';
+
+    const confirmationHeader = t`Move extension`;
+    const confirmationText = source == 'global'
+        ? t`Are you sure you want to move ${extensionName} to your local extensions? This will make it available only for you.`
+        : t`Are you sure you want to move ${extensionName} to the global extensions? This will make it available for all users.`;
+
+    const confirmation = await Popup.show.confirm(confirmationHeader, confirmationText);
+
+    if (!confirmation) {
+        return;
+    }
+
+    $(this).find('i').addClass('fa-spin');
+    await moveExtension(extensionName, source, destination);
+}
+
+/**
+ * Moves an extension via the API.
+ * @param {string} extensionName Extension name
+ * @param {string} source Source type
+ * @param {string} destination Destination type
+ * @returns {Promise<void>}
+ */
+async function moveExtension(extensionName, source, destination) {
+    try {
+        const result = await fetch('/api/extensions/move', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                extensionName,
+                source,
+                destination,
+            }),
+        });
+
+        if (!result.ok) {
+            const text = await result.text();
+            toastr.error(text || result.statusText, t`Extension move failed`, { timeOut: 5000 });
+            console.error('Extension move failed', result.status, result.statusText, text);
+            return;
+        }
+
+        toastr.success(t`Extension ${extensionName} moved.`);
+        await loadExtensionSettings({}, false, false);
+        await Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'))?.completeCancelled();
+        showExtensionsDetails();
+    } catch (error) {
+        console.error('Error:', error);
+    }
 }
 
 /**
@@ -853,7 +903,7 @@ export async function deleteExtension(extensionName) {
         console.error('Error:', error);
     }
 
-    toastr.success(`Extension ${extensionName} deleted`);
+    toastr.success(t`Extension ${extensionName} deleted`);
     showExtensionsDetails();
     // reload the page to remove the extension from the list
     location.reload();
@@ -896,7 +946,7 @@ async function getExtensionVersion(extensionName, abortSignal) {
 export async function installExtension(url, global) {
     console.debug('Extension installation started', url);
 
-    toastr.info('Please wait...', 'Installing extension');
+    toastr.info(t`Please wait...`, t`Installing extension`);
 
     const request = await fetch('/api/extensions/install', {
         method: 'POST',
@@ -909,7 +959,7 @@ export async function installExtension(url, global) {
 
     if (!request.ok) {
         const text = await request.text();
-        toastr.warning(text || request.statusText, 'Extension installation failed', { timeOut: 5000 });
+        toastr.warning(text || request.statusText, t`Extension installation failed`, { timeOut: 5000 });
         console.error('Extension installation failed', request.status, request.statusText, text);
         return;
     }

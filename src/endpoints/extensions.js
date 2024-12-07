@@ -80,6 +80,7 @@ router.post('/install', jsonParser, async (request, response) => {
         const { url, global } = request.body;
 
         if (global && !request.user.profile.admin) {
+            console.warn(`User ${request.user.profile.handle} does not have permission to install global extensions.`);
             return response.status(403).send('Forbidden: No permission to install global extensions.');
         }
 
@@ -123,6 +124,7 @@ router.post('/update', jsonParser, async (request, response) => {
         const { extensionName, global } = request.body;
 
         if (global && !request.user.profile.admin) {
+            console.warn(`User ${request.user.profile.handle} does not have permission to update global extensions.`);
             return response.status(403).send('Forbidden: No permission to update global extensions.');
         }
 
@@ -150,6 +152,50 @@ router.post('/update', jsonParser, async (request, response) => {
     } catch (error) {
         console.log('Updating custom content failed', error);
         return response.status(500).send(`Server Error: ${error.message}`);
+    }
+});
+
+router.post('/move', jsonParser, async (request, response) => {
+    try {
+        const { extensionName, source, destination } = request.body;
+
+        if (!extensionName || !source || !destination) {
+            return response.status(400).send('Bad Request. Not all required parameters are provided.');
+        }
+
+        if (!request.user.profile.admin) {
+            console.warn(`User ${request.user.profile.handle} does not have permission to move extensions.`);
+            return response.status(403).send('Forbidden: No permission to move extensions.');
+        }
+
+        const sourceDirectory = source === 'global' ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const destinationDirectory = destination === 'global' ? PUBLIC_DIRECTORIES.globalExtensions : request.user.directories.extensions;
+        const sourcePath = path.join(sourceDirectory, sanitize(extensionName));
+        const destinationPath = path.join(destinationDirectory, sanitize(extensionName));
+
+        if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+            console.error(`Source directory does not exist at ${sourcePath}`);
+            return response.status(404).send('Source directory does not exist.');
+        }
+
+        if (fs.existsSync(destinationPath)) {
+            console.error(`Destination directory already exists at ${destinationPath}`);
+            return response.status(409).send('Destination directory already exists.');
+        }
+
+        if (source === destination) {
+            console.error('Source and destination directories are the same');
+            return response.status(409).send('Source and destination directories are the same.');
+        }
+
+        fs.cpSync(sourcePath, destinationPath, { recursive: true, force: true });
+        fs.rmSync(sourcePath, { recursive: true, force: true });
+        console.log(`Extension has been moved from ${sourcePath} to ${destinationPath}`);
+
+        return response.sendStatus(204);
+    } catch (error) {
+        console.log('Moving extension failed', error);
+        return response.status(500).send('Internal Server Error. Try again later.');
     }
 });
 
@@ -211,6 +257,7 @@ router.post('/delete', jsonParser, async (request, response) => {
         const { extensionName, global } = request.body;
 
         if (global && !request.user.profile.admin) {
+            console.warn(`User ${request.user.profile.handle} does not have permission to delete global extensions.`);
             return response.status(403).send('Forbidden: No permission to delete global extensions.');
         }
 
