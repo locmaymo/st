@@ -33,7 +33,7 @@ function backupChat(directory, name, chat) {
 
         removeOldBackups(directory, `chat_${name}_`);
 
-        const maxTotalChatBackups = Number(getConfigValue('maxTotalChatBackups', 500));
+        const maxTotalChatBackups = Number(getConfigValue('maxTotalChatBackups', -1));
         if (isNaN(maxTotalChatBackups) || maxTotalChatBackups < 0) {
             return;
         }
