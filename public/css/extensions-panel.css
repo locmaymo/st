@@ -83,12 +83,12 @@ label[for="extensions_autoconnect"] {
 
 .extensions_info .extension_block {
     display: flex;
-    flex-wrap: wrap;
-    padding: 5px 10px;
+    flex-wrap: nowrap;
+    padding: 5px;
     margin-bottom: 5px;
     border: 1px solid var(--SmartThemeBorderColor);
     border-radius: 10px;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     gap: 5px;
 }
@@ -101,7 +101,7 @@ label[for="extensions_autoconnect"] {
     opacity: 0.8;
     font-size: 0.8em;
     font-weight: normal;
-    margin-left: 5px;
+    margin-left: 2px;
 }
 
 .extensions_info .extension_block a {
@@ -135,4 +135,14 @@ input.extension_missing[type="checkbox"] {
 
 #extensionsMenu>div.extension_container:empty {
     display: none;
+}
+
+.extensions_info .extension_text_block {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.extensions_info .extension_actions {
+    flex-wrap: nowrap;
 }

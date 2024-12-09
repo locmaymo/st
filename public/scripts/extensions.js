@@ -573,13 +573,13 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
         const type = getExtensionType(name);
         switch (type) {
             case 'global':
-                return '<i class="fa-fw fa-solid fa-server" data-i18n="[title]ext_type_global" title="This is a global extension, available for all users."></i>';
+                return '<i class="fa-sm fa-fw fa-solid fa-server" data-i18n="[title]ext_type_global" title="This is a global extension, available for all users."></i>';
             case 'local':
-                return '<i class="fa-fw fa-solid fa-user" data-i18n="[title]ext_type_local" title="This is a local extension, available only for you."></i>';
+                return '<i class="fa-sm fa-fw fa-solid fa-user" data-i18n="[title]ext_type_local" title="This is a local extension, available only for you."></i>';
             case 'system':
-                return '<i class="fa-fw fa-solid fa-cog" data-i18n="[title]ext_type_system" title="This is a built-in extension. It cannot be deleted and updates with the app."></i>';
+                return '<i class="fa-sm fa-fw fa-solid fa-cog" data-i18n="[title]ext_type_system" title="This is a built-in extension. It cannot be deleted and updates with the app."></i>';
             default:
-                return '<i class="fa-fw fa-solid fa-question" title="Unknown extension type."></i>';
+                return '<i class="fa-sm fa-fw fa-solid fa-question" title="Unknown extension type."></i>';
         }
     }
 
@@ -627,7 +627,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
             <div class="extension_icon">
                 ${extensionIcon}
             </div>
-            <div class="flexGrow">
+            <div class="flexGrow extension_text_block">
                 ${originHtml}
                 <span class="${isActive ? 'extension_enabled' : isDisabled ? 'extension_disabled' : 'extension_missing'}">
                     <span class="extension_name">${DOMPurify.sanitize(displayName)}</span>
