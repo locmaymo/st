@@ -96,7 +96,7 @@ const APHRODITE_DEFAULT_ORDER = [
     'epsilon_cutoff',
     'typical_p',
     'quadratic',
-    'xtc'
+    'xtc',
 ];
 const BIAS_KEY = '#textgenerationwebui_api-settings';
 
@@ -179,7 +179,7 @@ const settings = {
     banned_tokens: '',
     sampler_priority: OOBA_DEFAULT_ORDER,
     samplers: LLAMACPP_DEFAULT_ORDER,
-    samplers_priorties: APHRODITE_DEFAULT_ORDER,
+    samplers_priorities: APHRODITE_DEFAULT_ORDER,
     ignore_eos_token: false,
     spaces_between_special_tokens: true,
     speculative_ngram: false,
@@ -879,7 +879,7 @@ function setSettingByName(setting, value, trigger) {
         return;
     }
 
-    if ('samplers_priority' === setting) {
+    if ('samplers_priorities' === setting) {
         value = Array.isArray(value) ? value : APHRODITE_DEFAULT_ORDER;
         insertMissingArrayItems(APHRODITE_DEFAULT_ORDER, value);
         sortAphroditeItemsByOrder(value);
