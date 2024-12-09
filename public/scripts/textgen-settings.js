@@ -571,7 +571,12 @@ function sortOobaItemsByOrder(orderArray) {
     });
 }
 
+/**
+ * Sorts the Aphrodite sampler items by the given order.
+ * @param {string[]} orderArray Sampler order array.
+ */
 function sortAphroditeItemsByOrder(orderArray) {
+    console.debug('Preset samplers order: ', orderArray);
     const $container = $('#sampler_priority_container_aphrodite');
 
     orderArray.forEach((name) => {
