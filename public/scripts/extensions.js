@@ -586,7 +586,6 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
     const isUserAdmin = isAdmin();
     const extensionIcon = getExtensionIcon();
     const displayName = manifest.display_name;
-    let displayVersion = manifest.version ? ` v${manifest.version}` : '';
     const externalId = name.replace('third-party', '');
     let originHtml = '';
     if (isExternal) {
@@ -632,7 +631,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
                 ${originHtml}
                 <span class="${isActive ? 'extension_enabled' : isDisabled ? 'extension_disabled' : 'extension_missing'}">
                     <span class="extension_name">${DOMPurify.sanitize(displayName)}</span>
-                    <span class="extension_version">${displayVersion}</span>
+                    <span class="extension_version"></span>
                     ${modulesInfo}
                 </span>
                 ${isExternal ? '</a>' : ''}
@@ -1032,6 +1031,29 @@ export function doDailyExtensionUpdatesCheck() {
     }, 1);
 }
 
+const concurrencyLimit = 5;
+let activeRequestsCount = 0;
+const versionCheckQueue = [];
+
+function enqueueVersionCheck(fn) {
+    return new Promise((resolve, reject) => {
+        versionCheckQueue.push(() => fn().then(resolve).catch(reject));
+        processVersionCheckQueue();
+    });
+}
+
+function processVersionCheckQueue() {
+    if (activeRequestsCount >= concurrencyLimit || versionCheckQueue.length === 0) {
+        return;
+    }
+    activeRequestsCount++;
+    const fn = versionCheckQueue.shift();
+    fn().finally(() => {
+        activeRequestsCount--;
+        processVersionCheckQueue();
+    });
+}
+
 /**
  * Performs a manual check for updates on all 3rd-party extensions.
  * @param {AbortSignal} abortSignal Signal to abort the operation
@@ -1041,7 +1063,7 @@ async function checkForUpdatesManual(abortSignal) {
     const promises = [];
     for (const id of Object.keys(manifests).filter(x => x.startsWith('third-party'))) {
         const externalId = id.replace('third-party', '');
-        const promise = new Promise(async (resolve, reject) => {
+        const promise = enqueueVersionCheck(async () => {
             try {
                 const data = await getExtensionVersion(externalId, abortSignal);
                 const extensionBlock = document.querySelector(`.extension_block[data-name="${externalId}"]`);
@@ -1072,10 +1094,8 @@ async function checkForUpdatesManual(abortSignal) {
                         versionElement.textContent += ` (${branch}-${commitHash.substring(0, 7)})`;
                     }
                 }
-                resolve();
             } catch (error) {
                 console.error('Error checking for extension updates', error);
-                reject();
             }
         });
         promises.push(promise);
@@ -1111,17 +1131,16 @@ async function checkForExtensionUpdates(force) {
             console.debug(`Skipping global extension: ${manifest.display_name} (${id}) for non-admin user`);
             continue;
         }
+
         if (manifest.auto_update && id.startsWith('third-party')) {
-            const promise = new Promise(async (resolve, reject) => {
+            const promise = enqueueVersionCheck(async () => {
                 try {
                     const data = await getExtensionVersion(id.replace('third-party', ''));
-                    if (data.isUpToDate === false) {
+                    if (!data.isUpToDate) {
                         updatesAvailable.push(manifest.display_name);
                     }
-                    resolve();
                 } catch (error) {
                     console.error('Error checking for extension updates', error);
-                    reject();
                 }
             });
             promises.push(promise);
