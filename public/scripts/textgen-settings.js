@@ -1317,9 +1317,9 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'custom_token_bans': toIntArray(banned_tokens),
         'no_repeat_ngram_size': settings.no_repeat_ngram_size,
         'sampler_priority': settings.type === APHRODITE && !arraysEqual(
-            settings.samplers_priorities, 
+            settings.samplers_priorities,
             APHRODITE_DEFAULT_ORDER)
-            ? settings.samplers_priorities 
+            ? settings.samplers_priorities
             : undefined,
     };
 
