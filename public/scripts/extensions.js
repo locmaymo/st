@@ -1068,7 +1068,7 @@ async function checkForUpdatesManual(abortSignal) {
             try {
                 const data = await getExtensionVersion(externalId, abortSignal);
                 const extensionBlock = document.querySelector(`.extension_block[data-name="${externalId}"]`);
-                if (extensionBlock) {
+                if (extensionBlock && data) {
                     if (data.isUpToDate === false) {
                         const buttonElement = extensionBlock.querySelector('.btn_update');
                         if (buttonElement) {
@@ -1085,9 +1085,17 @@ async function checkForUpdatesManual(abortSignal) {
 
                     const originLink = extensionBlock.querySelector('a');
                     if (originLink) {
-                        originLink.href = origin;
-                        originLink.target = '_blank';
-                        originLink.rel = 'noopener noreferrer';
+                        try {
+                            const url = new URL(origin);
+                            if (!['https:', 'http:'].includes(url.protocol)) {
+                                throw new Error('Invalid protocol');
+                            }
+                            originLink.href = url.href;
+                            originLink.target = '_blank';
+                            originLink.rel = 'noopener noreferrer';
+                        } catch (error) {
+                            console.log('Error setting origin link', originLink, error);
+                        }
                     }
 
                     const versionElement = extensionBlock.querySelector('.extension_version');
