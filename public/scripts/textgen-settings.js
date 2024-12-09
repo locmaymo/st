@@ -16,7 +16,7 @@ import { power_user, registerDebugFunction } from './power-user.js';
 import { getEventSourceStream } from './sse-stream.js';
 import { getCurrentDreamGenModelTokenizer, getCurrentOpenRouterModelTokenizer } from './textgen-models.js';
 import { ENCODE_TOKENIZERS, TEXTGEN_TOKENIZERS, getTextTokens, tokenizers } from './tokenizers.js';
-import { getSortableDelay, onlyUnique } from './utils.js';
+import { getSortableDelay, onlyUnique, arraysEqual } from './utils.js';
 
 export const textgen_types = {
     OOBA: 'ooba',
@@ -1316,7 +1316,11 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
         'no_repeat_ngram_size': settings.no_repeat_ngram_size,
-        'sampler_priority': settings.type === APHRODITE ? settings.samplers_priorities : undefined,
+        'sampler_priority': settings.type === APHRODITE && !arraysEqual(
+            settings.samplers_priorities,
+            APHRODITE_DEFAULT_ORDER)
+            ? settings.samplers_priorities
+            : undefined,
     };
 
     if (settings.type === OPENROUTER) {
