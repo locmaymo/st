@@ -586,6 +586,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
     const isUserAdmin = isAdmin();
     const extensionIcon = getExtensionIcon();
     const displayName = manifest.display_name;
+    const displayVersion = manifest.version || '';
     const externalId = name.replace('third-party', '');
     let originHtml = '';
     if (isExternal) {
@@ -631,7 +632,7 @@ function generateExtensionHtml(name, manifest, isActive, isDisabled, isExternal,
                 ${originHtml}
                 <span class="${isActive ? 'extension_enabled' : isDisabled ? 'extension_disabled' : 'extension_missing'}">
                     <span class="extension_name">${DOMPurify.sanitize(displayName)}</span>
-                    <span class="extension_version"></span>
+                    <span class="extension_version">${DOMPurify.sanitize(displayVersion)}</span>
                     ${modulesInfo}
                 </span>
                 ${isExternal ? '</a>' : ''}
