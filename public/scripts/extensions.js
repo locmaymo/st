@@ -690,7 +690,12 @@ async function showExtensionsDetails() {
     let popupPromise;
     try {
         // If we are updating an extension, the "old" popup is still active. We should close that.
-        await Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'))?.completeCancelled();
+        let initialScrollTop = 0;
+        const oldPopup = Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'));
+        if (oldPopup) {
+            initialScrollTop = oldPopup.content.scrollTop;
+            await oldPopup.completeCancelled();
+        }
         const htmlDefault = $('<div class="marginBot10"><h3 class="textAlignCenter">Built-in Extensions:</h3></div>');
         const htmlExternal = $('<div class="marginBot10"><h3 class="textAlignCenter">Installed Extensions:</h3></div>');
         const htmlLoading = $(`<div class="flex-container alignItemsCenter justifyCenter marginTop10 marginBot5">
@@ -749,6 +754,7 @@ async function showExtensionsDetails() {
             },
         });
         popupPromise = popup.show();
+        popup.content.scrollTop = initialScrollTop;
         checkForUpdatesManual(abortController.signal).finally(() => htmlLoading.remove());
     } catch (error) {
         toastr.error(t`Error loading extensions. See browser console for details.`);
