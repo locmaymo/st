@@ -770,7 +770,7 @@ async function showExtensionsDetails() {
 
 /**
  * Handles the click event for the update button of an extension.
- * This function makes a POST request to '/update_extension' with the extension's name.
+ * This function makes a POST request to '/api/extensions/update' with the extension's name.
  * If the extension is already up to date, it displays a success message.
  * If the extension is not up to date, it updates the extension and displays a success message with the new commit hash.
  */
@@ -783,8 +783,11 @@ async function onUpdateClick() {
         return;
     }
 
-    $(this).find('i').addClass('fa-spin');
+    const icon = $(this).find('i');
+    icon.addClass('fa-spin');
     await updateExtension(extensionName, false);
+    // updateExtension eats the error, but we can at least stop the spinner
+    icon.removeClass('fa-spin');
 }
 
 /**
@@ -803,10 +806,17 @@ async function updateExtension(extensionName, quiet) {
             }),
         });
 
+        if (!response.ok) {
+            const text = await response.text();
+            toastr.error(text || response.statusText, t`Extension update failed`, { timeOut: 5000 });
+            console.error('Extension update failed', response.status, response.statusText, text);
+            return;
+        }
+
         const data = await response.json();
 
         if (!quiet) {
-            showExtensionsDetails();
+            await showExtensionsDetails();
         }
 
         if (data.isUpToDate) {
