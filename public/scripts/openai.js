@@ -1178,7 +1178,8 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
 
     // Apply character-specific main prompt
     const systemPrompt = prompts.get('main') ?? null;
-    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true) {
+    const isSystemPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('main');
+    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true && !isSystemPromptDisabled) {
         const mainOriginalContent = systemPrompt.content;
         systemPrompt.content = systemPromptOverride;
         const mainReplacement = promptManager.preparePrompt(systemPrompt, mainOriginalContent);
@@ -1187,7 +1188,8 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
 
     // Apply character-specific jailbreak
     const jailbreakPrompt = prompts.get('jailbreak') ?? null;
-    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true) {
+    const isJailbreakPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('jailbreak');
+    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true && !isJailbreakPromptDisabled) {
         const jbOriginalContent = jailbreakPrompt.content;
         jailbreakPrompt.content = jailbreakPromptOverride;
         const jbReplacement = promptManager.preparePrompt(jailbreakPrompt, jbOriginalContent);
