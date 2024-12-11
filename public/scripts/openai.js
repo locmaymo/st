@@ -4753,6 +4753,7 @@ export function isImageInliningSupported() {
     // gultra just isn't being offered as multimodal, thanks google.
     const visionSupportedModels = [
         'gpt-4-vision',
+        'gemini-2.0-flash-exp',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-1.5-flash-001',
