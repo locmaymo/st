@@ -38,7 +38,7 @@ export let modules = [];
 let activeExtensions = new Set();
 
 const getApiUrl = () => extension_settings.apiUrl;
-const sortManifests = (a, b) => a.loading_order - b.loading_order;
+const sortManifests = (a, b) => parseInt(a.loading_order) - parseInt(b.loading_order) || String(a.display_name).localeCompare(String(b.display_name));
 let connectedToApi = false;
 
 /**
