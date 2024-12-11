@@ -11,6 +11,10 @@ import _ from 'lodash';
 import { jsonParser, urlencodedParser } from '../express-common.js';
 import { getConfigValue, humanizedISO8601DateTime, tryParse, generateTimestamp, removeOldBackups } from '../util.js';
 
+const isBackupDisabled = getConfigValue('disableChatBackup', false);
+const maxTotalChatBackups = Number(getConfigValue('maxTotalChatBackups', -1));
+const throttleInterval = getConfigValue('chatBackupThrottleInterval', 10_000);
+
 /**
  * Saves a chat to the backups directory.
  * @param {string} directory The user's backups directory.
@@ -19,7 +23,6 @@ import { getConfigValue, humanizedISO8601DateTime, tryParse, generateTimestamp, 
  */
 function backupChat(directory, name, chat) {
     try {
-        const isBackupDisabled = getConfigValue('disableChatBackup', false);
 
         if (isBackupDisabled) {
             return;
@@ -32,6 +35,12 @@ function backupChat(directory, name, chat) {
         writeFileAtomicSync(backupFile, chat, 'utf-8');
 
         removeOldBackups(directory, `chat_${name}_`);
+
+        if (isNaN(maxTotalChatBackups) || maxTotalChatBackups < 0) {
+            return;
+        }
+
+        removeOldBackups(directory, 'chat_', maxTotalChatBackups);
     } catch (err) {
         console.log(`Could not backup chat for ${name}`, err);
     }
@@ -45,7 +54,6 @@ const backupFunctions = new Map();
  * @returns {function(string, string, string): void} Backup function
  */
 function getBackupFunction(handle) {
-    const throttleInterval = getConfigValue('chatBackupThrottleInterval', 10_000);
     if (!backupFunctions.has(handle)) {
         backupFunctions.set(handle, _.throttle(backupChat, throttleInterval, { leading: true, trailing: true }));
     }
