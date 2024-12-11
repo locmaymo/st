@@ -4,7 +4,7 @@ import { eventSource, event_types, saveSettings, saveSettingsDebounced, getReque
 import { showLoader } from './loader.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { renderTemplate, renderTemplateAsync } from './templates.js';
-import { isSubsetOf, setValueByPath } from './utils.js';
+import { delay, isSubsetOf, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
 import { isAdmin } from './user.js';
 import { t } from './i18n.js';
@@ -689,6 +689,8 @@ async function showExtensionsDetails() {
     const abortController = new AbortController();
     let popupPromise;
     try {
+        // If we are updating an extension, the "old" popup is still active. We should close that.
+        await Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'))?.completeCancelled();
         const htmlDefault = $('<div class="marginBot10"><h3 class="textAlignCenter">Built-in Extensions:</h3></div>');
         const htmlExternal = $('<div class="marginBot10"><h3 class="textAlignCenter">Installed Extensions:</h3></div>');
         const htmlLoading = $(`<div class="flex-container alignItemsCenter justifyCenter marginTop10 marginBot5">
@@ -722,12 +724,6 @@ async function showExtensionsDetails() {
                 await popup.complete(POPUP_RESULT.AFFIRMATIVE);
             },
         };
-
-        // If we are updating an extension, the "old" popup is still active. We should close that.
-        const oldPopup = Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'));
-        if (oldPopup) {
-            await oldPopup.complete(POPUP_RESULT.CANCELLED);
-        }
 
         let waitingForSave = false;
 
@@ -816,7 +812,7 @@ async function updateExtension(extensionName, quiet) {
         const data = await response.json();
 
         if (!quiet) {
-            await showExtensionsDetails();
+            void showExtensionsDetails();
         }
 
         if (data.isUpToDate) {
@@ -908,8 +904,7 @@ async function moveExtension(extensionName, source, destination) {
 
         toastr.success(t`Extension ${extensionName} moved.`);
         await loadExtensionSettings({}, false, false);
-        await Popup.util.popups.find(popup => popup.content.querySelector('.extensions_info'))?.completeCancelled();
-        showExtensionsDetails();
+        void showExtensionsDetails();
     } catch (error) {
         console.error('Error:', error);
     }
@@ -934,9 +929,7 @@ export async function deleteExtension(extensionName) {
     }
 
     toastr.success(t`Extension ${extensionName} deleted`);
-    showExtensionsDetails();
-    // reload the page to remove the extension from the list
-    location.reload();
+    delay(1000).then(() => location.reload());
 }
 
 /**
