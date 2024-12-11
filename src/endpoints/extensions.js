@@ -224,12 +224,20 @@ router.post('/version', jsonParser, async (request, response) => {
             return response.status(404).send(`Directory does not exist at ${extensionPath}`);
         }
 
+        let currentCommitHash;
+        try {
+            currentCommitHash = await git.cwd(extensionPath).revparse(['HEAD']);
+        } catch (error) {
+            // it is not a git repo, or has no commits yet, or is a bare repo
+            // not possible to update it, most likely can't get the branch name either
+            return response.send({ currentBranchName: null, currentCommitHash, isUpToDate: true, remoteUrl: null });
+        }
+
         const currentBranch = await git.cwd(extensionPath).branch();
         // get only the working branch
         const currentBranchName = currentBranch.current;
         await git.cwd(extensionPath).fetch('origin');
-        const currentCommitHash = await git.cwd(extensionPath).revparse(['HEAD']);
-        console.log(currentBranch, currentCommitHash);
+        console.log(extensionName, currentBranchName, currentCommitHash);
         const { isUpToDate, remoteUrl } = await checkIfRepoIsUpToDate(extensionPath);
 
         return response.send({ currentBranchName, currentCommitHash, isUpToDate, remoteUrl });
