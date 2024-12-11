@@ -2173,3 +2173,20 @@ export function getCharIndex(char) {
     if (index === -1) throw new Error(`Character not found: ${char.avatar}`);
     return index;
 }
+
+/**
+ * Compares two arrays for equality
+ * @param {any[]} a - The first array
+ * @param {any[]} b - The second array
+ * @returns {boolean} True if the arrays are equal, false otherwise
+ */
+export function arraysEqual(a, b) {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    if (a.length !== b.length) return false;
+
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
