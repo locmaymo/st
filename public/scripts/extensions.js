@@ -38,6 +38,7 @@ export let modules = [];
 let activeExtensions = new Set();
 
 const getApiUrl = () => extension_settings.apiUrl;
+const sortManifests = (a, b) => a.loading_order - b.loading_order;
 let connectedToApi = false;
 
 /**
@@ -354,7 +355,7 @@ async function getManifests(names) {
  * @returns {Promise<void>}
  */
 async function activateExtensions() {
-    const extensions = Object.entries(manifests).sort((a, b) => a[1].loading_order - b[1].loading_order);
+    const extensions = Object.entries(manifests).sort((a, b) => sortManifests(a[1], b[1]));
     const promises = [];
 
     for (let entry of extensions) {
@@ -705,7 +706,7 @@ async function showExtensionsDetails() {
 
         htmlExternal.append(htmlLoading);
 
-        const extensions = Object.entries(manifests).sort((a, b) => a[1].loading_order - b[1].loading_order).map(getExtensionData);
+        const extensions = Object.entries(manifests).sort((a, b) => sortManifests(a[1], b[1])).map(getExtensionData);
 
         extensions.forEach(value => {
             const { isExternal, extensionHtml } = value;
@@ -1071,7 +1072,7 @@ function processVersionCheckQueue() {
  */
 async function checkForUpdatesManual(abortSignal) {
     const promises = [];
-    for (const id of Object.keys(manifests).filter(x => x.startsWith('third-party'))) {
+    for (const id of Object.keys(manifests).filter(x => x.startsWith('third-party')).sort((a, b) => sortManifests(manifests[a], manifests[b]))) {
         const externalId = id.replace('third-party', '');
         const promise = enqueueVersionCheck(async () => {
             try {
@@ -1215,7 +1216,7 @@ export async function runGenerationInterceptors(chat, contextSize) {
         exitImmediately = immediately;
     };
 
-    for (const manifest of Object.values(manifests).sort((a, b) => a.loading_order - b.loading_order)) {
+    for (const manifest of Object.values(manifests).filter(x => x.generate_interceptor).sort((a, b) => sortManifests(a, b))) {
         const interceptorKey = manifest.generate_interceptor;
         if (typeof globalThis[interceptorKey] === 'function') {
             try {
