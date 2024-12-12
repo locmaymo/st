@@ -16,14 +16,7 @@ import { power_user, registerDebugFunction } from './power-user.js';
 import { getEventSourceStream } from './sse-stream.js';
 import { getCurrentDreamGenModelTokenizer, getCurrentOpenRouterModelTokenizer } from './textgen-models.js';
 import { ENCODE_TOKENIZERS, TEXTGEN_TOKENIZERS, getTextTokens, tokenizers } from './tokenizers.js';
-import { getSortableDelay, onlyUnique } from './utils.js';
-
-export {
-    settings as textgenerationwebui_settings,
-    loadTextGenSettings,
-    generateTextGenWithStreaming,
-    formatTextGenURL,
-};
+import { getSortableDelay, onlyUnique, arraysEqual } from './utils.js';
 
 export const textgen_types = {
     OOBA: 'ooba',
@@ -88,6 +81,22 @@ const OOBA_DEFAULT_ORDER = [
     'xtc',
     'encoder_repetition_penalty',
     'no_repeat_ngram',
+];
+const APHRODITE_DEFAULT_ORDER = [
+    'dry',
+    'penalties',
+    'no_repeat_ngram',
+    'temperature',
+    'top_nsigma',
+    'top_p_top_k',
+    'top_a',
+    'min_p',
+    'tfs',
+    'eta_cutoff',
+    'epsilon_cutoff',
+    'typical_p',
+    'quadratic',
+    'xtc',
 ];
 const BIAS_KEY = '#textgenerationwebui_api-settings';
 
@@ -170,6 +179,7 @@ const settings = {
     banned_tokens: '',
     sampler_priority: OOBA_DEFAULT_ORDER,
     samplers: LLAMACPP_DEFAULT_ORDER,
+    samplers_priorities: APHRODITE_DEFAULT_ORDER,
     ignore_eos_token: false,
     spaces_between_special_tokens: true,
     speculative_ngram: false,
@@ -195,6 +205,10 @@ const settings = {
     xtc_probability: 0,
     nsigma: 0.0,
     featherless_model: '',
+};
+
+export {
+    settings as textgenerationwebui_settings,
 };
 
 export let textgenerationwebui_banned_in_macros = [];
@@ -259,6 +273,7 @@ export const setting_names = [
     'sampler_order',
     'sampler_priority',
     'samplers',
+    'samplers_priorities',
     'n',
     'logit_bias',
     'custom_model',
@@ -327,7 +342,7 @@ async function selectPreset(name) {
     saveSettingsDebounced();
 }
 
-function formatTextGenURL(value) {
+export function formatTextGenURL(value) {
     try {
         const noFormatTypes = [MANCER, TOGETHERAI, INFERMATICAI, DREAMGEN, OPENROUTER];
         if (noFormatTypes.includes(settings.type)) {
@@ -465,7 +480,7 @@ function calculateLogitBias() {
     return result;
 }
 
-function loadTextGenSettings(data, loadedSettings) {
+export function loadTextGenSettings(data, loadedSettings) {
     textgenerationwebui_presets = convertPresets(data.textgenerationwebui_presets);
     textgenerationwebui_preset_names = data.textgenerationwebui_preset_names ?? [];
     Object.assign(settings, loadedSettings.textgenerationwebui_settings ?? {});
@@ -556,6 +571,20 @@ function sortOobaItemsByOrder(orderArray) {
     });
 }
 
+/**
+ * Sorts the Aphrodite sampler items by the given order.
+ * @param {string[]} orderArray Sampler order array.
+ */
+function sortAphroditeItemsByOrder(orderArray) {
+    console.debug('Preset samplers order: ', orderArray);
+    const $container = $('#sampler_priority_container_aphrodite');
+
+    orderArray.forEach((name) => {
+        const $item = $container.find(`[data-name="${name}"]`).detach();
+        $container.append($item);
+    });
+}
+
 jQuery(function () {
     $('#koboldcpp_order').sortable({
         delay: getSortableDelay(),
@@ -609,6 +638,19 @@ jQuery(function () {
         },
     });
 
+    $('#sampler_priority_container_aphrodite').sortable({
+        delay: getSortableDelay(),
+        stop: function () {
+            const order = [];
+            $('#sampler_priority_container_aphrodite').children().each(function () {
+                order.push($(this).data('name'));
+            });
+            settings.samplers_priorities = order;
+            console.log('Samplers reordered:', settings.samplers_priorities);
+            saveSettingsDebounced();
+        },
+    });
+
     $('#tabby_json_schema').on('input', function () {
         const json_schema_string = String($(this).val());
 
@@ -624,6 +666,13 @@ jQuery(function () {
         sortOobaItemsByOrder(OOBA_DEFAULT_ORDER);
         settings.sampler_priority = OOBA_DEFAULT_ORDER;
         console.log('Default samplers order loaded:', settings.sampler_priority);
+        saveSettingsDebounced();
+    });
+
+    $('#aphrodite_default_order').on('click', function () {
+        sortAphroditeItemsByOrder(APHRODITE_DEFAULT_ORDER);
+        settings.samplers_priorities = APHRODITE_DEFAULT_ORDER;
+        console.log('Default samplers order loaded:', settings.samplers_priorities);
         saveSettingsDebounced();
     });
 
@@ -835,6 +884,14 @@ function setSettingByName(setting, value, trigger) {
         return;
     }
 
+    if ('samplers_priorities' === setting) {
+        value = Array.isArray(value) ? value : APHRODITE_DEFAULT_ORDER;
+        insertMissingArrayItems(APHRODITE_DEFAULT_ORDER, value);
+        sortAphroditeItemsByOrder(value);
+        settings.samplers_priorities = value;
+        return;
+    }
+
     if ('samplers' === setting) {
         value = Array.isArray(value) ? value : LLAMACPP_DEFAULT_ORDER;
         insertMissingArrayItems(LLAMACPP_DEFAULT_ORDER, value);
@@ -889,7 +946,7 @@ function setSettingByName(setting, value, trigger) {
  * @returns {Promise<(function(): AsyncGenerator<{swipes: [], text: string, toolCalls: [], logprobs: {token: string, topLogprobs: Candidate[]}|null}, void, *>)|*>}
  * @throws {Error} - If the response status is not OK, or from within the generator
  */
-async function generateTextGenWithStreaming(generate_data, signal) {
+export async function generateTextGenWithStreaming(generate_data, signal) {
     generate_data.stream = true;
 
     const response = await fetch('/api/backends/text-completions/generate', {
@@ -1259,6 +1316,11 @@ export function getTextGenGenerationData(finalPrompt, maxTokens, isImpersonate, 
         'nsigma': settings.nsigma,
         'custom_token_bans': toIntArray(banned_tokens),
         'no_repeat_ngram_size': settings.no_repeat_ngram_size,
+        'sampler_priority': settings.type === APHRODITE && !arraysEqual(
+            settings.samplers_priorities,
+            APHRODITE_DEFAULT_ORDER)
+            ? settings.samplers_priorities
+            : undefined,
     };
 
     if (settings.type === OPENROUTER) {

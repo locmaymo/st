@@ -1182,7 +1182,8 @@ async function preparePromptsForChatCompletion({ Scenario, charPersonality, name
 
     // Apply character-specific main prompt
     const systemPrompt = prompts.get('main') ?? null;
-    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true) {
+    const isSystemPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('main');
+    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true && !isSystemPromptDisabled) {
         const mainOriginalContent = systemPrompt.content;
         systemPrompt.content = systemPromptOverride;
         const mainReplacement = promptManager.preparePrompt(systemPrompt, mainOriginalContent);
@@ -1191,7 +1192,8 @@ async function preparePromptsForChatCompletion({ Scenario, charPersonality, name
 
     // Apply character-specific jailbreak
     const jailbreakPrompt = prompts.get('jailbreak') ?? null;
-    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true) {
+    const isJailbreakPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('jailbreak');
+    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true && !isJailbreakPromptDisabled) {
         const jbOriginalContent = jailbreakPrompt.content;
         jailbreakPrompt.content = jailbreakPromptOverride;
         const jbReplacement = promptManager.preparePrompt(jailbreakPrompt, jbOriginalContent);
@@ -4081,9 +4083,9 @@ async function onModelChange() {
             $('#openai_max_context').attr('max', max_2mil);
         } else if (value.includes('gemini-exp-1114') || value.includes('gemini-exp-1121')) {
             $('#openai_max_context').attr('max', max_32k);
-        } else if (value.includes('gemini-1.5-pro')) {
+        } else if (value.includes('gemini-1.5-pro') || value.includes('gemini-exp-1206')) {
             $('#openai_max_context').attr('max', max_2mil);
-        } else if (value.includes('gemini-1.5-flash')) {
+        } else if (value.includes('gemini-1.5-flash') || value.includes('gemini-2.0-flash-exp')) {
             $('#openai_max_context').attr('max', max_1mil);
         } else if (value.includes('gemini-1.0-pro-vision') || value === 'gemini-pro-vision') {
             $('#openai_max_context').attr('max', max_16k);
@@ -4273,7 +4275,7 @@ async function onModelChange() {
         else if (oai_settings.groq_model.includes('llama-3.2') && oai_settings.groq_model.includes('-preview')) {
             $('#openai_max_context').attr('max', max_8k);
         }
-        else if (oai_settings.groq_model.includes('llama-3.2') || oai_settings.groq_model.includes('llama-3.1')) {
+        else if (oai_settings.groq_model.includes('llama-3.3') || oai_settings.groq_model.includes('llama-3.2') || oai_settings.groq_model.includes('llama-3.1')) {
             $('#openai_max_context').attr('max', max_128k);
         }
         else if (oai_settings.groq_model.includes('llama3-groq')) {
@@ -4755,6 +4757,7 @@ export function isImageInliningSupported() {
     // gultra just isn't being offered as multimodal, thanks google.
     const visionSupportedModels = [
         'gpt-4-vision',
+        'gemini-2.0-flash-exp',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-1.5-flash-001',
@@ -4765,6 +4768,7 @@ export function isImageInliningSupported() {
         'gemini-1.5-flash-8b-exp-0924',
         'gemini-exp-1114',
         'gemini-exp-1121',
+        'gemini-exp-1206',
         'gemini-1.0-pro-vision-latest',
         'gemini-1.5-pro',
         'gemini-1.5-pro-latest',
