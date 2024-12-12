@@ -91,10 +91,15 @@ const getSlashCommandsHelp = parser.getHelpString.bind(parser);
  */
 function closureToFilter(closure) {
     return async () => {
-        const localClosure = closure.getCopy();
-        localClosure.onProgress = () => { };
-        const result = await localClosure.execute();
-        return isTrueBoolean(result.pipe);
+        try {
+            const localClosure = closure.getCopy();
+            localClosure.onProgress = () => { };
+            const result = await localClosure.execute();
+            return isTrueBoolean(result.pipe);
+        } catch (e) {
+            console.error('Error executing filter closure', e);
+            return false;
+        }
     };
 }
 
