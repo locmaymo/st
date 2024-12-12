@@ -1,4 +1,4 @@
->[!IMPORTANT]
+> [!IMPORTANT]
 > 이곳에 게재된 정보는 오래되거나 불완전할 수 있습니다. 최신 정보는 영어 버전을 이용하십시오.
 
 <a name="readme-top"></a>
@@ -366,7 +366,7 @@ Start.bat --port 8000 --listen false
 
 또한 암호 보호 기능이 포함된 SillyTavern 사용자 프로필을 구성할 수 있습니다 (선택 사항): [Users](https://docs.sillytavern.app/installation/st-1.12.0-migration-guide/#users).
 
-## 성능 이슈?
+## 성능 이슈가 발생하나요?
 
 1. 사용자 설정 패널(UI 테마 전환 카테고리)에서 흐림 효과를 비활성화하고 동작 줄이기를 활성화합니다.
 2. 응답 스트리밍을 사용하는 경우 스트리밍 FPS를 더 낮은 값(10-15 FPS 권장)으로 설정합니다.
