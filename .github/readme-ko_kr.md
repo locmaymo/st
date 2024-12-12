@@ -120,7 +120,7 @@ SillyTavern은 확장(익스텐션)을 지원합니다.
 
 # ⌛ Installation
 
-> \[!주의]
+> \[!WARNING]
 >
 > * **윈도우 제어 폴더에는 설치하지 마십시오 (Program Files, System32 등).**
 > * **권리자 권한으로 START.BAT을 실행하지 마십시오.**
