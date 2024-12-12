@@ -1962,6 +1962,10 @@ function injectCallback(args, value) {
     const filterFunction = args?.filter instanceof SlashCommandClosure ? closureToFilter(args.filter) : null;
     value = value || '';
 
+    if (args?.filter && !String(filter ?? '').trim()) {
+        throw new Error('Failed to parse the filter argument. Make sure it is a valid non-empty closure.');
+    }
+
     const prefixedId = `${SCRIPT_PROMPT_KEY}${id}`;
 
     if (!chat_metadata.script_injects) {
