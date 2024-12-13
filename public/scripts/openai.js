@@ -611,8 +611,9 @@ function formatWorldInfo(value) {
  *
  * @param {Prompt[]} prompts - Array containing injection prompts.
  * @param {Object[]} messages - Array containing all messages.
+ * @returns {Promise<Object[]>} - Array containing all messages with injections.
  */
-function populationInjectionPrompts(prompts, messages) {
+async function populationInjectionPrompts(prompts, messages) {
     let totalInsertedMessages = 0;
 
     const roleTypes = {
@@ -635,7 +636,7 @@ function populationInjectionPrompts(prompts, messages) {
             // Get prompts for current role
             const rolePrompts = depthPrompts.filter(prompt => prompt.role === role).map(x => x.content).join(separator);
             // Get extension prompt
-            const extensionPrompt = getExtensionPrompt(extension_prompt_types.IN_CHAT, i, separator, roleTypes[role], wrap);
+            const extensionPrompt = await getExtensionPrompt(extension_prompt_types.IN_CHAT, i, separator, roleTypes[role], wrap);
 
             const jointPrompt = [rolePrompts, extensionPrompt].filter(x => x).map(x => x.trim()).join(separator);
 
@@ -1020,7 +1021,7 @@ async function populateChatCompletion(prompts, chatCompletion, { bias, quietProm
     }
 
     // Add in-chat injections
-    messages = populationInjectionPrompts(absolutePrompts, messages);
+    messages = await populationInjectionPrompts(absolutePrompts, messages);
 
     // Decide whether dialogue examples should always be added
     if (power_user.pin_examples) {
@@ -1051,9 +1052,9 @@ async function populateChatCompletion(prompts, chatCompletion, { bias, quietProm
  * @param {string} options.systemPromptOverride
  * @param {string} options.jailbreakPromptOverride
  * @param {string} options.personaDescription
- * @returns {Object} prompts - The prepared and merged system and user-defined prompts.
+ * @returns {Promise<Object>} prompts - The prepared and merged system and user-defined prompts.
  */
-function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, worldInfoBefore, worldInfoAfter, charDescription, quietPrompt, bias, extensionPrompts, systemPromptOverride, jailbreakPromptOverride, personaDescription }) {
+async function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, worldInfoBefore, worldInfoAfter, charDescription, quietPrompt, bias, extensionPrompts, systemPromptOverride, jailbreakPromptOverride, personaDescription }) {
     const scenarioText = Scenario && oai_settings.scenario_format ? substituteParams(oai_settings.scenario_format) : '';
     const charPersonalityText = charPersonality && oai_settings.personality_format ? substituteParams(oai_settings.personality_format) : '';
     const groupNudge = substituteParams(oai_settings.group_nudge_prompt);
@@ -1141,6 +1142,9 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
             if (knownExtensionPrompts.includes(key)) continue;
             if (!extensionPrompts[key].value) continue;
             if (![extension_prompt_types.BEFORE_PROMPT, extension_prompt_types.IN_PROMPT].includes(prompt.position)) continue;
+
+            const hasFilter = typeof prompt.filter === 'function';
+            if (hasFilter && !await prompt.filter()) continue;
 
             systemPrompts.push({
                 identifier: key.replace(/\W/g, '_'),
@@ -1254,7 +1258,7 @@ export async function prepareOpenAIMessages({
 
     try {
         // Merge markers and ordered user prompts with system prompts
-        const prompts = preparePromptsForChatCompletion({
+        const prompts = await preparePromptsForChatCompletion({
             Scenario,
             charPersonality,
             name2,
