@@ -930,7 +930,12 @@ function registerWorldInfoSlashCommands() {
         return entries;
     }
 
-    async function getChatBookCallback() {
+    /**
+     * Gets the name of the chat-bound lorebook. Creates a new one if it doesn't exist.
+     * @param {import('./slash-commands/SlashCommandParser.js').NamedArguments} args Named arguments
+     * @returns
+     */
+    async function getChatBookCallback(args) {
         const chatId = getCurrentChatId();
 
         if (!chatId) {
@@ -942,8 +947,19 @@ function registerWorldInfoSlashCommands() {
             return chat_metadata[METADATA_KEY];
         }
 
-        // Replace non-alphanumeric characters with underscores, cut to 64 characters
-        const name = `Chat Book ${getCurrentChatId()}`.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_').substring(0, 64);
+        const name = (() => {
+            // Use the provided name if it's not in use
+            if (typeof args.name === 'string') {
+                const name = String(args.name);
+                if (world_names.includes(name)) {
+                    throw new Error('This World Info file name is already in use');
+                }
+                return name;
+            }
+
+            // Replace non-alphanumeric characters with underscores, cut to 64 characters
+            return `Chat Book ${getCurrentChatId()}`.replace(/[^a-z0-9]/gi, '_').replace(/_{2,}/g, '_').substring(0, 64);
+        })();
         await createNewWorldInfo(name);
 
         chat_metadata[METADATA_KEY] = name;
@@ -1289,6 +1305,15 @@ function registerWorldInfoSlashCommands() {
         callback: getChatBookCallback,
         returns: 'lorebook name',
         helpString: 'Get a name of the chat-bound lorebook or create a new one if was unbound, and pass it down the pipe.',
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({
+                name: 'name',
+                description: 'lorebook name if creating a new one, will be auto-generated otherwise',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+        ],
         aliases: ['getchatlore', 'getchatwi'],
     }));
 
