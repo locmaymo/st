@@ -225,6 +225,7 @@ export const TEXTGEN_TYPES = {
     OPENROUTER: 'openrouter',
     FEATHERLESS: 'featherless',
     HUGGINGFACE: 'huggingface',
+    GENERIC: 'generic',
 };
 
 export const INFERMATICAI_KEYS = [
@@ -344,6 +345,24 @@ export const OLLAMA_KEYS = [
     'mirostat_tau',
     'mirostat_eta',
     'min_p',
+];
+
+// https://platform.openai.com/docs/api-reference/completions
+export const OPENAI_KEYS = [
+    'model',
+    'prompt',
+    'stream',
+    'temperature',
+    'top_p',
+    'frequency_penalty',
+    'presence_penalty',
+    'stop',
+    'seed',
+    'logit_bias',
+    'logprobs',
+    'max_tokens',
+    'n',
+    'best_of',
 ];
 
 export const AVATAR_WIDTH = 512;

@@ -33,9 +33,11 @@ export const textgen_types = {
     OPENROUTER: 'openrouter',
     FEATHERLESS: 'featherless',
     HUGGINGFACE: 'huggingface',
+    GENERIC: 'generic',
 };
 
 const {
+    GENERIC,
     MANCER,
     VLLM,
     APHRODITE,
@@ -120,6 +122,7 @@ export const SERVER_INPUTS = {
     [textgen_types.LLAMACPP]: '#llamacpp_api_url_text',
     [textgen_types.OLLAMA]: '#ollama_api_url_text',
     [textgen_types.HUGGINGFACE]: '#huggingface_api_url_text',
+    [textgen_types.GENERIC]: '#generic_api_url_text',
 };
 
 const KOBOLDCPP_ORDER = [6, 0, 1, 3, 4, 2, 5];
@@ -205,6 +208,7 @@ const settings = {
     xtc_probability: 0,
     nsigma: 0.0,
     featherless_model: '',
+    generic_model: '',
 };
 
 export {
@@ -282,6 +286,7 @@ export const setting_names = [
     'xtc_threshold',
     'xtc_probability',
     'nsigma',
+    'generic_model',
 ];
 
 const DYNATEMP_BLOCK = document.getElementById('dynatemp_block_ooba');
@@ -833,7 +838,14 @@ jQuery(function () {
 
 function showTypeSpecificControls(type) {
     $('[data-tg-type]').each(function () {
+        const mode = String($(this).attr('data-tg-type-mode') ?? '').toLowerCase().trim();
         const tgTypes = $(this).attr('data-tg-type').split(',').map(x => x.trim());
+
+        if (mode === 'except') {
+            $(this)[tgTypes.includes(type) ? 'hide' : 'show']();
+            return;
+        }
+
         for (const tgType of tgTypes) {
             if (tgType === type || tgType == 'all') {
                 $(this).show();
@@ -1098,6 +1110,11 @@ export function getTextGenModel() {
         case OOBA:
             if (settings.custom_model) {
                 return settings.custom_model;
+            }
+            break;
+        case GENERIC:
+            if (settings.generic_model) {
+                return settings.generic_model;
             }
             break;
         case MANCER:
