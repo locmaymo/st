@@ -1,7 +1,7 @@
 import { Fuse } from '../lib.js';
 
 import { saveSettings, callPopup, substituteParams, getRequestHeaders, chat_metadata, this_chid, characters, saveCharacterDebounced, menu_type, eventSource, event_types, getExtensionPromptByName, saveMetadata, getCurrentChatId, extension_prompt_roles } from '../script.js';
-import { download, debounce, initScrollHeight, resetScrollHeight, parseJsonFile, extractDataFromPng, getFileBuffer, getCharaFilename, getSortableDelay, escapeRegex, PAGINATION_TEMPLATE, navigation_option, waitUntilCondition, isTrueBoolean, setValueByPath, flashHighlight, select2ModifyOptions, getSelect2OptionId, dynamicSelect2DataViaAjax, highlightRegex, select2ChoiceClickSubscribe, isFalseBoolean, getSanitizedFilename, checkOverwriteExistingData, getStringHash, parseStringArray, cancelDebounce } from './utils.js';
+import { download, debounce, initScrollHeight, resetScrollHeight, parseJsonFile, extractDataFromPng, getFileBuffer, getCharaFilename, getSortableDelay, escapeRegex, PAGINATION_TEMPLATE, navigation_option, waitUntilCondition, isTrueBoolean, setValueByPath, flashHighlight, select2ModifyOptions, getSelect2OptionId, dynamicSelect2DataViaAjax, highlightRegex, select2ChoiceClickSubscribe, isFalseBoolean, getSanitizedFilename, checkOverwriteExistingData, getStringHash, parseStringArray, cancelDebounce, findChar, onlyUnique } from './utils.js';
 import { extension_settings, getContext } from './extensions.js';
 import { NOTE_MODULE_NAME, metadata_keys, shouldWIAddPrompt } from './authors-note.js';
 import { isMobile } from './RossAscends-mods.js';
@@ -931,9 +931,47 @@ function registerWorldInfoSlashCommands() {
     }
 
     /**
+     * Gets the name of the persona-bound lorebook.
+     * @returns {string} The name of the persona-bound lorebook
+     */
+    function getPersonaBookCallback() {
+        return power_user.persona_description_lorebook || '';
+    }
+
+    /**
+     * Gets the name of the character-bound lorebook.
+     * @param {import('./slash-commands/SlashCommand.js').NamedArguments} args Named arguments
+     * @param {import('./slash-commands/SlashCommand.js').UnnamedArguments} name Character name
+     * @returns {string} The name of the character-bound lorebook, a JSON string of the character's lorebooks, or an empty string
+     */
+    function getCharBookCallback({ type }, name) {
+        const context = getContext();
+        if (context.groupId && !name) throw new Error('This command is not available in groups without providing a character name');
+        type = String(type ?? '').trim().toLowerCase() || 'primary';
+        name = String(name ?? '') || context.characters[context.characterId]?.avatar || null;
+        const character = findChar({ name });
+        if (!character) {
+            toastr.error('Character not found.');
+            return '';
+        }
+        const books = [];
+        if (type === 'all' || type === 'primary') {
+            books.push(character.data?.extensions?.world);
+        }
+        if (type === 'all' || type === 'additional') {
+            const fileName = getCharaFilename(context.characters.indexOf(character));
+            const extraCharLore = world_info.charLore?.find((e) => e.name === fileName);
+            if (extraCharLore && Array.isArray(extraCharLore.extraBooks)) {
+                books.push(...extraCharLore.extraBooks);
+            }
+        }
+        return type === 'primary' ? (books[0] ?? '') : JSON.stringify(books.filter(onlyUnique).filter(Boolean));
+    }
+
+    /**
      * Gets the name of the chat-bound lorebook. Creates a new one if it doesn't exist.
-     * @param {import('./slash-commands/SlashCommandParser.js').NamedArguments} args Named arguments
-     * @returns
+     * @param {import('./slash-commands/SlashCommand.js').NamedArguments} args Named arguments
+     * @returns {Promise<string>} The name of the chat-bound lorebook
      */
     async function getChatBookCallback(args) {
         const chatId = getCurrentChatId();
@@ -1315,6 +1353,37 @@ function registerWorldInfoSlashCommands() {
             }),
         ],
         aliases: ['getchatlore', 'getchatwi'],
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'getpersonabook',
+        callback: getPersonaBookCallback,
+        returns: 'lorebook name',
+        helpString: 'Get a name of the current persona-bound lorebook and pass it down the pipe. Returns empty string if persona lorebook is not set.',
+        aliases: ['getpersonalore', 'getpersonawi'],
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'getcharbook',
+        callback: getCharBookCallback,
+        returns: 'lorebook name or a list of lorebook names',
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({
+                name: 'type',
+                description: 'type of the lorebook to get, returns a list for "all" and "additional"',
+                typeList: [ARGUMENT_TYPE.STRING],
+                enumList: ['primary', 'additional', 'all'],
+                defaultValue: 'primary',
+            }),
+        ],
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({
+                description: 'Character name - or unique character identifier (avatar key). If not provided, the current character is used.',
+                typeList: [ARGUMENT_TYPE.NUMBER, ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                enumProvider: commonEnumProviders.characters('character'),
+            }),
+        ],
+        helpString: 'Get a name of the character-bound lorebook and pass it down the pipe. Returns empty string if character lorebook is not set. Does not work in group chats without providing a character avatar name.',
+        aliases: ['getcharlore', 'getcharwi'],
     }));
 
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
