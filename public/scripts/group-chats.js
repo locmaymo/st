@@ -423,12 +423,18 @@ export function getGroupCharacterCards(groupId, characterId) {
      * @param {string} value Value to replace
      * @param {string} characterName Name of the character
      * @param {string} fieldName Name of the field
+     * @param {function(string): string} [preprocess] Preprocess function
      * @returns {string} Prepared text
      * */
-    function replaceAndPrepareForJoin(value, characterName, fieldName) {
+    function replaceAndPrepareForJoin(value, characterName, fieldName, preprocess = null) {
         value = value.trim();
         if (!value) {
             return '';
+        }
+
+        // Run preprocess function
+        if (typeof preprocess === 'function') {
+            value = preprocess(value);
         }
 
         // Prepare and replace prefixes
@@ -465,7 +471,7 @@ export function getGroupCharacterCards(groupId, characterId) {
         descriptions.push(replaceAndPrepareForJoin(character.description, character.name, 'Description'));
         personalities.push(replaceAndPrepareForJoin(character.personality, character.name, 'Personality'));
         scenarios.push(replaceAndPrepareForJoin(character.scenario, character.name, 'Scenario'));
-        mesExamplesArray.push(replaceAndPrepareForJoin(character.mes_example, character.name, 'Example Messages'));
+        mesExamplesArray.push(replaceAndPrepareForJoin(character.mes_example, character.name, 'Example Messages', (x) => !x.startsWith('<START>') ? `<START>\n${x}` : x));
     }
 
     const description = descriptions.filter(x => x.length).join('\n');
