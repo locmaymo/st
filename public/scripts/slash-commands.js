@@ -1918,6 +1918,46 @@ export function initDefaultSlashCommands() {
         ],
         helpString: 'Converts the provided string to lowercase.',
     }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'substr',
+        aliases: ['substring'],
+        callback: (arg, text) => typeof text === 'string' ? text.slice(...[Number(arg.start), arg.end && Number(arg.end)]) : '',
+        returns: 'substring',
+        namedArgumentList: [
+            new SlashCommandNamedArgument(
+                'start', 'start index', [ARGUMENT_TYPE.NUMBER], false, false,
+            ),
+            new SlashCommandNamedArgument(
+                'end', 'end index', [ARGUMENT_TYPE.NUMBER], false, false,
+            ),
+        ],
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'string', [ARGUMENT_TYPE.STRING], true, false,
+            ),
+        ],
+        helpString: `
+            <div>
+                Extracts text from the provided string.
+            </div>
+            <div>
+                If <code>start</code> is omitted, it's treated as 0.<br />
+                If <code>start</code> < 0, the index is counted from the end of the string.<br />
+                If <code>start</code> >= the string's length, an empty string is returned.<br />
+                If <code>end</code> is omitted, or if <code>end</code> >= the string's length, extracts to the end of the string.<br />
+                If <code>end</code> < 0, the index is counted from the end of the string.<br />
+                If <code>end</code> <= <code>start</code> after normalizing negative values, an empty string is returned.
+            </div>
+            <div>
+                <strong>Example:</strong>
+                <pre>/let x The morning is upon us.     ||                                     </pre>
+                <pre>/substr start=-3 {{var::x}}         | /echo  |/# us.                    ||</pre>
+                <pre>/substr start=-3 end=-1 {{var::x}}  | /echo  |/# us                     ||</pre>
+                <pre>/substr end=-1 {{var::x}}           | /echo  |/# The morning is upon us ||</pre>
+                <pre>/substr start=4 end=-1 {{var::x}}   | /echo  |/# morning is upon us     ||</pre>
+            </div>
+        `,
+    }));
 
     registerVariableCommands();
 }
