@@ -355,13 +355,6 @@ export function convertGooglePrompt(messages, model, useSysPrompt = false, charN
         'gemini-1.5-pro-002',
         'gemini-1.5-pro-exp-0801',
         'gemini-1.5-pro-exp-0827',
-        'gemini-1.0-pro-vision-latest',
-        'gemini-pro-vision',
-    ];
-
-    const dummyRequiredModels = [
-        'gemini-1.0-pro-vision-latest',
-        'gemini-pro-vision',
     ];
 
     const isMultimodal = visionSupportedModels.includes(model);
@@ -452,8 +445,7 @@ export function convertGooglePrompt(messages, model, useSysPrompt = false, charN
         }
     });
 
-    // pro 1.5 doesn't require a dummy image to be attached, other vision models do
-    if (isMultimodal && dummyRequiredModels.includes(model) && !hasImage) {
+    if (isMultimodal && !hasImage) {
         contents[0].parts.push({
             inlineData: {
                 mimeType: 'image/png',
