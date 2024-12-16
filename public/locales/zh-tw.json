@@ -1789,5 +1789,8 @@
     "Will be used if the API doesnt support JSON schemas or function calling.": "若 API 不支持 JSON 模式或函數調用，將使用此設定。",
     "World Info settings": "世界資訊設定",
     "You are in offline mode. Click on the image below to set the expression.": "您目前為離線狀態，請點擊下方圖片進行表情設定。",
-    "You can find your API key in the Stability AI dashboard.": "API 金鑰可在 Stability AI 儀表板中查看。"
+    "You can find your API key in the Stability AI dashboard.": "API 金鑰可在 Stability AI 儀表板中查看。",
+    "Stop Inspecting": "停止檢查",
+    "Inspect Prompts": "檢查提示詞",
+    "Toggle prompt inspection": "切換提示詞檢查"
 }

@@ -1863,5 +1863,8 @@
     "Still have questions?": "仍有疑问？",
     "Join the SillyTavern Discord": "加入SillyTavern Discord",
     "Post a GitHub issue": "发布GitHub问题",
-    "Contact the developers": "联系开发人员"
+    "Contact the developers": "联系开发人员",
+    "Stop Inspecting": "停止检查",
+    "Inspect Prompts": "检查提示词",
+    "Toggle prompt inspection": "切换提示词检查"
 }
