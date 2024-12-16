@@ -333,8 +333,6 @@ export function convertCohereMessages(messages, charName = '', userName = '') {
  * @returns {{contents: *[], system_instruction: {parts: {text: string}}}} Prompt for Google MakerSuite models
  */
 export function convertGooglePrompt(messages, model, useSysPrompt = false, charName = '', userName = '') {
-    // This is a 1x1 transparent PNG
-    const PNG_PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
     const visionSupportedModels = [
         'gemini-2.0-flash-exp',
@@ -444,15 +442,6 @@ export function convertGooglePrompt(messages, model, useSysPrompt = false, charN
             });
         }
     });
-
-    if (isMultimodal && !hasImage) {
-        contents[0].parts.push({
-            inlineData: {
-                mimeType: 'image/png',
-                data: PNG_PIXEL,
-            },
-        });
-    }
 
     return { contents: contents, system_instruction: system_instruction };
 }
