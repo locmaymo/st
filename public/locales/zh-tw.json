@@ -1026,6 +1026,7 @@
     "Message Actions": "訊息動作",
     "Translate message": "翻譯訊息",
     "Generate Image": "生成圖片",
+    "Stop Image Generation": "終止圖片生成",
     "Narrate": "敘述",
     "Exclude message from prompts": "從提示詞中排除訊息",
     "Include message in prompts": "在提示詞中包含訊息",
