@@ -1241,6 +1241,7 @@
     "Enter web URLs to scrape (one per line):": "输入要抓取的网址（每行一个）：",
     "Enter a video URL to download its transcript.": "输入视频 URL 或 ID 即可下载其文本。",
     "Image Captioning": "图像描述",
+    "Generate Caption": "生成图片说明",
     "Source": "来源",
     "Local": "本地",
     "Multimodal (OpenAI / Anthropic / llama / Google)": "多模式（OpenAI / Anthropic / llama / Google）",
