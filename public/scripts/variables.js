@@ -46,6 +46,10 @@ function getLocalVariable(name, args = {}) {
 }
 
 function setLocalVariable(name, value, args = {}) {
+    if (!name) {
+        throw new Error('Variable name cannot be empty or undefined.');
+    }
+
     if (!chat_metadata.variables) {
         chat_metadata.variables = {};
     }
