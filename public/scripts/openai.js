@@ -33,7 +33,7 @@ import {
     system_message_types,
     this_chid,
 } from '../script.js';
-import { groups, selected_group } from './group-chats.js';
+import { getGroupNames, selected_group } from './group-chats.js';
 
 import {
     chatCompletionDefaultPrompts,
@@ -543,10 +543,7 @@ function setupChatCompletionPromptManager(openAiSettings) {
  * @returns {Message[]} Array of message objects
  */
 export function parseExampleIntoIndividual(messageExampleString, appendNamesForGroup = true) {
-    const groupMembers = selected_group ? groups.find(x => x.id == selected_group)?.members : null;
-    const groupBotNames = Array.isArray(groupMembers)
-        ? groupMembers.map(x => characters.find(y => y.avatar === x)?.name).filter(x => x).map(x => `${x}:`)
-        : [];
+    const groupBotNames = getGroupNames().map(name => `${name}:`);
 
     let result = []; // array of msgs
     let tmp = messageExampleString.split('\n');
@@ -1877,6 +1874,7 @@ async function sendOpenAIRequest(type, messages, signal) {
         'n': canMultiSwipe ? oai_settings.n : undefined,
         'user_name': name1,
         'char_name': name2,
+        'group_names': getGroupNames(),
     };
 
     // Empty array will produce a validation error
