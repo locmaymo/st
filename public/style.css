@@ -4113,7 +4113,6 @@ input[type="range"]::-webkit-slider-thumb {
     max-height: 75vh;
     max-height: 75dvh;
     field-sizing: content;
-    overscroll-behavior-y: contain;
 }
 
 #anchor_order {
