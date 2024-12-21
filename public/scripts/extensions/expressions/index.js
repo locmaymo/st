@@ -1283,8 +1283,6 @@ async function drawSpritesList(character, labels, sprites) {
  * @returns {Promise<string>} Rendered list item template
  */
 async function getListItem(item, imageSrc, textClass, isCustom) {
-    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-    imageSrc = isFirefox ? `${imageSrc}?t=${Date.now()}` : imageSrc;
     return renderExtensionTemplateAsync(MODULE_NAME, 'list-item', { item, imageSrc, textClass, isCustom });
 }
 
