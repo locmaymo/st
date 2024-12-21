@@ -1112,7 +1112,7 @@ function onHrSecondPassStepsInput() {
 
 function onComfyUrlInput() {
     // Remove trailing slashes
-    extension_settings.sd.comfy_url = String($('#sd_comfy_url').val() ?? '').replace(/\/$/, '');
+    extension_settings.sd.comfy_url = String($('#sd_comfy_url').val());
     saveSettingsDebounced();
 }
 
