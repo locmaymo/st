@@ -890,9 +890,6 @@ export function initRossMods() {
     const cssAutofit = CSS.supports('field-sizing', 'content');
 
     if (cssAutofit) {
-        sendTextArea.style['fieldSizing'] = 'content';
-        sendTextArea.style['height'] = 'auto';
-
         let lastHeight = chatBlock.offsetHeight;
         const chatBlockResizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
@@ -919,6 +916,8 @@ export function initRossMods() {
         saveUserInputDebounced();
 
         if (cssAutofit) {
+            // Unset modifications made with a manual resize
+            sendTextArea.style.height = 'auto';
             return;
         }
 
