@@ -14,7 +14,6 @@ import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '
 import { SlashCommandEnumValue, enumTypes } from '../../slash-commands/SlashCommandEnumValue.js';
 import { commonEnumProviders } from '../../slash-commands/SlashCommandCommonEnumsProvider.js';
 import { slashCommandReturnHelper } from '../../slash-commands/SlashCommandReturnHelper.js';
-import { SlashCommandClosure } from '../../slash-commands/SlashCommandClosure.js';
 import { generateWebLlmChatPrompt, isWebLlmSupported } from '../shared.js';
 export { MODULE_NAME };
 
@@ -984,6 +983,71 @@ async function setSpriteSlashCommand(_, spriteId) {
     const vnMode = isVisualNovelMode();
     await sendExpressionCall(spriteFolderName, label, true, vnMode);
     return label;
+}
+
+/**
+ * Returns the sprite folder name (including override) for a character.
+ * @param {object} char Character object
+ * @param {string} char.avatar Avatar filename with extension
+ * @returns {string} Sprite folder name
+ * @throws {Error} If character not found or avatar not set
+ */
+function spriteFolderNameFromCharacter(char) {
+    const avatarFileName = char.avatar.replace(/\.[^/.]+$/, '');
+    const expressionOverride = extension_settings.expressionOverrides.find(e => e.name === avatarFileName);
+    return expressionOverride?.path ? expressionOverride.path : avatarFileName;
+}
+
+/**
+ * Slash command callback for /uploadsprite
+ *
+ * label= is required
+ * if name= is provided, it will be used as a findChar lookup
+ * if name= is not provided, the last character's name will be used
+ * if folder= is a full path, it will be used as the folder
+ * if folder= is a partial path, it will be appended to the character's name
+ * if folder= is not provided, the character's override folder will be used, if set
+ *
+ * @param {object} args
+ * @param {string} args.name Character name or avatar key, passed through findChar
+ * @param {string} args.label Expression label
+ * @param {string} args.folder Sprite folder path, processed using backslash rules
+ * @param {string} imageUrl Image URI to fetch and upload
+ * @returns {Promise<void>}
+ */
+async function uploadSpriteCommand({ name, label, folder }, imageUrl) {
+    if (!imageUrl) throw new Error('Image URL is required');
+    if (!label || typeof label !== 'string') throw new Error('Expression label is required');
+
+    label = label.replace(/[^a-z]/gi, '').toLowerCase().trim();
+    if (!label) throw new Error('Expression label must contain at least one letter');
+
+    name = name || getLastCharacterMessage().original_avatar || getLastCharacterMessage().name;
+    const char = findChar({ name });
+
+    if (!folder) {
+        folder = spriteFolderNameFromCharacter(char);
+    } else if (folder.startsWith('/') || folder.startsWith('\\')) {
+        const subfolder = folder.slice(1);
+        folder = `${char.name}/${subfolder}`;
+    }
+
+    try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], 'image.png', { type: 'image/png' });
+
+        const formData = new FormData();
+        formData.append('name', folder); // this is the folder or character name
+        formData.append('label', label); // this is the expression label
+        formData.append('avatar', file);  // this is the image file
+
+        await handleFileUpload('/api/sprites/upload', formData);
+        console.debug(`[${MODULE_NAME}] Upload of ${imageUrl} completed for ${name} with label ${label}`);
+    } catch (error) {
+        console.error(`[${MODULE_NAME}] Error uploading file:`, error);
+        throw error;
+    }
 }
 
 /**
@@ -2214,5 +2278,37 @@ function migrateSettings() {
                 </ul>
             </div>
         `,
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'uploadsprite',
+        description: 'Upload a sprite',
+        callback: async (args, url) => {
+            await uploadSpriteCommand(args, url);
+        },
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({
+                description: 'URL of the image to upload',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: true,
+            }),
+        ],
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({
+                name: 'name',
+                description: 'Character name or avatar key (default is current character)',
+                type: ARGUMENT_TYPE.STRING,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'label',
+                description: 'Sprite label/expression name',
+                type: ARGUMENT_TYPE.STRING,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'folder',
+                description: 'Override folder to upload into',
+                type: ARGUMENT_TYPE.STRING,
+            }),
+        ],
+        helpString: 'Upload a sprite from a URL. Example: /uploadsprite name=Seraphina label=happy /user/images/Seraphina/Seraphina_2024-12-22@12h37m57s.png',
     }));
 })();
