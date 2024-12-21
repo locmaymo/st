@@ -1111,7 +1111,8 @@ function onHrSecondPassStepsInput() {
 }
 
 function onComfyUrlInput() {
-    extension_settings.sd.comfy_url = $('#sd_comfy_url').val();
+    // Remove trailing slashes
+    extension_settings.sd.comfy_url = String($('#sd_comfy_url').val() ?? '').replace(/\/$/, '');
     saveSettingsDebounced();
 }
 

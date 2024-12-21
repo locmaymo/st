@@ -365,7 +365,7 @@ const comfy = express.Router();
 comfy.post('/ping', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/system_stats';
+        url.pathname += '/system_stats';
 
         const result = await fetch(url);
         if (!result.ok) {
@@ -382,7 +382,7 @@ comfy.post('/ping', jsonParser, async (request, response) => {
 comfy.post('/samplers', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/object_info';
+        url.pathname += '/object_info';
 
         const result = await fetch(url);
         if (!result.ok) {
@@ -401,7 +401,7 @@ comfy.post('/samplers', jsonParser, async (request, response) => {
 comfy.post('/models', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/object_info';
+        url.pathname += '/object_info';
 
         const result = await fetch(url);
         if (!result.ok) {
@@ -430,7 +430,7 @@ comfy.post('/models', jsonParser, async (request, response) => {
 comfy.post('/schedulers', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/object_info';
+        url.pathname += '/object_info';
 
         const result = await fetch(url);
         if (!result.ok) {
@@ -449,7 +449,7 @@ comfy.post('/schedulers', jsonParser, async (request, response) => {
 comfy.post('/vaes', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/object_info';
+        url.pathname += '/object_info';
 
         const result = await fetch(url);
         if (!result.ok) {
@@ -517,14 +517,14 @@ comfy.post('/delete-workflow', jsonParser, async (request, response) => {
 comfy.post('/generate', jsonParser, async (request, response) => {
     try {
         const url = new URL(request.body.url);
-        url.pathname = '/prompt';
+        url.pathname += '/prompt';
 
         const controller = new AbortController();
         request.socket.removeAllListeners('close');
         request.socket.on('close', function () {
             if (!response.writableEnded && !item) {
                 const interruptUrl = new URL(request.body.url);
-                interruptUrl.pathname = '/interrupt';
+                interruptUrl.pathname += '/interrupt';
                 fetch(interruptUrl, { method: 'POST', headers: { 'Authorization': getBasicAuthHeader(request.body.auth) } });
             }
             controller.abort();
@@ -544,7 +544,7 @@ comfy.post('/generate', jsonParser, async (request, response) => {
         const id = data.prompt_id;
         let item;
         const historyUrl = new URL(request.body.url);
-        historyUrl.pathname = '/history';
+        historyUrl.pathname += '/history';
         while (true) {
             const result = await fetch(historyUrl);
             if (!result.ok) {
@@ -569,7 +569,7 @@ comfy.post('/generate', jsonParser, async (request, response) => {
         }
         const imgInfo = Object.keys(item.outputs).map(it => item.outputs[it].images).flat()[0];
         const imgUrl = new URL(request.body.url);
-        imgUrl.pathname = '/view';
+        imgUrl.pathname += '/view';
         imgUrl.search = `?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`;
         const imgResponse = await fetch(imgUrl);
         if (!imgResponse.ok) {
