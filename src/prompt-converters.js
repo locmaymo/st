@@ -8,7 +8,7 @@ const PROMPT_PLACEHOLDER = getConfigValue('promptPlaceholder', 'Let\'s get start
  * @property {string} charName Character name
  * @property {string} userName User name
  * @property {string[]} groupNames Group member names
- * @property {function(string): boolean} startsFromGroupName Check if a message starts with a group name
+ * @property {function(string): boolean} startsWithGroupName Check if a message starts with a group name
  */
 
 /**
@@ -21,7 +21,7 @@ export function getPromptNames(request) {
         charName: String(request.body.char_name || ''),
         userName: String(request.body.user_name || ''),
         groupNames: Array.isArray(request.body.group_names) ? request.body.group_names.map(String) : [],
-        startsFromGroupName: function (message) {
+        startsWithGroupName: function (message) {
             return this.groupNames.some(name => message.startsWith(`${name}: `));
         },
     };
@@ -134,7 +134,7 @@ export function convertClaudeMessages(messages, prefillString, useSysPrompt, use
                 }
             }
             if (names.charName && messages[i].name === 'example_assistant') {
-                if (!messages[i].content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(messages[i].content)) {
+                if (!messages[i].content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(messages[i].content)) {
                     messages[i].content = `${names.charName}: ${messages[i].content}`;
                 }
             }
@@ -181,7 +181,7 @@ export function convertClaudeMessages(messages, prefillString, useSysPrompt, use
                 }
             }
             if (names.charName && message.name === 'example_assistant') {
-                if (!message.content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(message.content)) {
+                if (!message.content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(message.content)) {
                     message.content = `${names.charName}: ${message.content}`;
                 }
             }
@@ -326,7 +326,7 @@ export function convertCohereMessages(messages, names) {
         // No names support (who would've thought)
         if (msg.name) {
             if (msg.role == 'system' && msg.name == 'example_assistant') {
-                if (names.charName && !msg.content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(msg.content)) {
+                if (names.charName && !msg.content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(msg.content)) {
                     msg.content = `${names.charName}: ${msg.content}`;
                 }
             }
@@ -392,7 +392,7 @@ export function convertGooglePrompt(messages, model, useSysPrompt, names) {
                 }
             }
             if (names.charName && messages[0].name === 'example_assistant') {
-                if (!messages[0].content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(messages[0].content)) {
+                if (!messages[0].content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(messages[0].content)) {
                     messages[0].content = `${names.charName}: ${messages[0].content}`;
                 }
             }
@@ -424,11 +424,11 @@ export function convertGooglePrompt(messages, model, useSysPrompt, names) {
                     return;
                 }
                 if (message.name === 'example_user') {
-                    if (!part.text.startsWith(`${names.userName}: `)) {
+                    if (names.userName && !part.text.startsWith(`${names.userName}: `)) {
                         part.text = `${names.userName}: ${part.text}`;
                     }
                 } else if (message.name === 'example_assistant') {
-                    if (!part.text.startsWith(`${names.charName}: `) && !names.startsFromGroupName(part.text)) {
+                    if (names.charName && !part.text.startsWith(`${names.charName}: `) && !names.startsWithGroupName(part.text)) {
                         part.text = `${names.charName}: ${part.text}`;
                     }
                 } else {
@@ -504,7 +504,7 @@ export function convertAI21Messages(messages, names) {
             }
         }
         if (names.charName && messages[i].name === 'example_assistant') {
-            if (!messages[i].content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(messages[i].content)) {
+            if (!messages[i].content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(messages[i].content)) {
                 messages[i].content = `${names.charName}: ${messages[i].content}`;
             }
         }
@@ -582,7 +582,7 @@ export function convertMistralMessages(messages, names) {
             msg.tool_call_id = sanitizeToolId(msg.tool_call_id);
         }
         if (msg.role === 'system' && msg.name === 'example_assistant') {
-            if (names.charName && !msg.content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(msg.content)) {
+            if (names.charName && !msg.content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(msg.content)) {
                 msg.content = `${names.charName}: ${msg.content}`;
             }
             delete msg.name;
@@ -668,7 +668,7 @@ export function mergeMessages(messages, names, strict) {
             message.content = text;
         }
         if (message.role === 'system' && message.name === 'example_assistant') {
-            if (names.charName && !message.content.startsWith(`${names.charName}: `) && !names.startsFromGroupName(message.content)) {
+            if (names.charName && !message.content.startsWith(`${names.charName}: `) && !names.startsWithGroupName(message.content)) {
                 message.content = `${names.charName}: ${message.content}`;
             }
         }
