@@ -280,7 +280,10 @@ export function getGroupMembers(groupId = selected_group) {
  * @returns {string[]} An array of character names representing the members of the group.
  */
 export function getGroupNames() {
-    const groupMembers = selected_group ? groups.find(x => x.id == selected_group)?.members : null;
+    if (!selected_group) {
+        return [];
+    }
+    const groupMembers = groups.find(x => x.id == selected_group)?.members;
     return Array.isArray(groupMembers)
         ? groupMembers.map(x => characters.find(y => y.avatar === x)?.name).filter(x => x)
         : [];
