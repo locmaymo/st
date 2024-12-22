@@ -3465,13 +3465,35 @@ function onLogitBiasPresetChange() {
     }
 
     oai_settings.bias_preset_selected = value;
-    $('.openai_logit_bias_list').empty();
+    const list =  $('.openai_logit_bias_list');
+    list.empty();
 
     for (const entry of preset) {
         if (entry) {
             createLogitBiasListItem(entry);
         }
     }
+
+    // Check if a sortable instance exists
+    if (list.sortable('instance') !== undefined) {
+        // Destroy the instance
+        list.sortable('destroy');
+    }
+
+    // Make the list sortable
+    list.sortable({
+        delay: getSortableDelay(),
+        handle: '.drag-handle',
+        stop: function () {
+            const order = [];
+            list.children().each(function () {
+                order.unshift(parseInt($(this).data('id')));
+            });
+            preset.sort((a, b) => order.indexOf(preset.indexOf(a)) - order.indexOf(preset.indexOf(b)));
+            console.log('Logit bias reordered:', preset);
+            saveSettingsDebounced();
+        },
+    });
 
     biasCache = undefined;
     saveSettingsDebounced();
