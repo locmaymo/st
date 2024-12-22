@@ -102,8 +102,8 @@ const default_new_group_chat_prompt = '[Start a new group chat. Group members: {
 const default_new_example_chat_prompt = '[Example Chat]';
 const default_continue_nudge_prompt = '[Continue the following message. Do not include ANY parts of the original message. Use capitalization and punctuation as if your reply is a part of the original message: {{lastChatMessage}}]';
 const default_bias = 'Default (none)';
-const default_personality_format = '[{{char}}\'s personality: {{personality}}]';
-const default_scenario_format = '[Circumstances and context of the dialogue: {{scenario}}]';
+const default_personality_format = '{{personality}}';
+const default_scenario_format = '{{scenario}}';
 const default_group_nudge_prompt = '[Write the next reply only as {{char}}.]';
 const default_bias_presets = {
     [default_bias]: [],
