@@ -60,6 +60,7 @@ import {
     parseJsonFile,
     resetScrollHeight,
     stringFormat,
+    uuidv4,
 } from './utils.js';
 import { countTokensOpenAIAsync, getTokenizerModel } from './tokenizers.js';
 import { isMobile } from './RossAscends-mods.js';
@@ -107,10 +108,10 @@ const default_group_nudge_prompt = '[Write the next reply only as {{char}}.]';
 const default_bias_presets = {
     [default_bias]: [],
     'Anti-bond': [
-        { text: ' bond', value: -50 },
-        { text: ' future', value: -50 },
-        { text: ' bonding', value: -50 },
-        { text: ' connection', value: -25 },
+        { id: '22154f79-dd98-41bc-8e34-87015d6a0eaf', text: ' bond', value: -50 },
+        { id: '8ad2d5c4-d8ef-49e4-bc5e-13e7f4690e0f', text: ' future', value: -50 },
+        { id: '52a4b280-0956-4940-ac52-4111f83e4046', text: ' bonding', value: -50 },
+        { id: 'e63037c7-c9d1-4724-ab2d-7756008b433b', text: ' connection', value: -25 },
     ],
 };
 
@@ -3177,6 +3178,14 @@ function loadOpenAISettings(data, settings) {
 
     $('#openai_logit_bias_preset').empty();
     for (const preset of Object.keys(oai_settings.bias_presets)) {
+        // Backfill missing IDs
+        if (Array.isArray(oai_settings.bias_presets[preset])) {
+            oai_settings.bias_presets[preset].forEach((bias) => {
+                if (bias && !bias.id) {
+                    bias.id = uuidv4();
+                }
+            });
+        }
         const option = document.createElement('option');
         option.innerText = preset;
         option.value = preset;
@@ -3465,7 +3474,7 @@ function onLogitBiasPresetChange() {
     }
 
     oai_settings.bias_preset_selected = value;
-    const list =  $('.openai_logit_bias_list');
+    const list = $('.openai_logit_bias_list');
     list.empty();
 
     for (const entry of preset) {
@@ -3487,9 +3496,9 @@ function onLogitBiasPresetChange() {
         stop: function () {
             const order = [];
             list.children().each(function () {
-                order.unshift(parseInt($(this).data('id')));
+                order.unshift($(this).data('id'));
             });
-            preset.sort((a, b) => order.indexOf(preset.indexOf(a)) - order.indexOf(preset.indexOf(b)));
+            preset.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
             console.log('Logit bias reordered:', preset);
             saveSettingsDebounced();
         },
@@ -3500,7 +3509,7 @@ function onLogitBiasPresetChange() {
 }
 
 function createNewLogitBiasEntry() {
-    const entry = { text: '', value: 0 };
+    const entry = { id: uuidv4(), text: '', value: 0 };
     oai_settings.bias_presets[oai_settings.bias_preset_selected].push(entry);
     biasCache = undefined;
     createLogitBiasListItem(entry);
@@ -3508,11 +3517,14 @@ function createNewLogitBiasEntry() {
 }
 
 function createLogitBiasListItem(entry) {
-    const id = oai_settings.bias_presets[oai_settings.bias_preset_selected].indexOf(entry);
+    if (!entry.id) {
+        entry.id = uuidv4();
+    }
+    const id = entry.id;
     const template = $('#openai_logit_bias_template .openai_logit_bias_form').clone();
     template.data('id', id);
     template.find('.openai_logit_bias_text').val(entry.text).on('input', function () {
-        oai_settings.bias_presets[oai_settings.bias_preset_selected][id].text = String($(this).val());
+        entry.text = String($(this).val());
         biasCache = undefined;
         saveSettingsDebounced();
     });
@@ -3531,13 +3543,17 @@ function createLogitBiasListItem(entry) {
             value = max;
         }
 
-        oai_settings.bias_presets[oai_settings.bias_preset_selected][id].value = value;
+        entry.value = value;
         biasCache = undefined;
         saveSettingsDebounced();
     });
     template.find('.openai_logit_bias_remove').on('click', function () {
         $(this).closest('.openai_logit_bias_form').remove();
-        oai_settings.bias_presets[oai_settings.bias_preset_selected].splice(id, 1);
+        const preset = oai_settings.bias_presets[oai_settings.bias_preset_selected];
+        const index = preset.findIndex(item => item.id === id);
+        if (index >= 0) {
+            preset.splice(index, 1);
+        }
         onLogitBiasPresetChange();
     });
     $('.openai_logit_bias_list').prepend(template);

@@ -5179,7 +5179,7 @@ body:not(.movingUI) .drawer-content.maximized {
     width: 100%;
     height: 100%;
     opacity: 0.8;
-    min-height: 3rem;
+    min-height: 2.5em;
 }
 
 .openai_restorable,
