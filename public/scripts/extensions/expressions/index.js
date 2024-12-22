@@ -2281,9 +2281,9 @@ function migrateSettings() {
     }));
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
         name: 'uploadsprite',
-        description: 'Upload a sprite',
         callback: async (args, url) => {
             await uploadSpriteCommand(args, url);
+            return '';
         },
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({
@@ -2296,19 +2296,26 @@ function migrateSettings() {
             SlashCommandNamedArgument.fromProps({
                 name: 'name',
                 description: 'Character name or avatar key (default is current character)',
-                type: ARGUMENT_TYPE.STRING,
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                acceptsMultiple: false,
             }),
             SlashCommandNamedArgument.fromProps({
                 name: 'label',
                 description: 'Sprite label/expression name',
-                type: ARGUMENT_TYPE.STRING,
+                typeList: [ARGUMENT_TYPE.STRING],
+                enumProvider: localEnumProviders.expressions,
+                isRequired: true,
+                acceptsMultiple: false,
             }),
             SlashCommandNamedArgument.fromProps({
                 name: 'folder',
                 description: 'Override folder to upload into',
-                type: ARGUMENT_TYPE.STRING,
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                acceptsMultiple: false,
             }),
         ],
-        helpString: 'Upload a sprite from a URL. Example: /uploadsprite name=Seraphina label=happy /user/images/Seraphina/Seraphina_2024-12-22@12h37m57s.png',
+        helpString: '<div>Upload a sprite from a URL.</div><div>Example:</div><pre><code>/uploadsprite name=Seraphina label=joy /user/images/Seraphina/Seraphina_2024-12-22@12h37m57s.png</code></pre>',
     }));
 })();
