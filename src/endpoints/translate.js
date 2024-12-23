@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import express from 'express';
 import { translate as bingTranslate } from 'bing-translate-api';
 import iconv from 'iconv-lite';
+import urlJoin from 'url-join';
 
 import { readSecret, SECRET_KEYS } from './secrets.js';
 import { getConfigValue, uuidv4 } from '../util.js';
@@ -220,7 +221,7 @@ router.post('/lingva', jsonParser, async (request, response) => {
         console.log('Input text: ' + text);
 
         try {
-            const url = `${baseUrl}/auto/${lang}/${encodeURIComponent(text)}`;
+            const url = urlJoin(baseUrl, 'auto', lang, encodeURIComponent(text));
             const result = await fetch(url);
 
             if (!result.ok) {
