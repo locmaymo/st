@@ -248,8 +248,7 @@ router.post('/deepl', jsonParser, async (request, response) => {
     params.append('text', text);
     params.append('target_lang', lang);
 
-    if (['de', 'fr', 'it', 'es', 'nl', 'ja', 'ru'].includes(lang)) {
-        // We don't specify a Portuguese variant, so ignore formality for it.
+    if (['de', 'fr', 'it', 'es', 'nl', 'ja', 'ru', 'pt-BR', 'pt-PT'].includes(lang)) {
         params.append('formality', formality);
     }
 
