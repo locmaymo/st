@@ -11,6 +11,7 @@ import { jsonParser } from '../express-common.js';
 
 const DEEPLX_URL_DEFAULT = 'http://127.0.0.1:1188/translate';
 const ONERING_URL_DEFAULT = 'http://127.0.0.1:4990/translate';
+const LINGVA_DEFAULT = 'https://lingva.ml/api/v1';
 
 export const router = express.Router();
 
@@ -189,7 +190,12 @@ router.post('/yandex', jsonParser, async (request, response) => {
 
 router.post('/lingva', jsonParser, async (request, response) => {
     try {
-        const baseUrl = readSecret(request.user.directories, SECRET_KEYS.LINGVA_URL);
+        const secretUrl = readSecret(request.user.directories, SECRET_KEYS.LINGVA_URL);
+        const baseUrl = secretUrl || LINGVA_DEFAULT;
+
+        if (!secretUrl && baseUrl === ONERING_URL_DEFAULT) {
+            console.log('Lingva URL is using default value.', LINGVA_DEFAULT);
+        }
 
         if (!baseUrl) {
             console.log('Lingva URL is not configured.');
@@ -305,6 +311,10 @@ router.post('/onering', jsonParser, async (request, response) => {
 
     if (!secretUrl && url === ONERING_URL_DEFAULT) {
         console.log('OneRing URL is using default value.', ONERING_URL_DEFAULT);
+    }
+
+    if (request.body.lang === 'pt-BR' || request.body.lang === 'pt-PT') {
+        request.body.lang = 'pt';
     }
 
     const text = request.body.text;
