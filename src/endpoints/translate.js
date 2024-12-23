@@ -193,7 +193,7 @@ router.post('/lingva', jsonParser, async (request, response) => {
         const secretUrl = readSecret(request.user.directories, SECRET_KEYS.LINGVA_URL);
         const baseUrl = secretUrl || LINGVA_DEFAULT;
 
-        if (!secretUrl && baseUrl === ONERING_URL_DEFAULT) {
+        if (!secretUrl && baseUrl === LINGVA_DEFAULT) {
             console.log('Lingva URL is using default value.', LINGVA_DEFAULT);
         }
 
