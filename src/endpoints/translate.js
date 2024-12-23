@@ -41,36 +41,36 @@ function decodeBuffer(buffer) {
 }
 
 router.post('/libre', jsonParser, async (request, response) => {
-    const key = readSecret(request.user.directories, SECRET_KEYS.LIBRE);
-    const url = readSecret(request.user.directories, SECRET_KEYS.LIBRE_URL);
-
-    if (!url) {
-        console.log('LibreTranslate URL is not configured.');
-        return response.sendStatus(400);
-    }
-
-    if (request.body.lang === 'zh-CN') {
-        request.body.lang = 'zh';
-    }
-
-    if (request.body.lang === 'zh-TW') {
-        request.body.lang = 'zt';
-    }
-
-    if (request.body.lang === 'pt-BR' || request.body.lang === 'pt-PT') {
-        request.body.lang = 'pt';
-    }
-
-    const text = request.body.text;
-    const lang = request.body.lang;
-
-    if (!text || !lang) {
-        return response.sendStatus(400);
-    }
-
-    console.log('Input text: ' + text);
-
     try {
+        const key = readSecret(request.user.directories, SECRET_KEYS.LIBRE);
+        const url = readSecret(request.user.directories, SECRET_KEYS.LIBRE_URL);
+
+        if (!url) {
+            console.log('LibreTranslate URL is not configured.');
+            return response.sendStatus(400);
+        }
+
+        if (request.body.lang === 'zh-CN') {
+            request.body.lang = 'zh';
+        }
+
+        if (request.body.lang === 'zh-TW') {
+            request.body.lang = 'zt';
+        }
+
+        if (request.body.lang === 'pt-BR' || request.body.lang === 'pt-PT') {
+            request.body.lang = 'pt';
+        }
+
+        const text = request.body.text;
+        const lang = request.body.lang;
+
+        if (!text || !lang) {
+            return response.sendStatus(400);
+        }
+
+        console.log('Input text: ' + text);
+
         const result = await fetch(url, {
             method: 'POST',
             body: JSON.stringify({
@@ -198,11 +198,6 @@ router.post('/lingva', jsonParser, async (request, response) => {
             console.log('Lingva URL is using default value.', LINGVA_DEFAULT);
         }
 
-        if (!baseUrl) {
-            console.log('Lingva URL is not configured.');
-            return response.sendStatus(400);
-        }
-
         if (request.body.lang === 'zh-CN' || request.body.lang === 'zh-TW') {
             request.body.lang = 'zh';
         }
@@ -220,23 +215,18 @@ router.post('/lingva', jsonParser, async (request, response) => {
 
         console.log('Input text: ' + text);
 
-        try {
-            const url = urlJoin(baseUrl, 'auto', lang, encodeURIComponent(text));
-            const result = await fetch(url);
+        const url = urlJoin(baseUrl, 'auto', lang, encodeURIComponent(text));
+        const result = await fetch(url);
 
-            if (!result.ok) {
-                const error = await result.text();
-                console.log('Lingva error: ', result.statusText, error);
-            }
-
-            /** @type {any} */
-            const data = await result.json();
-            console.log('Translated text: ' + data.translation);
-            return response.send(data.translation);
-        } catch (error) {
-            console.log('Translation error:', error);
-            return response.sendStatus(500);
+        if (!result.ok) {
+            const error = await result.text();
+            console.log('Lingva error: ', result.statusText, error);
         }
+
+        /** @type {any} */
+        const data = await result.json();
+        console.log('Translated text: ' + data.translation);
+        return response.send(data.translation);
     } catch (error) {
         console.log('Translation error', error);
         return response.sendStatus(500);
@@ -244,36 +234,36 @@ router.post('/lingva', jsonParser, async (request, response) => {
 });
 
 router.post('/deepl', jsonParser, async (request, response) => {
-    const key = readSecret(request.user.directories, SECRET_KEYS.DEEPL);
-
-    if (!key) {
-        console.log('DeepL key is not configured.');
-        return response.sendStatus(400);
-    }
-
-    if (request.body.lang === 'zh-CN' || request.body.lang === 'zh-TW') {
-        request.body.lang = 'ZH';
-    }
-
-    const text = request.body.text;
-    const lang = request.body.lang;
-    const formality = getConfigValue('deepl.formality', 'default');
-
-    if (!text || !lang) {
-        return response.sendStatus(400);
-    }
-
-    console.log('Input text: ' + text);
-
-    const params = new URLSearchParams();
-    params.append('text', text);
-    params.append('target_lang', lang);
-
-    if (['de', 'fr', 'it', 'es', 'nl', 'ja', 'ru', 'pt-BR', 'pt-PT'].includes(lang)) {
-        params.append('formality', formality);
-    }
-
     try {
+        const key = readSecret(request.user.directories, SECRET_KEYS.DEEPL);
+
+        if (!key) {
+            console.log('DeepL key is not configured.');
+            return response.sendStatus(400);
+        }
+
+        if (request.body.lang === 'zh-CN' || request.body.lang === 'zh-TW') {
+            request.body.lang = 'ZH';
+        }
+
+        const text = request.body.text;
+        const lang = request.body.lang;
+        const formality = getConfigValue('deepl.formality', 'default');
+
+        if (!text || !lang) {
+            return response.sendStatus(400);
+        }
+
+        console.log('Input text: ' + text);
+
+        const params = new URLSearchParams();
+        params.append('text', text);
+        params.append('target_lang', lang);
+
+        if (['de', 'fr', 'it', 'es', 'nl', 'ja', 'ru', 'pt-BR', 'pt-PT'].includes(lang)) {
+            params.append('formality', formality);
+        }
+
         const result = await fetch('https://api-free.deepl.com/v2/translate', {
             method: 'POST',
             body: params,
@@ -302,38 +292,38 @@ router.post('/deepl', jsonParser, async (request, response) => {
 });
 
 router.post('/onering', jsonParser, async (request, response) => {
-    const secretUrl = readSecret(request.user.directories, SECRET_KEYS.ONERING_URL);
-    const url = secretUrl || ONERING_URL_DEFAULT;
-
-    if (!url) {
-        console.log('OneRing URL is not configured.');
-        return response.sendStatus(400);
-    }
-
-    if (!secretUrl && url === ONERING_URL_DEFAULT) {
-        console.log('OneRing URL is using default value.', ONERING_URL_DEFAULT);
-    }
-
-    if (request.body.lang === 'pt-BR' || request.body.lang === 'pt-PT') {
-        request.body.lang = 'pt';
-    }
-
-    const text = request.body.text;
-    const from_lang = request.body.from_lang;
-    const to_lang = request.body.to_lang;
-
-    if (!text || !from_lang || !to_lang) {
-        return response.sendStatus(400);
-    }
-
-    const params = new URLSearchParams();
-    params.append('text', text);
-    params.append('from_lang', from_lang);
-    params.append('to_lang', to_lang);
-
-    console.log('Input text: ' + text);
-
     try {
+        const secretUrl = readSecret(request.user.directories, SECRET_KEYS.ONERING_URL);
+        const url = secretUrl || ONERING_URL_DEFAULT;
+
+        if (!url) {
+            console.log('OneRing URL is not configured.');
+            return response.sendStatus(400);
+        }
+
+        if (!secretUrl && url === ONERING_URL_DEFAULT) {
+            console.log('OneRing URL is using default value.', ONERING_URL_DEFAULT);
+        }
+
+        if (request.body.lang === 'pt-BR' || request.body.lang === 'pt-PT') {
+            request.body.lang = 'pt';
+        }
+
+        const text = request.body.text;
+        const from_lang = request.body.from_lang;
+        const to_lang = request.body.to_lang;
+
+        if (!text || !from_lang || !to_lang) {
+            return response.sendStatus(400);
+        }
+
+        const params = new URLSearchParams();
+        params.append('text', text);
+        params.append('from_lang', from_lang);
+        params.append('to_lang', to_lang);
+
+        console.log('Input text: ' + text);
+
         const fetchUrl = new URL(url);
         fetchUrl.search = params.toString();
 
@@ -359,31 +349,31 @@ router.post('/onering', jsonParser, async (request, response) => {
 });
 
 router.post('/deeplx', jsonParser, async (request, response) => {
-    const secretUrl = readSecret(request.user.directories, SECRET_KEYS.DEEPLX_URL);
-    const url = secretUrl || DEEPLX_URL_DEFAULT;
-
-    if (!url) {
-        console.log('DeepLX URL is not configured.');
-        return response.sendStatus(400);
-    }
-
-    if (!secretUrl && url === DEEPLX_URL_DEFAULT) {
-        console.log('DeepLX URL is using default value.', DEEPLX_URL_DEFAULT);
-    }
-
-    const text = request.body.text;
-    let lang = request.body.lang;
-    if (request.body.lang === 'zh-CN' || request.body.lang === 'zh-TW') {
-        lang = 'ZH';
-    }
-
-    if (!text || !lang) {
-        return response.sendStatus(400);
-    }
-
-    console.log('Input text: ' + text);
-
     try {
+        const secretUrl = readSecret(request.user.directories, SECRET_KEYS.DEEPLX_URL);
+        const url = secretUrl || DEEPLX_URL_DEFAULT;
+
+        if (!url) {
+            console.log('DeepLX URL is not configured.');
+            return response.sendStatus(400);
+        }
+
+        if (!secretUrl && url === DEEPLX_URL_DEFAULT) {
+            console.log('DeepLX URL is using default value.', DEEPLX_URL_DEFAULT);
+        }
+
+        const text = request.body.text;
+        let lang = request.body.lang;
+        if (request.body.lang === 'zh-CN' || request.body.lang === 'zh-TW') {
+            lang = 'ZH';
+        }
+
+        if (!text || !lang) {
+            return response.sendStatus(400);
+        }
+
+        console.log('Input text: ' + text);
+
         const result = await fetch(url, {
             method: 'POST',
             body: JSON.stringify({
