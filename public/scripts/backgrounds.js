@@ -333,6 +333,14 @@ async function autoBackgroundCommand() {
     const bestMatch = fuse.search(reply, { limit: 1 });
 
     if (bestMatch.length == 0) {
+        for (const option of options) {
+            if (String(reply).toLowerCase().includes(option.text.toLowerCase())) {
+                console.debug('Fallback choosing background:', option);
+                option.element.click();
+                return '';
+            }
+        }
+
         toastr.warning('No match found. Please try again.');
         return '';
     }
