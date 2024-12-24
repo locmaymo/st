@@ -651,6 +651,19 @@
                                         <input type="number" id="n_openai" name="n_openai" class="text_pole" min="1" value="1">
                                     </div>
                                 </div>
+                                <div data-source="openrouter" class="range-block">
+                                    <div class="range-block-title" title="Allow compressing requests by removing messages from the middle of the prompt.">
+                                        <span data-i18n="Middle-out Transform">Middle-out Transform</span>
+                                        <a href="https://openrouter.ai/docs/transforms" target="_blank" rel="noreferrer noopener"  class="note-link-span fa-solid fa-circle-question"></a>
+                                    </div>
+                                    <div class="wide100p">
+                                        <select id="openrouter_middleout" class="text_pole">
+                                            <option value="auto" data-i18n="Auto">Auto</option>
+                                            <option value="on" data-i18n="Allow">Allow</option>
+                                            <option value="off" data-i18n="Forbid">Forbid</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <div data-source="openrouter">
                                     Max prompt cost: <span id="openrouter_max_prompt_cost">Unknown</span>
                                 </div>
