@@ -3184,7 +3184,7 @@ function getNovelParams() {
     let sm = extension_settings.sd.novel_sm;
     let sm_dyn = extension_settings.sd.novel_sm_dyn;
 
-    if (extension_settings.sd.sampler === 'ddim') {
+    if (extension_settings.sd.sampler === 'ddim' || extension_settings.sd.model === 'nai-diffusion-4-curated-preview') {
         sm = false;
         sm_dyn = false;
     }
