@@ -3168,7 +3168,7 @@ async function generateNovelImage(prompt, negativePrompt, signal) {
  * @returns {{steps: number, width: number, height: number, sm: boolean, sm_dyn: boolean}} - A tuple of parameters for NovelAI API.
  */
 function getNovelParams() {
-    let steps = extension_settings.sd.steps;
+    let steps = Math.min(extension_settings.sd.steps, 50);
     let width = extension_settings.sd.width;
     let height = extension_settings.sd.height;
     let sm = extension_settings.sd.novel_sm;
