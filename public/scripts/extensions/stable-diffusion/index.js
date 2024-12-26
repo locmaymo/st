@@ -3174,6 +3174,11 @@ function getNovelParams() {
     let sm = extension_settings.sd.novel_sm;
     let sm_dyn = extension_settings.sd.novel_sm_dyn;
 
+    // If a source was never changed after the scheduler setting was added, we need to set it to 'karras' for compatibility.
+    if (!extension_settings.sd.scheduler || extension_settings.sd.scheduler === 'normal') {
+        extension_settings.sd.scheduler = 'karras';
+    }
+
     if (extension_settings.sd.sampler === 'ddim' || extension_settings.sd.model === 'nai-diffusion-4-curated-preview') {
         sm = false;
         sm_dyn = false;
