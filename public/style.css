@@ -3671,7 +3671,9 @@ body #toast-container {
 }
 
 body #toast-container>div {
-    opacity: 0.95;
+    opacity: 1;
+    filter: unset;
+    -ms-filter: unset;
 }
 
 #dialogue_del_mes {
