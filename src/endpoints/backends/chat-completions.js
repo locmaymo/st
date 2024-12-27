@@ -294,6 +294,7 @@ async function sendMakerSuiteRequest(request, response) {
         }
 
         const should_use_system_prompt = (
+            model.includes('gemini-2.0-flash-thinking-exp') ||
             model.includes('gemini-2.0-flash-exp') ||
             model.includes('gemini-1.5-flash') ||
             model.includes('gemini-1.5-pro') ||
