@@ -92,7 +92,7 @@
     /* base variable for shadow width slider calculations */
     --shadowWidth: 2;
 
-    color-scheme: only light;
+    /* color-scheme: only light; */
 
     /* Send form variables */
     --bottomFormBlockPadding: calc(var(--mainFontSize) / 2.5);
