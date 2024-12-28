@@ -218,7 +218,7 @@ const defaultSettings = {
     // CFG Scale
     scale_min: 1,
     scale_max: 30,
-    scale_step: 0.5,
+    scale_step: 0.1,
     scale: 7,
 
     // Sampler steps
