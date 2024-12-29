@@ -672,7 +672,7 @@ router.post('/status', jsonParser, async function (request, response_getstatus_o
         api_key_openai = readSecret(request.user.directories, SECRET_KEYS.NANOGPT);
         headers = {};
     } else if (request.body.chat_completion_source === CHAT_COMPLETION_SOURCES.DEEPSEEK) {
-        api_url = API_DEEPSEEK;
+        api_url = API_DEEPSEEK.replace('/beta', '');
         api_key_openai = readSecret(request.user.directories, SECRET_KEYS.DEEPSEEK);
         headers = {};
     } else {
