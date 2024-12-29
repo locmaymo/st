@@ -3031,6 +3031,7 @@ async function generateAutoImage(prompt, negativePrompt, signal) {
         enable_hr: !!extension_settings.sd.enable_hr,
         hr_upscaler: extension_settings.sd.hr_upscaler,
         hr_scale: extension_settings.sd.hr_scale,
+        hr_additional_modules: [],
         denoising_strength: extension_settings.sd.denoising_strength,
         hr_second_pass_steps: extension_settings.sd.hr_second_pass_steps,
         seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
