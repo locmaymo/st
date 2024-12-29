@@ -105,22 +105,26 @@ router.post('/upscalers', jsonParser, async (request, response) => {
 
 router.post('/vaes', jsonParser, async (request, response) => {
     try {
-        const url = new URL(request.body.url);
-        url.pathname = '/sdapi/v1/sd-vae';
+        const autoUrl = urlJoin(request.body.url, '/sdapi/v1/sd-vae');
+        const forgeUrl = urlJoin(request.body.url, '/sdapi/v1/sd-modules');
 
-        const result = await fetch(url, {
+        const requestInit = {
             method: 'GET',
             headers: {
                 'Authorization': getBasicAuthHeader(request.body.auth),
             },
-        });
+        };
+        const results = await Promise.allSettled([
+            fetch(autoUrl, requestInit).then(r => r.ok ? r.json() : Promise.reject(r.statusText)),
+            fetch(forgeUrl, requestInit).then(r => r.ok ? r.json() : Promise.reject(r.statusText)),
+        ]);
 
-        if (!result.ok) {
+        const data = results.find(r => r.status === 'fulfilled')?.value;
+
+        if (!Array.isArray(data)) {
             throw new Error('SD WebUI returned an error.');
         }
 
-        /** @type {any} */
-        const data = await result.json();
         const names = data.map(x => x.model_name);
         return response.send(names);
     } catch (error) {
