@@ -64,11 +64,11 @@ function postProcessPrompt(messages, type, names) {
     switch (type) {
         case 'merge':
         case 'claude':
-            return mergeMessages(messages, names, false);
+            return mergeMessages(messages, names, false, true);
         case 'strict':
-            return mergeMessages(messages, names, true);
+            return mergeMessages(messages, names, true, true);
         case 'deepseek':
-            return (x => x[x.length - 1].role !== 'assistant' || (x[x.length - 1].prefix = true) ? x : x)([...mergeMessages(messages, names, true)]);
+            return (x => x.length && (x[x.length - 1].role !== 'assistant' || (x[x.length - 1].prefix = true)) ? x : x)(mergeMessages(messages, names, true, false));
         default:
             return messages;
     }
