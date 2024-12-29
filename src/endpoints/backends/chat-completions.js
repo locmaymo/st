@@ -64,7 +64,9 @@ function postProcessPrompt(messages, type, names) {
     switch (type) {
         case 'merge':
         case 'claude':
-            return mergeMessages(messages, names, false, true);
+            return mergeMessages(messages, names, false, false);
+        case 'semi':
+            return mergeMessages(messages, names, true, false);
         case 'strict':
             return mergeMessages(messages, names, true, true);
         case 'deepseek':

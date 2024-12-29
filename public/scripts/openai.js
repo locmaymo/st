@@ -205,6 +205,7 @@ const custom_prompt_post_processing_types = {
     /** @deprecated Use MERGE instead. */
     CLAUDE: 'claude',
     MERGE: 'merge',
+    SEMI: 'semi',
     STRICT: 'strict',
 };
 
