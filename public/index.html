@@ -682,7 +682,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,claude,windowai,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt">
+                                <div class="range-block" data-source="openai,claude,windowai,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt,deepseek">
                                     <div class="range-block-title" data-i18n="Temperature">
                                         Temperature
                                     </div>
@@ -695,7 +695,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt">
+                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt,deepseek">
                                     <div class="range-block-title" data-i18n="Frequency Penalty">
                                         Frequency Penalty
                                     </div>
@@ -708,7 +708,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt">
+                                <div class="range-block" data-source="openai,openrouter,custom,cohere,perplexity,groq,mistralai,nanogpt,deepseek">
                                     <div class="range-block-title" data-i18n="Presence Penalty">
                                         Presence Penalty
                                     </div>
@@ -734,7 +734,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="range-block" data-source="openai,claude,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt">
+                                <div class="range-block" data-source="openai,claude,openrouter,ai21,scale,makersuite,mistralai,custom,cohere,perplexity,groq,01ai,nanogpt,deepseek">
                                     <div class="range-block-title" data-i18n="Top P">
                                         Top P
                                     </div>
@@ -2679,6 +2679,7 @@
                                 <option value="blockentropy">Block Entropy</option>
                                 <option value="claude">Claude</option>
                                 <option value="cohere">Cohere</option>
+                                <option value="deepseek">DeepSeek</option>
                                 <option value="groq">Groq</option>
                                 <option value="makersuite">Google AI Studio</option>
                                 <option value="mistralai">MistralAI</option>
@@ -3189,6 +3190,23 @@
                                 <h4 data-i18n="NanoGPT Model">NanoGPT Model</h4>
                                 <select id="model_nanogpt_select">
                                     <option value="" data-i18n="-- Connect to the API --">-- Connect to the API --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="deepseek_form" data-source="deepseek">
+                            <h4 data-i18n="DeepSeek API Key">DeepSeek API Key</h4>
+                            <div class="flex-container">
+                                <input id="api_key_deepseek" name="api_key_deepseek" class="text_pole flex1" value="" type="text" autocomplete="off">
+                                <div title="Clear your API key" data-i18n="[title]Clear your API key" class="menu_button fa-solid fa-circle-xmark clear-api-key" data-key="api_key_nanogpt"></div>
+                            </div>
+                            <div data-for="api_key_deepseek" class="neutral_warning" data-i18n="For privacy reasons, your API key will be hidden after you reload the page.">
+                                For privacy reasons, your API key will be hidden after you reload the page.
+                            </div>
+                            <div>
+                                <h4 data-i18n="DeepSeek Model">DeepSeek Model</h4>
+                                <select id="model_deepseek_select">
+                                    <option value="deepseek-chat">deepseek-chat</option>
+                                    <option value="deepseek-coder">deepseek-coder</option>
                                 </select>
                             </div>
                         </div>
@@ -3762,6 +3780,7 @@
                                     <option value="17">Mistral Nemo</option>
                                     <option value="8">Yi</option>
                                     <option value="11">Claude 1/2</option>
+                                    <option value="18">DeepSeek V3</option>
                                     <option value="6">API (WebUI / koboldcpp)</option>
                                 </select>
                             </div>
