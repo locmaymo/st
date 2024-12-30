@@ -3041,7 +3041,6 @@ async function generateAutoImage(prompt, negativePrompt, signal) {
         },
         override_settings_restore_afterwards: true,
         clip_skip: extension_settings.sd.clip_skip, // For SD.Next
-        sd_vae_name: isValidVae ? extension_settings.sd.vae : undefined, // For SD Forge
         save_images: true,
         send_images: true,
         do_not_save_grid: false,
