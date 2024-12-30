@@ -3038,7 +3038,7 @@ async function generateAutoImage(prompt, negativePrompt, signal) {
         override_settings: {
             CLIP_stop_at_last_layers: extension_settings.sd.clip_skip,
             sd_vae: isValidVae ? extension_settings.sd.vae : undefined,
-            forge_additional_modules: isValidVae ? [extension_settings.sd.vae] : [], // For SD Forge
+            forge_additional_modules: isValidVae ? [extension_settings.sd.vae] : undefined, // For SD Forge
         },
         override_settings_restore_afterwards: true,
         clip_skip: extension_settings.sd.clip_skip, // For SD.Next
