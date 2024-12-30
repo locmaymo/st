@@ -297,11 +297,13 @@ router.post('/generate', jsonParser, async (request, response) => {
         try {
             const optionsUrl = urlJoin(request.body.url, '/sdapi/v1/options');
             const optionsResult = await fetch(optionsUrl, { headers: { 'Authorization': getBasicAuthHeader(request.body.auth) } });
-            const optionsData = /** @type {any} */ (await optionsResult.json());
-            const isForge = 'forge_preset' in optionsData;
+            if (optionsResult.ok) {
+                const optionsData = /** @type {any} */ (await optionsResult.json());
+                const isForge = 'forge_preset' in optionsData;
 
-            if (!isForge) {
-                _.unset(request.body, 'override_settings.forge_additional_modules');
+                if (!isForge) {
+                    _.unset(request.body, 'override_settings.forge_additional_modules');
+                }
             }
         } catch (error) {
             console.log('SD WebUI failed to get options:', error);
