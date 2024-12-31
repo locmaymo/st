@@ -2300,5 +2300,7 @@
     "Checkpoints inherit the scenario override from their parent, and can be changed individually after that.": "檢查點將繼承父項的場景覆蓋值，但仍可獨立修改。",
     "Are you sure you want to delete the theme?": "您確定要刪除這個介面主題嗎？",
     "This will delete all your settings and data. There will be no undo button. Make sure you have a backup before proceeding.": "此操作將刪除所有設定與數據，且無法還原。進行重設前請務必完成備份。",
-    "Account reset code has been posted to the server console.": "帳號重設驗證碼已發送至伺服器控制台。"
+    "Account reset code has been posted to the server console.": "帳號重設驗證碼已發送至伺服器控制台。",
+    "Prompt Tokens:": "提示詞符元數",
+    "All group members will use the following scenario text instead of what is specified in their character cards.": "所有群組聊天成員將使用以下場景內容，取代原有角色卡中指定的內容。"
 }
