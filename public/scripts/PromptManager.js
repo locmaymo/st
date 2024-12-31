@@ -1550,11 +1550,10 @@ class PromptManager {
             const isInjectionPrompt = prompt.injection_position === INJECTION_POSITION.ABSOLUTE;
             const isOverriddenPrompt = Array.isArray(this.overriddenPrompts) && this.overriddenPrompts.includes(prompt.identifier);
             const importantClass = isImportantPrompt ? `${prefix}prompt_manager_important` : '';
-            const iconLookup = prompt.role === 'system' && (prompt.marker || prompt.system_prompt) ? '' : prompt.role;
+            const iconLookup = (prompt.marker || prompt.system_prompt) ? '' : prompt.role;
 
             //add role icons to the right of prompt name
             const promptRoles = {
-                system: { roleIcon: 'fa-cog', roleTitle: 'Prompt will be sent as System' },
                 assistant: { roleIcon: 'fa-robot', roleTitle: 'Prompt will be sent as Assistant' },
                 user: { roleIcon: 'fa-user', roleTitle: 'Prompt will be sent as User' },
             };
