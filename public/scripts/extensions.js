@@ -7,7 +7,7 @@ import { renderTemplate, renderTemplateAsync } from './templates.js';
 import { delay, isSubsetOf, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
 import { isAdmin } from './user.js';
-import { t,translate } from './i18n.js';
+import { t } from './i18n.js';
 import { debounce_timeout } from './constants.js';
 
 export {
@@ -416,8 +416,6 @@ async function addExtensionsButtonAndMenu() {
     $('#leftSendForm').append(buttonHTML);
 
     const button = $('#extensionsMenuButton');
-    const title = translate(button.attr('title'));
-    button.attr('title', title);
     const dropdown = $('#extensionsMenu');
     let isDropdownVisible = false;
 
