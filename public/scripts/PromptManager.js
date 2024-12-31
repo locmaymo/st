@@ -1550,22 +1550,53 @@ class PromptManager {
             const isInjectionPrompt = prompt.injection_position === INJECTION_POSITION.ABSOLUTE;
             const isOverriddenPrompt = Array.isArray(this.overriddenPrompts) && this.overriddenPrompts.includes(prompt.identifier);
             const importantClass = isImportantPrompt ? `${prefix}prompt_manager_important` : '';
+
+            //add role icons to the right of prompt name
+
+            const hasRole = prompt.role ? true : false;
+            let roleIcon, roleTitle;
+            if (hasRole) {
+                switch (prompt.role) {
+                    case 'system':
+                        roleIcon = 'fa-cog';
+                        roleTitle = 'Prompt will be sent as System';
+                        break;
+                    case 'assistant':
+                        roleIcon = 'fa-robot';
+                        roleTitle = 'Prompt will be sent as Assistant';
+                        break;
+                    case 'user':
+                        roleIcon = 'fa-user';
+                        roleTitle = 'Prompt will be sent as User';
+                }
+
+                // not sure if this makes sense to include as 'markers' should not be sendable except by System, included in case I'm wrong.
+                // if it shouldn't be changeable, we should remove that dropdown from editor for Marker prompts.
+                /*
+                if (isMarkerPrompt && prompt.role !== 'user' && prompt.role !== 'assistant' && prompt.role !== 'system') {
+                    roleIcon = 'fa-cog';
+                    roleTitle = 'ST Global Prompt is sent as System by default (but can be changed in Editor)';
+                }
+                */
+            }
+
             listItemHtml += `
                 <li class="${prefix}prompt_manager_prompt ${draggableClass} ${enabledClass} ${markerClass} ${importantClass}" data-pm-identifier="${prompt.identifier}">
                     <span class="${prefix}prompt_manager_prompt_name" data-pm-name="${encodedName}">
                         ${isMarkerPrompt ? '<span class="fa-fw fa-solid fa-thumb-tack" title="Marker"></span>' : ''}
                         ${isSystemPrompt ? '<span class="fa-fw fa-solid fa-square-poll-horizontal" title="Global Prompt"></span>' : ''}
                         ${isImportantPrompt ? '<span class="fa-fw fa-solid fa-star" title="Important Prompt"></span>' : ''}
-                        ${isUserPrompt ? '<span class="fa-fw fa-solid fa-user" title="User Prompt"></span>' : ''}
+                        ${isUserPrompt ? '<span class="fa-fw fa-solid fa-user" title="Preset Prompt"></span>' : ''}
                         ${isInjectionPrompt ? '<span class="fa-fw fa-solid fa-syringe" title="In-Chat Injection"></span>' : ''}
                         ${this.isPromptInspectionAllowed(prompt) ? `<a title="${encodedName}" class="prompt-manager-inspect-action">${encodedName}</a>` : `<span title="${encodedName}">${encodedName}</span>`}
+                        ${hasRole ? `<span class='fa-solid ${roleIcon}' title='${roleTitle}'></span>` : ''}
                         ${isInjectionPrompt ? `<small class="prompt-manager-injection-depth">@ ${prompt.injection_depth}</small>` : ''}
                         ${isOverriddenPrompt ? '<small class="fa-solid fa-address-card prompt-manager-overridden" title="Pulled from a character card"></small>' : ''}
                     </span>
                     <span>
                             <span class="prompt_manager_prompt_controls">
                                 ${detachSpanHtml}
-                                ${editSpanHtml}
+                                ${ editSpanHtml }
                                 ${toggleSpanHtml}
                             </span>
                     </span>
