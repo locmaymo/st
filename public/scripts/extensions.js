@@ -6,6 +6,7 @@ import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { renderTemplate, renderTemplateAsync } from './templates.js';
 import { isSubsetOf, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
+import { translate } from "./i18n.js";
 export {
     getContext,
     getApiUrl,
@@ -367,6 +368,8 @@ async function addExtensionsButtonAndMenu() {
     $('#leftSendForm').append(buttonHTML);
 
     const button = $('#extensionsMenuButton');
+    const title = translate(button.attr('title'));
+    button.attr('title', title);
     const dropdown = $('#extensionsMenu');
     //dropdown.hide();
 
