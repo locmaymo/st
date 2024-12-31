@@ -1553,7 +1553,7 @@ class PromptManager {
 
             //add role icons to the right of prompt name
 
-            const hasRole = prompt.role ? true : false;
+            const hasRole = !!prompt.role;
             let roleIcon, roleTitle;
             if (hasRole) {
                 switch (prompt.role) {
