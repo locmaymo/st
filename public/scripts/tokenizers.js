@@ -33,7 +33,6 @@ export const tokenizers = {
     NEMO: 17,
     DEEPSEEK: 18,
     BEST_MATCH: 99,
-    MANUAL_SELECTION: 411,
 };
 
 // A list of local tokenizers that support encoding and decoding token ids.
@@ -1073,14 +1072,9 @@ function decodeTextTokensFromServer(endpoint, ids, resolve) {
  * Encodes a string to tokens using the server API.
  * @param {number} tokenizerType Tokenizer type.
  * @param {string} str String to tokenize.
- * @param {string} overrideModel Tokenizer for {tokenizers.MANUAL_SELECTION}.
  * @returns {number[]} Array of token ids.
  */
-export function getTextTokens(tokenizerType, str, overrideModel = undefined) {
-    if (overrideModel && tokenizerType !== tokenizers.MANUAL_SELECTION) {
-        console.warn('overrideModel must be undefined unless using tokenizers.MANUAL_SELECTION', tokenizerType);
-        return [];
-    }
+export function getTextTokens(tokenizerType, str) {
     switch (tokenizerType) {
         case tokenizers.API_CURRENT:
             return getTextTokens(currentRemoteTokenizerAPI(), str);
@@ -1100,9 +1094,6 @@ export function getTextTokens(tokenizerType, str, overrideModel = undefined) {
                 apiFailureTokenCount(str);
                 console.warn('This tokenizer type does not support encoding', tokenizerType);
                 return [];
-            }
-            if (tokenizerType === tokenizers.MANUAL_SELECTION) {
-                endpointUrl += `?model=${overrideModel}`;
             }
             if (tokenizerType === tokenizers.OPENAI) {
                 endpointUrl += `?model=${getTokenizerModel()}`;
