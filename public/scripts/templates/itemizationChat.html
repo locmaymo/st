@@ -11,7 +11,7 @@
     <div>
         <small><span data-i18n="Preset:">Preset:</span> {{presetName}}</small>
         <span>|</span>
-        <small data-i18n="Tokenizer:">Tokenizer:</small><small> {{selectedTokenizer}}</small>
+        <small><span data-i18n="Tokenizer:">Tokenizer:</span> {{selectedTokenizer}}</small>
     </div>
 </div>
 
@@ -37,8 +37,8 @@
         <div class="flex-container wide50p">
             <div class="wide100p flex-container flexNoGap flexFlowColumn">
                 <div class="flex-container wide100p">
-                    <div class="flex1" style="color: grey;"><b data-i18n="System Info:">System Info:</b></div>
-                    <div class=""><b>{{oaiSystemTokens}}</b></div>
+                    <div class="flex1" style="color: grey;"><span data-i18n="System Info:">System Info:</span></div>
+                    <div class="">{{oaiSystemTokens}}</div>
                 </div>
                 <div class="flex-container ">
                     <div class=" flex1 tokenItemizingSubclass">-- Chat Start: </div>
@@ -67,8 +67,8 @@
             </div>
             <div class="wide100p flex-container flexNoGap flexFlowColumn">
                 <div class="flex-container wide100p">
-                    <div class="flex1" style="color: indianred;"><b data-i18n="Prompt Tokens:">Prompt Tokens:</b></div>
-                    <div class=""><b>{{oaiPromptTokens}}</b></div>
+                    <div class="flex1" style="color: indianred;"><span data-i18n="Prompt Tokens:">Prompt Tokens:</span></div>
+                    <div class="">{{oaiPromptTokens}}</div>
                 </div>
                 <div class="flex-container ">
                     <div class=" flex1 tokenItemizingSubclass">-- Description: </div>
@@ -92,17 +92,17 @@
                 </div>
             </div>
             <div class="wide100p flex-container">
-                <div class="flex1" style="color: gold;"><b data-i18n="World Info:">World Info:</b></div>
-                <div class=""><b>{{worldInfoStringTokens}}</b></div>
+                <div class="flex1" style="color: gold;"><span data-i18n="World Info:">World Info:</span></div>
+                <div class="">{{worldInfoStringTokens}}</div>
             </div>
             <div class="wide100p flex-container">
-                <div class="flex1" style="color: palegreen;"><b data-i18n="Chat History:">Chat History:</b></div>
-                <div class=""><b>{{ActualChatHistoryTokens}}</b></div>
+                <div class="flex1" style="color: palegreen;"><span data-i18n="Chat History:">Chat History:</span></div>
+                <div class="">{{ActualChatHistoryTokens}}</div>
             </div>
             <div class="wide100p flex-container flexNoGap flexFlowColumn">
                 <div class="wide100p flex-container">
-                    <div class="flex1" style="color: cornflowerblue;"><b data-i18n="Extensions:">Extensions:</b></div>
-                    <div class=""><b>{{allAnchorsTokens}}</b></div>
+                    <div class="flex1" style="color: cornflowerblue;"><span data-i18n="Extensions:">Extensions:</span></div>
+                    <div class="">{{allAnchorsTokens}}</div>
                 </div>
                 <div class="flex-container ">
                     <div class=" flex1 tokenItemizingSubclass">-- Summarize: </div>
@@ -126,7 +126,7 @@
                 </div>
             </div>
             <div class="wide100p flex-container">
-                <div class="flex1" style="color: mediumpurple;"><b>&lcub;&lcub;&rcub;&rcub;</b> <b data-i18n="Bias:">Bias:</b></div>
+                <div class="flex1" style="color: mediumpurple;"><span>&lcub;&lcub;&rcub;&rcub;</span> <span data-i18n="Bias:">Bias:</span></div>
                 <div class="">{{oaiBiasTokens}}</div>
             </div>
         </div>
@@ -135,12 +135,12 @@
     <hr>
     <div class="wide100p flex-container flexFlowColumns">
         <div class="flex-container wide100p">
-            <div class="flex1"><b data-i18n="Total Tokens in Prompt:">Total Tokens in Prompt:</b></div>
-            <div class=""><b>{{finalPromptTokens}}</b></div>
+            <div class="flex1"><span data-i18n="Total Tokens in Prompt:">Total Tokens in Prompt:</span></div>
+            <div class="">{{finalPromptTokens}}</div>
         </div>
         <div class="flex-container wide100p">
-            <div class="flex1"><b data-i18n="Max Context">Max Context</b><small data-i18n="(Context Size - Response Length)">(Context Size - Response Length)</small><b data-i18n=":">:</b></div>
-            <div class=""><b>{{thisPrompt_max_context}}</b></div>
+            <div class="flex1"><span data-i18n="Max Context">Max Context</span><small data-i18n="(Context Size - Response Length)">(Context Size - Response Length)</small><span data-i18n=":">:</span></div>
+            <div class="">{{thisPrompt_max_context}}</div>
         </div>
     </div>
 </div>
