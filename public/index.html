@@ -6113,8 +6113,12 @@
                                 <label for="completion_prompt_manager_popup_entry_form_role">
                                     <span data-i18n="Role">Role</span>
                                 </label>
-                                <div class="text_muted" data-i18n="To whom this message will be attributed.">To whom this message will be attributed.</div>
+                                <div class="text_muted">
+                                    <span data-i18n="To whom this message will be attributed.">To whom this message will be attributed.</span>
+                                    <span data-i18n="Unspecified = Prompt Manager decides.">Unspecified = Prompt Manager decides.</span>
+                                </div>
                                 <select id="completion_prompt_manager_popup_entry_form_role" class="text_pole" name="role">
+                                    <option data-i18n="Unspecified" value="">Unspecified</option>
                                     <option data-i18n="System" value="system">System</option>
                                     <option data-i18n="User" value="user">User</option>
                                     <option data-i18n="AI Assistant" value="assistant">AI Assistant</option>
