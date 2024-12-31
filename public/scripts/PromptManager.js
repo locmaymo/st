@@ -430,7 +430,7 @@ class PromptManager {
             }
 
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_name').value = prompt.name;
-            document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_role').value = '';
+            document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_role').value = 'system';
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_prompt').value = prompt.content ?? '';
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_injection_position').value = prompt.injection_position ?? 0;
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_injection_depth').value = prompt.injection_depth ?? DEFAULT_DEPTH;
@@ -1208,7 +1208,7 @@ class PromptManager {
         const forbidOverridesBlock = document.getElementById(this.configuration.prefix + 'prompt_manager_forbid_overrides_block');
 
         nameField.value = prompt.name ?? '';
-        roleField.value = prompt.role ?? '';
+        roleField.value = prompt.role || 'system';
         promptField.value = prompt.content ?? '';
         promptField.disabled = prompt.marker ?? false;
         injectionPositionField.value = prompt.injection_position ?? INJECTION_POSITION.RELATIVE;
@@ -1543,7 +1543,6 @@ class PromptManager {
             }
 
             const encodedName = escapeHtml(prompt.name);
-            const isRolePrompt = !!prompt.role;
             const isMarkerPrompt = prompt.marker && prompt.injection_position !== INJECTION_POSITION.ABSOLUTE;
             const isSystemPrompt = !prompt.marker && prompt.system_prompt && prompt.injection_position !== INJECTION_POSITION.ABSOLUTE && !prompt.forbid_overrides;
             const isImportantPrompt = !prompt.marker && prompt.system_prompt && prompt.injection_position !== INJECTION_POSITION.ABSOLUTE && prompt.forbid_overrides;
@@ -1551,6 +1550,7 @@ class PromptManager {
             const isInjectionPrompt = prompt.injection_position === INJECTION_POSITION.ABSOLUTE;
             const isOverriddenPrompt = Array.isArray(this.overriddenPrompts) && this.overriddenPrompts.includes(prompt.identifier);
             const importantClass = isImportantPrompt ? `${prefix}prompt_manager_important` : '';
+            const iconLookup = prompt.role === 'system' && (prompt.marker || prompt.system_prompt) ? '' : prompt.role;
 
             //add role icons to the right of prompt name
             const promptRoles = {
@@ -1558,8 +1558,8 @@ class PromptManager {
                 assistant: { roleIcon: 'fa-robot', roleTitle: 'Prompt will be sent as Assistant' },
                 user: { roleIcon: 'fa-user', roleTitle: 'Prompt will be sent as User' },
             };
-            const roleIcon = isRolePrompt ? promptRoles[prompt.role]?.roleIcon : '';
-            const roleTitle = isRolePrompt ? promptRoles[prompt.role]?.roleTitle : '';
+            const roleIcon = promptRoles[iconLookup]?.roleIcon || '';
+            const roleTitle = promptRoles[iconLookup]?.roleTitle || '';
 
             listItemHtml += `
                 <li class="${prefix}prompt_manager_prompt ${draggableClass} ${enabledClass} ${markerClass} ${importantClass}" data-pm-identifier="${escapeHtml(prompt.identifier)}">
@@ -1570,7 +1570,7 @@ class PromptManager {
                         ${isUserPrompt ? '<span class="fa-fw fa-solid fa-asterisk" title="Preset Prompt"></span>' : ''}
                         ${isInjectionPrompt ? '<span class="fa-fw fa-solid fa-syringe" title="In-Chat Injection"></span>' : ''}
                         ${this.isPromptInspectionAllowed(prompt) ? `<a title="${encodedName}" class="prompt-manager-inspect-action">${encodedName}</a>` : `<span title="${encodedName}">${encodedName}</span>`}
-                        ${isRolePrompt ? `<span data-role="${escapeHtml(prompt.role)}" class="fa-xs fa-solid ${roleIcon}" title="${roleTitle}"></span>` : ''}
+                        ${roleIcon ? `<span data-role="${escapeHtml(prompt.role)}" class="fa-xs fa-solid ${roleIcon}" title="${roleTitle}"></span>` : ''}
                         ${isInjectionPrompt ? `<small class="prompt-manager-injection-depth">@ ${escapeHtml(prompt.injection_depth)}</small>` : ''}
                         ${isOverriddenPrompt ? '<small class="fa-solid fa-address-card prompt-manager-overridden" title="Pulled from a character card"></small>' : ''}
                     </span>
