@@ -430,7 +430,7 @@ class PromptManager {
             }
 
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_name').value = prompt.name;
-            document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_role').value = 'system';
+            document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_role').value = '';
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_prompt').value = prompt.content ?? '';
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_injection_position').value = prompt.injection_position ?? 0;
             document.getElementById(this.configuration.prefix + 'prompt_manager_popup_entry_form_injection_depth').value = prompt.injection_depth ?? DEFAULT_DEPTH;
