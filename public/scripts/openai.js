@@ -33,7 +33,7 @@ import {
     system_message_types,
     this_chid,
 } from '../script.js';
-import { selected_group } from './group-chats.js';
+import { getGroupNames, selected_group } from './group-chats.js';
 
 import {
     chatCompletionDefaultPrompts,
@@ -60,6 +60,7 @@ import {
     parseJsonFile,
     resetScrollHeight,
     stringFormat,
+    uuidv4,
 } from './utils.js';
 import { countTokensOpenAIAsync, getTokenizerModel } from './tokenizers.js';
 import { isMobile } from './RossAscends-mods.js';
@@ -101,16 +102,16 @@ const default_new_group_chat_prompt = '[Start a new group chat. Group members: {
 const default_new_example_chat_prompt = '[Example Chat]';
 const default_continue_nudge_prompt = '[Continue the following message. Do not include ANY parts of the original message. Use capitalization and punctuation as if your reply is a part of the original message: {{lastChatMessage}}]';
 const default_bias = 'Default (none)';
-const default_personality_format = '[{{char}}\'s personality: {{personality}}]';
-const default_scenario_format = '[Circumstances and context of the dialogue: {{scenario}}]';
+const default_personality_format = '{{personality}}';
+const default_scenario_format = '{{scenario}}';
 const default_group_nudge_prompt = '[Write the next reply only as {{char}}.]';
 const default_bias_presets = {
     [default_bias]: [],
     'Anti-bond': [
-        { text: ' bond', value: -50 },
-        { text: ' future', value: -50 },
-        { text: ' bonding', value: -50 },
-        { text: ' connection', value: -25 },
+        { id: '22154f79-dd98-41bc-8e34-87015d6a0eaf', text: ' bond', value: -50 },
+        { id: '8ad2d5c4-d8ef-49e4-bc5e-13e7f4690e0f', text: ' future', value: -50 },
+        { id: '52a4b280-0956-4940-ac52-4111f83e4046', text: ' bonding', value: -50 },
+        { id: 'e63037c7-c9d1-4724-ab2d-7756008b433b', text: ' connection', value: -25 },
     ],
 };
 
@@ -206,6 +207,12 @@ const custom_prompt_post_processing_types = {
     STRICT: 'strict',
 };
 
+const openrouter_middleout_types = {
+    AUTO: 'auto',
+    ON: 'on',
+    OFF: 'off',
+};
+
 const sensitiveFields = [
     'reverse_proxy',
     'proxy_password',
@@ -266,6 +273,7 @@ const default_settings = {
     openrouter_sort_models: 'alphabetically',
     openrouter_providers: [],
     openrouter_allow_fallbacks: true,
+    openrouter_middleout: openrouter_middleout_types.ON,
     jailbreak_system: false,
     reverse_proxy: '',
     chat_completion_source: chat_completion_sources.OPENAI,
@@ -342,6 +350,7 @@ const oai_settings = {
     openrouter_sort_models: 'alphabetically',
     openrouter_providers: [],
     openrouter_allow_fallbacks: true,
+    openrouter_middleout: openrouter_middleout_types.ON,
     jailbreak_system: false,
     reverse_proxy: '',
     chat_completion_source: chat_completion_sources.OPENAI,
@@ -543,11 +552,15 @@ function setupChatCompletionPromptManager(openAiSettings) {
  * @returns {Message[]} Array of message objects
  */
 export function parseExampleIntoIndividual(messageExampleString, appendNamesForGroup = true) {
+    const groupBotNames = getGroupNames().map(name => `${name}:`);
+
     let result = []; // array of msgs
     let tmp = messageExampleString.split('\n');
     let cur_msg_lines = [];
     let in_user = false;
     let in_bot = false;
+    let botName = name2;
+
     // DRY my cock and balls :)
     function add_msg(name, role, system_name) {
         // join different newlines (we split them by \n and join by \n)
@@ -571,10 +584,14 @@ export function parseExampleIntoIndividual(messageExampleString, appendNamesForG
             in_user = true;
             // we were in the bot mode previously, add the message
             if (in_bot) {
-                add_msg(name2, 'system', 'example_assistant');
+                add_msg(botName, 'system', 'example_assistant');
             }
             in_bot = false;
-        } else if (cur_str.startsWith(name2 + ':')) {
+        } else if (cur_str.startsWith(name2 + ':') || groupBotNames.some(n => cur_str.startsWith(n))) {
+            if (!cur_str.startsWith(name2 + ':') && groupBotNames.length) {
+                botName = cur_str.split(':')[0];
+            }
+
             in_bot = true;
             // we were in the user mode previously, add the message
             if (in_user) {
@@ -589,7 +606,7 @@ export function parseExampleIntoIndividual(messageExampleString, appendNamesForG
     if (in_user) {
         add_msg(name1, 'system', 'example_user');
     } else if (in_bot) {
-        add_msg(name2, 'system', 'example_assistant');
+        add_msg(botName, 'system', 'example_assistant');
     }
     return result;
 }
@@ -611,8 +628,9 @@ function formatWorldInfo(value) {
  *
  * @param {Prompt[]} prompts - Array containing injection prompts.
  * @param {Object[]} messages - Array containing all messages.
+ * @returns {Promise<Object[]>} - Array containing all messages with injections.
  */
-function populationInjectionPrompts(prompts, messages) {
+async function populationInjectionPrompts(prompts, messages) {
     let totalInsertedMessages = 0;
 
     const roleTypes = {
@@ -635,7 +653,7 @@ function populationInjectionPrompts(prompts, messages) {
             // Get prompts for current role
             const rolePrompts = depthPrompts.filter(prompt => prompt.role === role).map(x => x.content).join(separator);
             // Get extension prompt
-            const extensionPrompt = getExtensionPrompt(extension_prompt_types.IN_CHAT, i, separator, roleTypes[role], wrap);
+            const extensionPrompt = await getExtensionPrompt(extension_prompt_types.IN_CHAT, i, separator, roleTypes[role], wrap);
 
             const jointPrompt = [rolePrompts, extensionPrompt].filter(x => x).map(x => x.trim()).join(separator);
 
@@ -1020,7 +1038,7 @@ async function populateChatCompletion(prompts, chatCompletion, { bias, quietProm
     }
 
     // Add in-chat injections
-    messages = populationInjectionPrompts(absolutePrompts, messages);
+    messages = await populationInjectionPrompts(absolutePrompts, messages);
 
     // Decide whether dialogue examples should always be added
     if (power_user.pin_examples) {
@@ -1051,9 +1069,9 @@ async function populateChatCompletion(prompts, chatCompletion, { bias, quietProm
  * @param {string} options.systemPromptOverride
  * @param {string} options.jailbreakPromptOverride
  * @param {string} options.personaDescription
- * @returns {Object} prompts - The prepared and merged system and user-defined prompts.
+ * @returns {Promise<Object>} prompts - The prepared and merged system and user-defined prompts.
  */
-function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, worldInfoBefore, worldInfoAfter, charDescription, quietPrompt, bias, extensionPrompts, systemPromptOverride, jailbreakPromptOverride, personaDescription }) {
+async function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, worldInfoBefore, worldInfoAfter, charDescription, quietPrompt, bias, extensionPrompts, systemPromptOverride, jailbreakPromptOverride, personaDescription }) {
     const scenarioText = Scenario && oai_settings.scenario_format ? substituteParams(oai_settings.scenario_format) : '';
     const charPersonalityText = charPersonality && oai_settings.personality_format ? substituteParams(oai_settings.personality_format) : '';
     const groupNudge = substituteParams(oai_settings.group_nudge_prompt);
@@ -1142,6 +1160,9 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
             if (!extensionPrompts[key].value) continue;
             if (![extension_prompt_types.BEFORE_PROMPT, extension_prompt_types.IN_PROMPT].includes(prompt.position)) continue;
 
+            const hasFilter = typeof prompt.filter === 'function';
+            if (hasFilter && !await prompt.filter()) continue;
+
             systemPrompts.push({
                 identifier: key.replace(/\W/g, '_'),
                 position: getPromptPosition(prompt.position),
@@ -1178,7 +1199,8 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
 
     // Apply character-specific main prompt
     const systemPrompt = prompts.get('main') ?? null;
-    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true) {
+    const isSystemPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('main');
+    if (systemPromptOverride && systemPrompt && systemPrompt.forbid_overrides !== true && !isSystemPromptDisabled) {
         const mainOriginalContent = systemPrompt.content;
         systemPrompt.content = systemPromptOverride;
         const mainReplacement = promptManager.preparePrompt(systemPrompt, mainOriginalContent);
@@ -1187,7 +1209,8 @@ function preparePromptsForChatCompletion({ Scenario, charPersonality, name2, wor
 
     // Apply character-specific jailbreak
     const jailbreakPrompt = prompts.get('jailbreak') ?? null;
-    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true) {
+    const isJailbreakPromptDisabled = promptManager.isPromptDisabledForActiveCharacter('jailbreak');
+    if (jailbreakPromptOverride && jailbreakPrompt && jailbreakPrompt.forbid_overrides !== true && !isJailbreakPromptDisabled) {
         const jbOriginalContent = jailbreakPrompt.content;
         jailbreakPrompt.content = jailbreakPromptOverride;
         const jbReplacement = promptManager.preparePrompt(jailbreakPrompt, jbOriginalContent);
@@ -1252,7 +1275,7 @@ export async function prepareOpenAIMessages({
 
     try {
         // Merge markers and ordered user prompts with system prompts
-        const prompts = preparePromptsForChatCompletion({
+        const prompts = await preparePromptsForChatCompletion({
             Scenario,
             charPersonality,
             name2,
@@ -1860,6 +1883,7 @@ async function sendOpenAIRequest(type, messages, signal) {
         'n': canMultiSwipe ? oai_settings.n : undefined,
         'user_name': name1,
         'char_name': name2,
+        'group_names': getGroupNames(),
     };
 
     // Empty array will produce a validation error
@@ -1904,6 +1928,7 @@ async function sendOpenAIRequest(type, messages, signal) {
         generate_data['use_fallback'] = oai_settings.openrouter_use_fallback;
         generate_data['provider'] = oai_settings.openrouter_providers;
         generate_data['allow_fallbacks'] = oai_settings.openrouter_allow_fallbacks;
+        generate_data['middleout'] = oai_settings.openrouter_middleout;
 
         if (isTextCompletion) {
             generate_data['stop'] = getStoppingStrings(isImpersonate, isContinue);
@@ -2073,7 +2098,7 @@ function getStreamingReply(data) {
     if (oai_settings.chat_completion_source === chat_completion_sources.CLAUDE) {
         return data?.delta?.text || '';
     } else if (oai_settings.chat_completion_source === chat_completion_sources.MAKERSUITE) {
-        return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return data?.candidates?.[0]?.content?.parts?.map(x => x.text)?.join('\n\n') || '';
     } else if (oai_settings.chat_completion_source === chat_completion_sources.COHERE) {
         return data?.delta?.message?.content?.text || data?.delta?.message?.tool_plan || '';
     } else {
@@ -2085,7 +2110,7 @@ function getStreamingReply(data) {
  * parseChatCompletionLogprobs converts the response data returned from a chat
  * completions-like source into an array of TokenLogprobs found in the response.
  * @param {Object} data - response data from a chat completions-like source
- * @returns {import('logprobs.js').TokenLogprobs[] | null} converted logprobs
+ * @returns {import('./logprobs.js').TokenLogprobs[] | null} converted logprobs
  */
 function parseChatCompletionLogprobs(data) {
     if (!data) {
@@ -2114,7 +2139,7 @@ function parseChatCompletionLogprobs(data) {
  * completion API and converts into the structure used by the Token Probabilities
  * view.
  * @param {{content: { token: string, logprob: number, top_logprobs: { token: string, logprob: number }[] }[]}} logprobs
- * @returns {import('logprobs.js').TokenLogprobs[] | null} converted logprobs
+ * @returns {import('./logprobs.js').TokenLogprobs[] | null} converted logprobs
  */
 function parseOpenAIChatLogprobs(logprobs) {
     const { content } = logprobs ?? {};
@@ -2142,7 +2167,7 @@ function parseOpenAIChatLogprobs(logprobs) {
  * completion API and converts into the structure used by the Token Probabilities
  * view.
  * @param {{tokens: string[], token_logprobs: number[], top_logprobs: { token: string, logprob: number }[][]}} logprobs
- * @returns {import('logprobs.js').TokenLogprobs[] | null} converted logprobs
+ * @returns {import('./logprobs.js').TokenLogprobs[] | null} converted logprobs
  */
 function parseOpenAITextLogprobs(logprobs) {
     const { tokens, token_logprobs, top_logprobs } = logprobs ?? {};
@@ -3006,6 +3031,7 @@ function loadOpenAISettings(data, settings) {
     oai_settings.openrouter_sort_models = settings.openrouter_sort_models ?? default_settings.openrouter_sort_models;
     oai_settings.openrouter_use_fallback = settings.openrouter_use_fallback ?? default_settings.openrouter_use_fallback;
     oai_settings.openrouter_allow_fallbacks = settings.openrouter_allow_fallbacks ?? default_settings.openrouter_allow_fallbacks;
+    oai_settings.openrouter_middleout = settings.openrouter_middleout ?? default_settings.openrouter_middleout;
     oai_settings.ai21_model = settings.ai21_model ?? default_settings.ai21_model;
     oai_settings.mistralai_model = settings.mistralai_model ?? default_settings.mistralai_model;
     oai_settings.cohere_model = settings.cohere_model ?? default_settings.cohere_model;
@@ -3114,6 +3140,7 @@ function loadOpenAISettings(data, settings) {
     $('#openrouter_group_models').prop('checked', oai_settings.openrouter_group_models);
     $('#openrouter_allow_fallbacks').prop('checked', oai_settings.openrouter_allow_fallbacks);
     $('#openrouter_providers_chat').val(oai_settings.openrouter_providers).trigger('change');
+    $('#openrouter_middleout').val(oai_settings.openrouter_middleout);
     $('#squash_system_messages').prop('checked', oai_settings.squash_system_messages);
     $('#continue_prefill').prop('checked', oai_settings.continue_prefill);
     $('#openai_function_calling').prop('checked', oai_settings.function_calling);
@@ -3162,6 +3189,14 @@ function loadOpenAISettings(data, settings) {
 
     $('#openai_logit_bias_preset').empty();
     for (const preset of Object.keys(oai_settings.bias_presets)) {
+        // Backfill missing IDs
+        if (Array.isArray(oai_settings.bias_presets[preset])) {
+            oai_settings.bias_presets[preset].forEach((bias) => {
+                if (bias && !bias.id) {
+                    bias.id = uuidv4();
+                }
+            });
+        }
         const option = document.createElement('option');
         option.innerText = preset;
         option.value = preset;
@@ -3346,6 +3381,7 @@ async function saveOpenAIPreset(name, settings, triggerUi = true) {
         openrouter_sort_models: settings.openrouter_sort_models,
         openrouter_providers: settings.openrouter_providers,
         openrouter_allow_fallbacks: settings.openrouter_allow_fallbacks,
+        openrouter_middleout: settings.openrouter_middleout,
         ai21_model: settings.ai21_model,
         mistralai_model: settings.mistralai_model,
         cohere_model: settings.cohere_model,
@@ -3450,7 +3486,8 @@ function onLogitBiasPresetChange() {
     }
 
     oai_settings.bias_preset_selected = value;
-    $('.openai_logit_bias_list').empty();
+    const list = $('.openai_logit_bias_list');
+    list.empty();
 
     for (const entry of preset) {
         if (entry) {
@@ -3458,12 +3495,33 @@ function onLogitBiasPresetChange() {
         }
     }
 
+    // Check if a sortable instance exists
+    if (list.sortable('instance') !== undefined) {
+        // Destroy the instance
+        list.sortable('destroy');
+    }
+
+    // Make the list sortable
+    list.sortable({
+        delay: getSortableDelay(),
+        handle: '.drag-handle',
+        stop: function () {
+            const order = [];
+            list.children().each(function () {
+                order.unshift($(this).data('id'));
+            });
+            preset.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+            console.log('Logit bias reordered:', preset);
+            saveSettingsDebounced();
+        },
+    });
+
     biasCache = undefined;
     saveSettingsDebounced();
 }
 
 function createNewLogitBiasEntry() {
-    const entry = { text: '', value: 0 };
+    const entry = { id: uuidv4(), text: '', value: 0 };
     oai_settings.bias_presets[oai_settings.bias_preset_selected].push(entry);
     biasCache = undefined;
     createLogitBiasListItem(entry);
@@ -3471,11 +3529,14 @@ function createNewLogitBiasEntry() {
 }
 
 function createLogitBiasListItem(entry) {
-    const id = oai_settings.bias_presets[oai_settings.bias_preset_selected].indexOf(entry);
+    if (!entry.id) {
+        entry.id = uuidv4();
+    }
+    const id = entry.id;
     const template = $('#openai_logit_bias_template .openai_logit_bias_form').clone();
     template.data('id', id);
     template.find('.openai_logit_bias_text').val(entry.text).on('input', function () {
-        oai_settings.bias_presets[oai_settings.bias_preset_selected][id].text = String($(this).val());
+        entry.text = String($(this).val());
         biasCache = undefined;
         saveSettingsDebounced();
     });
@@ -3494,13 +3555,17 @@ function createLogitBiasListItem(entry) {
             value = max;
         }
 
-        oai_settings.bias_presets[oai_settings.bias_preset_selected][id].value = value;
+        entry.value = value;
         biasCache = undefined;
         saveSettingsDebounced();
     });
     template.find('.openai_logit_bias_remove').on('click', function () {
         $(this).closest('.openai_logit_bias_form').remove();
-        oai_settings.bias_presets[oai_settings.bias_preset_selected].splice(id, 1);
+        const preset = oai_settings.bias_presets[oai_settings.bias_preset_selected];
+        const index = preset.findIndex(item => item.id === id);
+        if (index >= 0) {
+            preset.splice(index, 1);
+        }
         onLogitBiasPresetChange();
     });
     $('.openai_logit_bias_list').prepend(template);
@@ -3680,6 +3745,9 @@ async function onLogitBiasPresetImportFileChange(e) {
         if (typeof entry == 'object' && entry !== null) {
             if (Object.hasOwn(entry, 'text') &&
                 Object.hasOwn(entry, 'value')) {
+                if (!entry.id) {
+                    entry.id = uuidv4();
+                }
                 validEntries.push(entry);
             }
         }
@@ -3780,6 +3848,7 @@ function onSettingsPresetChange() {
         openrouter_sort_models: ['#openrouter_sort_models', 'openrouter_sort_models', false],
         openrouter_providers: ['#openrouter_providers_chat', 'openrouter_providers', false],
         openrouter_allow_fallbacks: ['#openrouter_allow_fallbacks', 'openrouter_allow_fallbacks', true],
+        openrouter_middleout: ['#openrouter_middleout', 'openrouter_middleout', false],
         ai21_model: ['#model_ai21_select', 'ai21_model', false],
         mistralai_model: ['#model_mistralai_select', 'mistralai_model', false],
         cohere_model: ['#model_cohere_select', 'cohere_model', false],
@@ -4075,19 +4144,14 @@ async function onModelChange() {
     if (oai_settings.chat_completion_source == chat_completion_sources.MAKERSUITE) {
         if (oai_settings.max_context_unlocked) {
             $('#openai_max_context').attr('max', max_2mil);
-        } else if (value.includes('gemini-exp-1114') || value.includes('gemini-exp-1121')) {
+        } else if (value.includes('gemini-exp-1114') || value.includes('gemini-exp-1121') || value.includes('gemini-2.0-flash-thinking-exp-1219')) {
             $('#openai_max_context').attr('max', max_32k);
         } else if (value.includes('gemini-1.5-pro') || value.includes('gemini-exp-1206')) {
             $('#openai_max_context').attr('max', max_2mil);
-        } else if (value.includes('gemini-1.5-flash')) {
+        } else if (value.includes('gemini-1.5-flash') || value.includes('gemini-2.0-flash-exp')) {
             $('#openai_max_context').attr('max', max_1mil);
-        } else if (value.includes('gemini-1.0-pro-vision') || value === 'gemini-pro-vision') {
-            $('#openai_max_context').attr('max', max_16k);
         } else if (value.includes('gemini-1.0-pro') || value === 'gemini-pro') {
             $('#openai_max_context').attr('max', max_32k);
-        } else if (value === 'text-bison-001') {
-            $('#openai_max_context').attr('max', max_8k);
-            // The ultra endpoints are possibly dead:
         } else if (value.includes('gemini-1.0-ultra') || value === 'gemini-ultra') {
             $('#openai_max_context').attr('max', max_32k);
         } else {
@@ -4209,16 +4273,13 @@ async function onModelChange() {
         if (oai_settings.max_context_unlocked) {
             $('#openai_max_context').attr('max', unlocked_max);
         }
-        else if (['command-light', 'command'].includes(oai_settings.cohere_model)) {
+        else if (['command-light-nightly', 'command-light', 'command'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_4k);
         }
-        else if (['command-light-nightly', 'command-nightly'].includes(oai_settings.cohere_model)) {
-            $('#openai_max_context').attr('max', max_8k);
-        }
-        else if (oai_settings.cohere_model.includes('command-r') || ['c4ai-aya-expanse-32b'].includes(oai_settings.cohere_model)) {
+        else if (oai_settings.cohere_model.includes('command-r') || ['c4ai-aya-23', 'c4ai-aya-expanse-32b', 'command-nightly'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_128k);
         }
-        else if (['c4ai-aya-23', 'c4ai-aya-expanse-8b'].includes(oai_settings.cohere_model)) {
+        else if (['c4ai-aya-23-8b', 'c4ai-aya-expanse-8b'].includes(oai_settings.cohere_model)) {
             $('#openai_max_context').attr('max', max_8k);
         }
         else {
@@ -4269,7 +4330,7 @@ async function onModelChange() {
         else if (oai_settings.groq_model.includes('llama-3.2') && oai_settings.groq_model.includes('-preview')) {
             $('#openai_max_context').attr('max', max_8k);
         }
-        else if (oai_settings.groq_model.includes('llama-3.2') || oai_settings.groq_model.includes('llama-3.1')) {
+        else if (oai_settings.groq_model.includes('llama-3.3') || oai_settings.groq_model.includes('llama-3.2') || oai_settings.groq_model.includes('llama-3.1')) {
             $('#openai_max_context').attr('max', max_128k);
         }
         else if (oai_settings.groq_model.includes('llama3-groq')) {
@@ -4751,6 +4812,8 @@ export function isImageInliningSupported() {
     // gultra just isn't being offered as multimodal, thanks google.
     const visionSupportedModels = [
         'gpt-4-vision',
+        'gemini-2.0-flash-thinking-exp-1219',
+        'gemini-2.0-flash-exp',
         'gemini-1.5-flash',
         'gemini-1.5-flash-latest',
         'gemini-1.5-flash-001',
@@ -4769,7 +4832,6 @@ export function isImageInliningSupported() {
         'gemini-1.5-pro-002',
         'gemini-1.5-pro-exp-0801',
         'gemini-1.5-pro-exp-0827',
-        'gemini-pro-vision',
         'claude-3',
         'claude-3-5',
         'gpt-4-turbo',
@@ -5210,6 +5272,11 @@ export function initOpenAI() {
 
     $('#openrouter_allow_fallbacks').on('input', function () {
         oai_settings.openrouter_allow_fallbacks = !!$(this).prop('checked');
+        saveSettingsDebounced();
+    });
+
+    $('#openrouter_middleout').on('input', function () {
+        oai_settings.openrouter_middleout = String($(this).val());
         saveSettingsDebounced();
     });
 

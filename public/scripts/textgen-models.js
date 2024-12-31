@@ -25,6 +25,7 @@ const OPENROUTER_PROVIDERS = [
     'Anthropic',
     'Google',
     'Google AI Studio',
+    'Amazon Bedrock',
     'Groq',
     'SambaNova',
     'Cohere',
@@ -50,6 +51,8 @@ const OPENROUTER_PROVIDERS = [
     'Featherless',
     'Inflection',
     'xAI',
+    'Cloudflare',
+    'SF Compute',
     '01.AI',
     'HuggingFace',
     'Mancer',
@@ -157,6 +160,24 @@ export async function loadInfermaticAIModels(data) {
         option.text = model.id;
         option.selected = model.id === textgen_settings.infermaticai_model;
         $('#model_infermaticai_select').append(option);
+    }
+}
+
+export function loadGenericModels(data) {
+    if (!Array.isArray(data)) {
+        console.error('Invalid Generic models data', data);
+        return;
+    }
+
+    data.sort((a, b) => a.id.localeCompare(b.id));
+    const dataList = $('#generic_model_fill');
+    dataList.empty();
+
+    for (const model of data) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.text = model.id;
+        dataList.append(option);
     }
 }
 
