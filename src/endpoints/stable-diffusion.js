@@ -106,8 +106,10 @@ router.post('/upscalers', jsonParser, async (request, response) => {
 
 router.post('/vaes', jsonParser, async (request, response) => {
     try {
-        const autoUrl = urlJoin(request.body.url, '/sdapi/v1/sd-vae');
-        const forgeUrl = urlJoin(request.body.url, '/sdapi/v1/sd-modules');
+        const autoUrl = new URL(request.body.url);
+        autoUrl.pathname = '/sdapi/v1/sd-vae';
+        const forgeUrl = new URL(request.body.url);
+        forgeUrl.pathname = '/sdapi/v1/sd-modules';
 
         const requestInit = {
             method: 'GET',
@@ -295,7 +297,8 @@ router.post('/set-model', jsonParser, async (request, response) => {
 router.post('/generate', jsonParser, async (request, response) => {
     try {
         try {
-            const optionsUrl = urlJoin(request.body.url, '/sdapi/v1/options');
+            const optionsUrl = new URL(request.body.url);
+            optionsUrl.pathname = '/sdapi/v1/options';
             const optionsResult = await fetch(optionsUrl, { headers: { 'Authorization': getBasicAuthHeader(request.body.auth) } });
             if (optionsResult.ok) {
                 const optionsData = /** @type {any} */ (await optionsResult.json());
@@ -313,14 +316,16 @@ router.post('/generate', jsonParser, async (request, response) => {
         request.socket.removeAllListeners('close');
         request.socket.on('close', function () {
             if (!response.writableEnded) {
-                const interruptUrl = urlJoin(request.body.url, '/sdapi/v1/interrupt');
+                const interruptUrl = new URL(request.body.url);
+                interruptUrl.pathname = '/sdapi/v1/interrupt';
                 fetch(interruptUrl, { method: 'POST', headers: { 'Authorization': getBasicAuthHeader(request.body.auth) } });
             }
             controller.abort();
         });
 
         console.log('SD WebUI request:', request.body);
-        const txt2imgUrl = urlJoin(request.body.url, '/sdapi/v1/txt2img');
+        const txt2imgUrl = new URL(request.body.url);
+        txt2imgUrl.pathname = '/sdapi/v1/txt2img';
         const result = await fetch(txt2imgUrl, {
             method: 'POST',
             body: JSON.stringify(request.body),
