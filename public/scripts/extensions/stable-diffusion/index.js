@@ -1994,6 +1994,10 @@ async function loadNovelModels() {
     ];
 }
 
+function loadNovelSchedulers() {
+    return ['karras', 'native', 'exponential', 'polyexponential'];
+}
+
 async function loadComfyModels() {
     if (!extension_settings.sd.comfy_url) {
         return [];
@@ -2031,7 +2035,7 @@ async function loadSchedulers() {
             schedulers = await getAutoRemoteSchedulers();
             break;
         case sources.novel:
-            schedulers = ['karras', 'native', 'exponential', 'polyexponential'];
+            schedulers = loadNovelSchedulers();
             break;
         case sources.vlad:
             schedulers = ['N/A'];
@@ -3177,7 +3181,8 @@ function getNovelParams() {
     let sm_dyn = extension_settings.sd.novel_sm_dyn;
 
     // If a source was never changed after the scheduler setting was added, we need to set it to 'karras' for compatibility.
-    if (!extension_settings.sd.scheduler || extension_settings.sd.scheduler === 'normal') {
+    const schedulers = loadNovelSchedulers();
+    if (!schedulers.includes(extension_settings.sd.scheduler)) {
         extension_settings.sd.scheduler = 'karras';
     }
 
