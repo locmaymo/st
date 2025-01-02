@@ -3764,9 +3764,9 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     // Determine token limit
     let this_max_context = getMaxContextSize();
 
-    if (!dryRun && type !== 'quiet') {
+    if (!dryRun) {
         console.debug('Running extension interceptors');
-        const aborted = await runGenerationInterceptors(coreChat, this_max_context);
+        const aborted = await runGenerationInterceptors(coreChat, this_max_context, type);
 
         if (aborted) {
             console.debug('Generation aborted by extension interceptors');

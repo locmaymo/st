@@ -594,8 +594,11 @@ async function vectorizeFile(fileText, fileName, collectionId, chunkSize, overla
 /**
  * Removes the most relevant messages from the chat and displays them in the extension prompt
  * @param {object[]} chat Array of chat messages
+ * @param {number} _contextSize Context size (unused)
+ * @param {function} _abort Abort function (unused)
+ * @param {string} type Generation type
  */
-async function rearrangeChat(chat) {
+async function rearrangeChat(chat, _contextSize, _abort, type) {
     try {
         // Clear the extension prompt
         setExtensionPrompt(EXTENSION_PROMPT_TAG, '', settings.position, settings.depth, settings.include_wi);
@@ -609,7 +612,7 @@ async function rearrangeChat(chat) {
             await activateWorldInfo(chat);
         }
 
-        if (!settings.enabled_chats) {
+        if (!settings.enabled_chats || type === 'quiet') {
             return;
         }
 

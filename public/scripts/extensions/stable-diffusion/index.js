@@ -330,7 +330,18 @@ const defaultSettings = {
 
 const writePromptFieldsDebounced = debounce(writePromptFields, debounce_timeout.relaxed);
 
-function processTriggers(chat, _, abort) {
+/**
+ * Generate interceptor for interactive mode triggers.
+ * @param {any[]} chat Chat messages
+ * @param {number} _ Context size (unused)
+ * @param {function(boolean): void} abort Abort generation function
+ * @param {string} type Type of the generation
+ */
+function processTriggers(chat, _, abort, type) {
+    if (type === 'quiet') {
+        return;
+    }
+
     if (extension_settings.sd.function_tool && ToolManager.isToolCallingSupported()) {
         return;
     }
