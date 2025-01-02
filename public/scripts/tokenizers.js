@@ -325,6 +325,12 @@ export function getTokenizerBestMatch(forApi) {
             if (model.includes('gemma')) {
                 return tokenizers.GEMMA;
             }
+            if (model.includes('nemo') || model.includes('pixtral')) {
+                return tokenizers.NEMO;
+            }
+            if (model.includes('deepseek')) {
+                return tokenizers.DEEPSEEK;
+            }
             if (model.includes('yi')) {
                 return tokenizers.YI;
             }
