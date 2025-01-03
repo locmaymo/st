@@ -37,6 +37,7 @@ import { generateWebLlmChatPrompt, isWebLlmSupported } from '../shared.js';
  * @typedef {object} HashedMessage
  * @property {string} text - The hashed message text
  * @property {number} hash - The hash used as the vector key
+ * @property {number} index - The index of the message in the chat
  */
 
 const MODULE_NAME = 'vectors';
@@ -725,7 +726,7 @@ const onChatEvent = debounce(async () => await moduleWorker.update(), debounce_t
  */
 async function getQueryText(chat, initiator) {
     let hashedMessages = chat
-        .map(x => ({ text: String(substituteParams(x.mes)), hash: getStringHash(substituteParams(x.mes)) }))
+        .map(x => ({ text: String(substituteParams(x.mes)), hash: getStringHash(substituteParams(x.mes)), index: chat.indexOf(x) }))
         .filter(x => x.text)
         .reverse()
         .slice(0, settings.query);
