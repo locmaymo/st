@@ -600,6 +600,11 @@ async function vectorizeFile(fileText, fileName, collectionId, chunkSize, overla
  */
 async function rearrangeChat(chat, _contextSize, _abort, type) {
     try {
+        if (type === 'quiet') {
+            console.debug('Vectors: Skipping quiet prompt');
+            return;
+        }
+
         // Clear the extension prompt
         setExtensionPrompt(EXTENSION_PROMPT_TAG, '', settings.position, settings.depth, settings.include_wi);
         setExtensionPrompt(EXTENSION_PROMPT_TAG_DB, '', settings.file_position_db, settings.file_depth_db, settings.include_wi, settings.file_depth_role_db);
@@ -612,7 +617,7 @@ async function rearrangeChat(chat, _contextSize, _abort, type) {
             await activateWorldInfo(chat);
         }
 
-        if (!settings.enabled_chats || type === 'quiet') {
+        if (!settings.enabled_chats) {
             return;
         }
 
