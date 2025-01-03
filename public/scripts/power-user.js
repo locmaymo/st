@@ -1313,9 +1313,7 @@ function applyTheme(name) {
             if (type) applyThemeColor(type);
             if (action) action();
         } else {
-            if (selector) { $(selector).attr('color', 'rgba(0,0,0,0)'); }
             console.debug(`Empty theme key: ${key}`);
-            power_user[key] = '';
         }
     }
 
