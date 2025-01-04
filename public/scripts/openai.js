@@ -3335,7 +3335,7 @@ async function getStatusOpen() {
         chat_completion_sources.GROQ,
     ];
     if (noValidateSources.includes(oai_settings.chat_completion_source)) {
-        let status = t`Unable to verify key; press \"Test Message\" to validate.`;
+        let status = t`Key saved; press \"Test Message\" to verify.`;
         setOnlineStatus(status);
         return resultCheckStatus();
     }

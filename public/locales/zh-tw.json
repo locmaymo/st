@@ -2380,7 +2380,7 @@
     "help_macros_isMobile": "目前是否在行動端使用：\"true\" 表示是，\"false\" 表示否",
     "Persona Lorebook for": "角色知識書適用於",
     "persona_world_template_txt": "選中的世界資訊將綁定到此角色。生成 AI 回覆時，會結合全域、角色及聊天知識書中的內容。",
-    "Unable to verify key; press \"Test Message\" to validate.": "無法驗證金鑰；請點擊「測試訊息」進行驗證。",
+    "Key saved; press \"Test Message\" to verify.": "金鑰已儲存；請點擊「測試訊息」進行驗證。",
     "Preset name:": "預設名稱：",
     "Hint: Use a character/group name to bind preset to a specific chat.": "提示：使用角色／群組名稱將綁定預設至特定對話。",
     "Your preset contains proxy and/or custom endpoint settings.": "此預設包含代理和／或自訂端點設定。",
