@@ -8856,7 +8856,7 @@ export async function processDroppedFiles(files, data = new Map()) {
         const extension = file.name.split('.').pop().toLowerCase();
         if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
             const preservedName = data instanceof Map && data.get(file);
-            const avatarFileName = await importCharacter(file, preservedName);
+            const avatarFileName = await importCharacter(file, {preserveFileName: preservedName});
             if (avatarFileName !== undefined){
                 avatarFileNames.push(avatarFileName);
             }
@@ -8865,14 +8865,14 @@ export async function processDroppedFiles(files, data = new Map()) {
         }
     }
 
-    await ImportMultipleCharactersTags(avatarFileNames);
+    await ImportCharactersTags(avatarFileNames);
 }
 
 /**
  * Imports tags for the given characters
  * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
  */
-async function ImportMultipleCharactersTags(avatarFileNames) {
+async function ImportCharactersTags(avatarFileNames) {
     await getCharacters();
     const currentContext = getContext();
     for (let i = 0; i < avatarFileNames.length; i++) {
@@ -8886,10 +8886,12 @@ async function ImportMultipleCharactersTags(avatarFileNames) {
 /**
  * Imports a character from a file.
  * @param {File} file File to import
- * @param {string?} preserveFileName Whether to preserve original file name
+ * @param {object} [options] - Options
+ * @param {string} [options.preserveFileName] Whether to preserve original file name
+ * @param {Boolean} [options.importTags=false] Whether to import tags
  * @returns {Promise<string>}
  */
-async function importCharacter(file, preserveFileName = '') {
+async function importCharacter(file, {preserveFileName = '', importTags = false} = {}) {
     if (is_group_generating || is_send_press) {
         toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
         throw new Error('Cannot import character while generating');
@@ -8932,6 +8934,9 @@ async function importCharacter(file, preserveFileName = '') {
 
         select_rm_info('char_import', data.file_name, oldSelectedChar);
         let avatarFileName = `${data.file_name}.png`;
+        if (importTags) {
+            ImportCharactersTags([avatarFileName])
+        }
         return avatarFileName;
     }
 }
@@ -10818,8 +10823,7 @@ jQuery(async function () {
                 avatarFileNames.push(avatarFileName);
             }
         }
-    
-        await ImportMultipleCharactersTags(avatarFileNames);
+        await ImportCharactersTags(avatarFileNames);
     });
 
     $('#export_button').on('click', function () {
