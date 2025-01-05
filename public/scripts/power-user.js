@@ -2094,12 +2094,10 @@ export function sortEntitiesList(entities, forceSearch, filterHelper = null) {
     }
 
     entities.sort((a, b) => {
-        // Sort tags/folders will always be at the top
-        if (a.type === 'tag' && b.type !== 'tag') {
-            return -1;
-        }
-        if (a.type !== 'tag' && b.type === 'tag') {
-            return 1;
+        // Sort tags/folders will always be at the top. Their original sorting will be kept, to respect manual tag sorting.
+        if (a.type === 'tag' || b.type === 'tag') {
+            // The one that is a tag will be at the top
+            return (a.type === 'tag' ? -1 : 1) - (b.type === 'tag' ? -1 : 1);
         }
 
         // If we have search sorting, we take scores and use those
