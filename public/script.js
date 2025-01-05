@@ -8851,13 +8851,34 @@ export async function processDroppedFiles(files, data = new Map()) {
         'charx',
     ];
 
+    const avatarFileNames = [];
     for (const file of files) {
         const extension = file.name.split('.').pop().toLowerCase();
         if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
             const preservedName = data instanceof Map && data.get(file);
-            await importCharacter(file, preservedName);
+            const avatarFileName = await importCharacter(file, preservedName);
+            if (avatarFileName !== undefined){
+                avatarFileNames.push(avatarFileName);
+            }
         } else {
             toastr.warning(t`Unsupported file type: ` + file.name);
+        }
+    }
+
+    await ImportMultipleCharactersTags(avatarFileNames);
+}
+
+/**
+ * Imports tags for the given characters
+ * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
+ */
+async function ImportMultipleCharactersTags(avatarFileNames) {
+    await getCharacters();
+    const currentContext = getContext();
+    for (let i = 0; i < avatarFileNames.length; i++) {
+        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
+            const importedCharacter = currentContext.characters.find(character => character.avatar === avatarFileNames[i]);
+            await importTags(importedCharacter);
         }
     }
 }
@@ -8866,7 +8887,7 @@ export async function processDroppedFiles(files, data = new Map()) {
  * Imports a character from a file.
  * @param {File} file File to import
  * @param {string?} preserveFileName Whether to preserve original file name
- * @returns {Promise<void>}
+ * @returns {Promise<string>}
  */
 async function importCharacter(file, preserveFileName = '') {
     if (is_group_generating || is_send_press) {
@@ -8909,14 +8930,9 @@ async function importCharacter(file, preserveFileName = '') {
             oldSelectedChar = characters[this_chid].avatar;
         }
 
-        await getCharacters();
         select_rm_info('char_import', data.file_name, oldSelectedChar);
-        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
-            let currentContext = getContext();
-            let avatarFileName = `${data.file_name}.png`;
-            let importedCharacter = currentContext.characters.find(character => character.avatar === avatarFileName);
-            await importTags(importedCharacter);
-        }
+        let avatarFileName = `${data.file_name}.png`;
+        return avatarFileName;
     }
 }
 
@@ -10795,9 +10811,15 @@ jQuery(async function () {
             return;
         }
 
+        const avatarFileNames = [];
         for (const file of e.target.files) {
-            await importCharacter(file);
+            const avatarFileName = await importCharacter(file);
+            if (avatarFileName !== undefined){
+                avatarFileNames.push(avatarFileName);
+            }
         }
+    
+        await ImportMultipleCharactersTags(avatarFileNames);
     });
 
     $('#export_button').on('click', function () {
