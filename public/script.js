@@ -7299,7 +7299,7 @@ export function select_rm_info(type, charId, previousCharId = null) {
     // Set a timeout so multiple flashes don't overlap
     clearTimeout(importFlashTimeout);
     importFlashTimeout = setTimeout(function () {
-        if (type === 'char_import' || type === 'char_create') {
+        if (type === 'char_import' || type === 'char_create' || type === 'char_import_no_toast') {
             // Find the page at which the character is located
             const avatarFileName = charId;
             const charData = getEntitiesList({ doFilter: true });
@@ -8865,7 +8865,10 @@ export async function processDroppedFiles(files, data = new Map()) {
         }
     }
 
-    await importCharactersTags(avatarFileNames);
+    if (avatarFileNames.length > 0){
+        await importCharactersTags(avatarFileNames);
+        selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+    }
 }
 
 /**
@@ -8880,6 +8883,18 @@ async function importCharactersTags(avatarFileNames) {
             await importTags(importedCharacter);
         }
     }
+}
+
+/**
+ * Selects the given imported char
+ * @param {string} charId char to select
+ */
+function selectImportedChar(charId) {
+    let oldSelectedChar = null;
+    if (this_chid !== undefined) {
+        oldSelectedChar = characters[this_chid].avatar;
+    }
+    select_rm_info('char_import_no_toast', charId, oldSelectedChar);
 }
 
 /**
@@ -8926,15 +8941,12 @@ async function importCharacter(file, {preserveFileName = '', importTags = false}
     if (data.file_name !== undefined) {
         $('#character_search_bar').val('').trigger('input');
 
-        let oldSelectedChar = null;
-        if (this_chid !== undefined) {
-            oldSelectedChar = characters[this_chid].avatar;
-        }
-
-        select_rm_info('char_import', data.file_name, oldSelectedChar);
+        toastr.success(t`Character Created: ${String(data.file_name).replace('.png', '')}`);
         let avatarFileName = `${data.file_name}.png`;
         if (importTags) {
-            await importCharactersTags([avatarFileName])
+            await importCharactersTags([avatarFileName]);
+
+            selectImportedChar(data.file_name);
         }
         return avatarFileName;
     }
@@ -10822,7 +10834,11 @@ jQuery(async function () {
                 avatarFileNames.push(avatarFileName);
             }
         }
-        await importCharactersTags(avatarFileNames);
+
+        if (avatarFileNames.length > 0){
+            await importCharactersTags(avatarFileNames);
+            selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+        }
     });
 
     $('#export_button').on('click', function () {
