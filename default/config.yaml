@@ -84,6 +84,20 @@ autorun: true
 # use if you don't have 'localhost' in your hosts file
 avoidLocalhost: false
 
+## BACKUP CONFIGURATION
+backups:
+  # Common settings for all backup types
+  common:
+    # Number of backups to keep for each chat and settings file
+    numberOfBackups: 50
+  chat:
+    # Enable automatic chat backups
+    enabled: true
+    # Maximum number of chat backups to keep per user (starting from the most recent). Set to -1 to keep all backups.
+    maxTotalBackups: -1
+    # Interval in milliseconds to throttle chat backups per user
+    throttleInterval: 10000
+
 # THUMBNAILING CONFIGURATION
 thumbnails:
   # Enable thumbnail generation
@@ -102,14 +116,6 @@ thumbnails:
 allowKeysExposure: false
 # Skip new default content checks
 skipContentCheck: false
-# Disable automatic chats backup
-disableChatBackup: false
-# Number of backups to keep for each chat and settings file
-numberOfBackups: 50
-# Maximum number of chat backups to keep per user (starting from the most recent). Set to -1 to keep all backups.
-maxTotalChatBackups: -1
-# Interval in milliseconds to throttle chat backups per user
-chatBackupThrottleInterval: 10000
 # Allowed hosts for card downloads
 whitelistImportDomains:
   - localhost

@@ -44,6 +44,26 @@ const keyMigrationMap = [
         newKey: 'thumbnails.format',
         migrate: (value) => (value ? 'png' : 'jpg'),
     },
+    {
+        oldKey: 'disableChatBackup',
+        newKey: 'backups.chat.enabled',
+        migrate: (value) => !value,
+    },
+    {
+        oldKey: 'numberOfBackups',
+        newKey: 'backups.common.numberOfBackups',
+        migrate: (value) => value,
+    },
+    {
+        oldKey: 'maxTotalChatBackups',
+        newKey: 'backups.chat.maxTotalBackups',
+        migrate: (value) => value,
+    },
+    {
+        oldKey: 'chatBackupThrottleInterval',
+        newKey: 'backups.chat.throttleInterval',
+        migrate: (value) => value,
+    },
 ];
 
 /**
