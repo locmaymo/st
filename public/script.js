@@ -8865,19 +8865,18 @@ export async function processDroppedFiles(files, data = new Map()) {
         }
     }
 
-    await ImportCharactersTags(avatarFileNames);
+    await importCharactersTags(avatarFileNames);
 }
 
 /**
  * Imports tags for the given characters
  * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
  */
-async function ImportCharactersTags(avatarFileNames) {
+async function importCharactersTags(avatarFileNames) {
     await getCharacters();
-    const currentContext = getContext();
     for (let i = 0; i < avatarFileNames.length; i++) {
         if (power_user.tag_import_setting !== tag_import_setting.NONE) {
-            const importedCharacter = currentContext.characters.find(character => character.avatar === avatarFileNames[i]);
+            const importedCharacter = characters.find(character => character.avatar === avatarFileNames[i]);
             await importTags(importedCharacter);
         }
     }
@@ -8935,7 +8934,7 @@ async function importCharacter(file, {preserveFileName = '', importTags = false}
         select_rm_info('char_import', data.file_name, oldSelectedChar);
         let avatarFileName = `${data.file_name}.png`;
         if (importTags) {
-            ImportCharactersTags([avatarFileName])
+            await importCharactersTags([avatarFileName])
         }
         return avatarFileName;
     }
@@ -10823,7 +10822,7 @@ jQuery(async function () {
                 avatarFileNames.push(avatarFileName);
             }
         }
-        await ImportCharactersTags(avatarFileNames);
+        await importCharactersTags(avatarFileNames);
     });
 
     $('#export_button').on('click', function () {
