@@ -315,7 +315,7 @@ async function sendMakerSuiteRequest(request, response) {
         };
 
         if (should_use_system_prompt) {
-            body.system_instruction = prompt.system_instruction;
+            body.systemInstruction = prompt.system_instruction;
         }
 
         return body;
