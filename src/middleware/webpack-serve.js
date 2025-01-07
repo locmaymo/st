@@ -5,7 +5,8 @@ import { publicLibConfig } from '../../webpack.config.js';
 export default function getWebpackServeMiddleware() {
     const outputPath = publicLibConfig.output?.path;
     const outputFile = publicLibConfig.output?.filename;
-    const compiler = webpack(publicLibConfig);
+    /** @type {import('webpack').Compiler|null} */
+    let compiler = webpack(publicLibConfig);
 
     /**
      * A very spartan recreation of webpack-dev-middleware.
@@ -28,6 +29,11 @@ export default function getWebpackServeMiddleware() {
      */
     devMiddleware.runWebpackCompiler = () => {
         return new Promise((resolve) => {
+            if (compiler === null) {
+                console.warn('Webpack compiler is already closed.');
+                return resolve();
+            }
+
             console.log();
             console.log('Compiling frontend libraries...');
             compiler.run((_error, stats) => {
@@ -36,7 +42,11 @@ export default function getWebpackServeMiddleware() {
                     console.log(output);
                     console.log();
                 }
+                if (compiler === null) {
+                    return resolve();
+                }
                 compiler.close(() => {
+                    compiler = null;
                     resolve();
                 });
             });
