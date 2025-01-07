@@ -1623,9 +1623,11 @@ function saveModelList(data) {
                 }));
         });
 
+        /*
         if (!oai_settings.custom_model && model_list.length > 0) {
             $('#model_custom_select').val(model_list[0].id).trigger('change');
         }
+        */
     }
 
     if (oai_settings.chat_completion_source == chat_completion_sources.ZEROONEAI) {
