@@ -251,7 +251,7 @@ export async function countWebLlmTokens(text) {
         return response;
     } catch (error) {
         // Fallback to using current model's tokenizer
-        return getTokenCountAsync(text);
+        return await getTokenCountAsync(text);
     }
 }
 
