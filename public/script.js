@@ -2714,7 +2714,7 @@ export function getStoppingStrings(isImpersonate, isContinue) {
  * @param {string} quietImage Image to use for the quiet prompt
  * @param {string} quietName Name to use for the quiet prompt (defaults to "System:")
  * @param {number} [responseLength] Maximum response length. If unset, the global default value is used.
- * @param {number} force_chid Character ID to use for this generation run
+ * @param {number} force_chid Character ID to use for this generation run. Works in groups only.
  * @returns
  */
 export async function generateQuietPrompt(quiet_prompt, quietToLoud, skipWIAN, quietImage = null, quietName = null, responseLength = null, force_chid = null) {
