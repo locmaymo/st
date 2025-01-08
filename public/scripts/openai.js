@@ -3971,6 +3971,8 @@ function onSettingsPresetChange() {
         settings: oai_settings,
         savePreset: saveOpenAIPreset,
     }).finally(r => {
+        $('.model_custom_select').empty();
+
         for (const [key, [selector, setting, isCheckbox]] of Object.entries(settingsToUpdate)) {
             if (preset[key] !== undefined) {
                 if (isCheckbox) {
