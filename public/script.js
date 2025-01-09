@@ -8856,8 +8856,8 @@ export async function processDroppedFiles(files, data = new Map()) {
         const extension = file.name.split('.').pop().toLowerCase();
         if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
             const preservedName = data instanceof Map && data.get(file);
-            const avatarFileName = await importCharacter(file, {preserveFileName: preservedName});
-            if (avatarFileName !== undefined){
+            const avatarFileName = await importCharacter(file, { preserveFileName: preservedName });
+            if (avatarFileName !== undefined) {
                 avatarFileNames.push(avatarFileName);
             }
         } else {
@@ -8865,7 +8865,7 @@ export async function processDroppedFiles(files, data = new Map()) {
         }
     }
 
-    if (avatarFileNames.length > 0){
+    if (avatarFileNames.length > 0) {
         await importCharactersTags(avatarFileNames);
         selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
     }
@@ -8905,7 +8905,7 @@ function selectImportedChar(charId) {
  * @param {Boolean} [options.importTags=false] Whether to import tags
  * @returns {Promise<string>}
  */
-async function importCharacter(file, {preserveFileName = '', importTags = false} = {}) {
+async function importCharacter(file, { preserveFileName = '', importTags = false } = {}) {
     if (is_group_generating || is_send_press) {
         toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
         throw new Error('Cannot import character while generating');
@@ -10830,12 +10830,12 @@ jQuery(async function () {
         const avatarFileNames = [];
         for (const file of e.target.files) {
             const avatarFileName = await importCharacter(file);
-            if (avatarFileName !== undefined){
+            if (avatarFileName !== undefined) {
                 avatarFileNames.push(avatarFileName);
             }
         }
 
-        if (avatarFileNames.length > 0){
+        if (avatarFileNames.length > 0) {
             await importCharactersTags(avatarFileNames);
             selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
         }
