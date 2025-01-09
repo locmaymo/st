@@ -7305,7 +7305,7 @@ export function select_rm_info(type, charId, previousCharId = null) {
     // Set a timeout so multiple flashes don't overlap
     clearTimeout(importFlashTimeout);
     importFlashTimeout = setTimeout(function () {
-        if (type === 'char_import' || type === 'char_create') {
+        if (type === 'char_import' || type === 'char_create' || type === 'char_import_no_toast') {
             // Find the page at which the character is located
             const avatarFileName = charId;
             const charData = getEntitiesList({ doFilter: true });
@@ -8857,24 +8857,61 @@ export async function processDroppedFiles(files, data = new Map()) {
         'charx',
     ];
 
+    const avatarFileNames = [];
     for (const file of files) {
         const extension = file.name.split('.').pop().toLowerCase();
         if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
             const preservedName = data instanceof Map && data.get(file);
-            await importCharacter(file, preservedName);
+            const avatarFileName = await importCharacter(file, { preserveFileName: preservedName });
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
         } else {
             toastr.warning(t`Unsupported file type: ` + file.name);
+        }
+    }
+
+    if (avatarFileNames.length > 0) {
+        await importCharactersTags(avatarFileNames);
+        selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+    }
+}
+
+/**
+ * Imports tags for the given characters
+ * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
+ */
+async function importCharactersTags(avatarFileNames) {
+    await getCharacters();
+    for (let i = 0; i < avatarFileNames.length; i++) {
+        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
+            const importedCharacter = characters.find(character => character.avatar === avatarFileNames[i]);
+            await importTags(importedCharacter);
         }
     }
 }
 
 /**
+ * Selects the given imported char
+ * @param {string} charId char to select
+ */
+function selectImportedChar(charId) {
+    let oldSelectedChar = null;
+    if (this_chid !== undefined) {
+        oldSelectedChar = characters[this_chid].avatar;
+    }
+    select_rm_info('char_import_no_toast', charId, oldSelectedChar);
+}
+
+/**
  * Imports a character from a file.
  * @param {File} file File to import
- * @param {string?} preserveFileName Whether to preserve original file name
- * @returns {Promise<void>}
+ * @param {object} [options] - Options
+ * @param {string} [options.preserveFileName] Whether to preserve original file name
+ * @param {Boolean} [options.importTags=false] Whether to import tags
+ * @returns {Promise<string>}
  */
-async function importCharacter(file, preserveFileName = '') {
+async function importCharacter(file, { preserveFileName = '', importTags = false } = {}) {
     if (is_group_generating || is_send_press) {
         toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
         throw new Error('Cannot import character while generating');
@@ -8910,19 +8947,14 @@ async function importCharacter(file, preserveFileName = '') {
     if (data.file_name !== undefined) {
         $('#character_search_bar').val('').trigger('input');
 
-        let oldSelectedChar = null;
-        if (this_chid !== undefined) {
-            oldSelectedChar = characters[this_chid].avatar;
-        }
+        toastr.success(t`Character Created: ${String(data.file_name).replace('.png', '')}`);
+        let avatarFileName = `${data.file_name}.png`;
+        if (importTags) {
+            await importCharactersTags([avatarFileName]);
 
-        await getCharacters();
-        select_rm_info('char_import', data.file_name, oldSelectedChar);
-        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
-            let currentContext = getContext();
-            let avatarFileName = `${data.file_name}.png`;
-            let importedCharacter = currentContext.characters.find(character => character.avatar === avatarFileName);
-            await importTags(importedCharacter);
+            selectImportedChar(data.file_name);
         }
+        return avatarFileName;
     }
 }
 
@@ -10801,8 +10833,17 @@ jQuery(async function () {
             return;
         }
 
+        const avatarFileNames = [];
         for (const file of e.target.files) {
-            await importCharacter(file);
+            const avatarFileName = await importCharacter(file);
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
+        }
+
+        if (avatarFileNames.length > 0) {
+            await importCharactersTags(avatarFileNames);
+            selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
         }
     });
 
