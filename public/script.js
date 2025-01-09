@@ -167,6 +167,7 @@ import {
     flashHighlight,
     isTrueBoolean,
     toggleDrawer,
+    isElementInViewport,
 } from './scripts/utils.js';
 import { debounce_timeout } from './scripts/constants.js';
 
@@ -1827,10 +1828,10 @@ export async function replaceCurrentChat() {
     }
 }
 
-export function showMoreMessages() {
+export function showMoreMessages(messagesToLoad = null) {
     const firstDisplayedMesId = $('#chat').children('.mes').first().attr('mesid');
     let messageId = Number(firstDisplayedMesId);
-    let count = power_user.chat_truncation || Number.MAX_SAFE_INTEGER;
+    let count = messagesToLoad || power_user.chat_truncation || Number.MAX_SAFE_INTEGER;
 
     // If there are no messages displayed, or the message somehow has no mesid, we default to one higher than last message id,
     // so the first "new" message being shown will be the last available message
@@ -1840,6 +1841,7 @@ export function showMoreMessages() {
 
     console.debug('Inserting messages before', messageId, 'count', count, 'chat length', chat.length);
     const prevHeight = $('#chat').prop('scrollHeight');
+    const isButtonInView = isElementInViewport($('#show_more_messages')[0]);
 
     while (messageId > 0 && count > 0) {
         let newMessageId = messageId - 1;
@@ -1852,8 +1854,10 @@ export function showMoreMessages() {
         $('#show_more_messages').remove();
     }
 
-    const newHeight = $('#chat').prop('scrollHeight');
-    $('#chat').scrollTop(newHeight - prevHeight);
+    if (isButtonInView) {
+        const newHeight = $('#chat').prop('scrollHeight');
+        $('#chat').scrollTop(newHeight - prevHeight);
+    }
 }
 
 export async function printMessages() {

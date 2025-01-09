@@ -39,6 +39,7 @@ import {
     setCharacterName,
     setExtensionPrompt,
     setUserName,
+    showMoreMessages,
     stopGeneration,
     substituteParams,
     system_avatar,
@@ -1963,6 +1964,27 @@ export function initDefaultSlashCommands() {
         callback: () => String(isMobile()),
         returns: ARGUMENT_TYPE.BOOLEAN,
         helpString: 'Returns true if the current device is a mobile device, false otherwise. Equivalent to <code>{{isMobile}}</code> macro.',
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'chat-render',
+        helpString: 'Renders a specified number of messages into the chat window. Displays all messages if no argument is provided.',
+        callback: (_, number) => {
+            showMoreMessages(number && !isNaN(Number(number)) ? Number(number) : Number.MAX_SAFE_INTEGER);
+            return '';
+        },
+        unnamedArgumentList: [
+            new SlashCommandArgument(
+                'number of messages', [ARGUMENT_TYPE.NUMBER], false,
+            ),
+        ],
+    }));
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'chat-reload',
+        helpString: 'Reloads the current chat.',
+        callback: async () => {
+            await reloadCurrentChat();
+            return '';
+        },
     }));
 
     registerVariableCommands();
