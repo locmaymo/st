@@ -4,7 +4,7 @@ import { eventSource, event_types, saveSettings, saveSettingsDebounced, getReque
 import { showLoader } from './loader.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { renderTemplate, renderTemplateAsync } from './templates.js';
-import { delay, isSubsetOf, setValueByPath } from './utils.js';
+import { delay, isSubsetOf, sanitizeSelector, setValueByPath } from './utils.js';
 import { getContext } from './st-context.js';
 import { isAdmin } from './user.js';
 import { t } from './i18n.js';
@@ -509,10 +509,11 @@ function addExtensionStyle(name, manifest) {
 
     return new Promise((resolve, reject) => {
         const url = `/scripts/extensions/${name}/${manifest.css}`;
+        const id = sanitizeSelector(`${name}-css`);
 
-        if ($(`link[id="${name}"]`).length === 0) {
+        if ($(`link[id="${id}"]`).length === 0) {
             const link = document.createElement('link');
-            link.id = name;
+            link.id = id;
             link.rel = 'stylesheet';
             link.type = 'text/css';
             link.href = url;
@@ -540,11 +541,12 @@ function addExtensionScript(name, manifest) {
 
     return new Promise((resolve, reject) => {
         const url = `/scripts/extensions/${name}/${manifest.js}`;
+        const id = sanitizeSelector(`${name}-js`);
         let ready = false;
 
-        if ($(`script[id="${name}"]`).length === 0) {
+        if ($(`script[id="${id}"]`).length === 0) {
             const script = document.createElement('script');
-            script.id = name;
+            script.id = id;
             script.type = 'module';
             script.src = url;
             script.async = true;
