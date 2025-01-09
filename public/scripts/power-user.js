@@ -3970,7 +3970,7 @@ $(document).ready(() => {
             const targetSelector = {
                 chat: '#chat',
                 background: '#bg1',
-                gallery: '#draggable_gallery',
+                gallery: '#gallery',
                 zoomedAvatar: 'div.zoomed_avatar',
             }[args.to || 'chat'];
 
