@@ -202,13 +202,7 @@ export function getLastMessageId({ exclude_swipe_in_propress = true, filter = nu
  * @returns {number|null} The ID of the first message in the context
  */
 function getFirstIncludedMessageId() {
-    const index = Number(document.querySelector('.lastInContext')?.getAttribute('mesid'));
-
-    if (!isNaN(index) && index >= 0) {
-        return index;
-    }
-
-    return null;
+    return chat_metadata['lastInContextMessageId'];
 }
 
 /**
