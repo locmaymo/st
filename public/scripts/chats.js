@@ -585,7 +585,7 @@ async function enlargeMessageImage() {
     const imgHolder = document.createElement('div');
     imgHolder.classList.add('img_enlarged_holder');
     imgHolder.append(img);
-    const imgContainer = $('<div><pre><code class="img_enlarged_title"></code></code></pre></div>');
+    const imgContainer = $('<div><pre><code class="img_enlarged_title"></code></pre></div>');
     imgContainer.prepend(imgHolder);
     imgContainer.addClass('img_enlarged_container');
 
