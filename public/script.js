@@ -5444,9 +5444,9 @@ function setInContextMessages(msgInContextCount, type) {
         $(`#chat .mes[mesid="${firstMessageId}"`).addClass('lastInContext');
     }
 
+    // Update last id to chat. No metadata save on purpose, gets hopefully saved via another call
     const lastMessageId = Math.max(0, chat.length - msgInContextCount);
     chat_metadata['lastInContextMessageId'] = lastMessageId;
-    saveMetadataDebounced();
 }
 
 /**
