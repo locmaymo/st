@@ -1613,25 +1613,39 @@ jQuery(async () => {
         callback: async (args, query) => {
             const clamp = (v) => Number.isNaN(v) ? null : Math.min(1, Math.max(0, v));
             const threshold = clamp(Number(args?.threshold ?? settings.score_threshold));
+            const validateSize = (v) => Number.isNaN(v) || !Number.isInteger(v) || v < 1 ? null : v;
+            const resultSize = validateSize(Number(args?.resultSize)) ?? settings.chunk_count_db;
             const source = String(args?.source ?? '');
             const attachments = source ? getDataBankAttachmentsForSource(source, false) : getDataBankAttachments(false);
             const collectionIds = await ingestDataBankAttachments(String(source));
-            const queryResults = await queryMultipleCollections(collectionIds, String(query), settings.chunk_count_db, threshold);
+            const queryResults = await queryMultipleCollections(collectionIds, String(query), resultSize, threshold);
+            const returnChunks = String(args?.returnChunks).toLowerCase() === 'true'
+            
+            if (returnChunks) {
+                let textResult = '';
+                for (const collectionId in queryResults) {
+                    const metadata = queryResults[collectionId].metadata?.filter(x => x.text)?.sort((a, b) => a.index - b.index)?.map(x => x.text)?.filter(onlyUnique) || [];
+                    textResult += metadata.join('\n') + '\n\n';
+                }
+                return textResult;
+            } else {
+                // Map collection IDs to file URLs
+                const urls = Object
+                    .keys(queryResults)
+                    .map(x => attachments.find(y => getFileCollectionId(y.url) === x))
+                    .filter(x => x)
+                    .map(x => x.url);
 
-            // Map collection IDs to file URLs
-            const urls = Object
-                .keys(queryResults)
-                .map(x => attachments.find(y => getFileCollectionId(y.url) === x))
-                .filter(x => x)
-                .map(x => x.url);
-
-            return JSON.stringify(urls);
+                return JSON.stringify(urls);
+            }
         },
         aliases: ['databank-search', 'data-bank-search'],
         helpString: 'Search the Data Bank for a specific query using vector similarity. Returns a list of file URLs with the most relevant content.',
         namedArgumentList: [
             new SlashCommandNamedArgument('threshold', 'Threshold for the similarity score in the [0, 1] range. Uses the global config value if not set.', ARGUMENT_TYPE.NUMBER, false, false, ''),
+            new SlashCommandNamedArgument('resultSize', 'Maximum number of query results to return.', ARGUMENT_TYPE.NUMBER, false, false, ''),
             new SlashCommandNamedArgument('source', 'Optional filter for the attachments by source.', ARGUMENT_TYPE.STRING, false, false, '', ['global', 'character', 'chat']),
+            new SlashCommandNamedArgument('returnChunks', 'If true, returns the actual content chunks instead of URLs.', ARGUMENT_TYPE.STRING, false, false, '', ['true', 'false']),
         ],
         unnamedArgumentList: [
             new SlashCommandArgument('Query to search by.', ARGUMENT_TYPE.STRING, true, false),
