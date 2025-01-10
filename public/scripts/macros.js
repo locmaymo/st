@@ -202,10 +202,19 @@ export function getLastMessageId({ exclude_swipe_in_propress = true, filter = nu
  * @returns {number|null} The ID of the first message in the context
  */
 function getFirstIncludedMessageId() {
-    const index = Number(document.querySelector('.lastInContext')?.getAttribute('mesid'));
+    return chat_metadata['lastInContextMessageId'];
+}
 
-    if (!isNaN(index) && index >= 0) {
-        return index;
+/**
+ * Returns the ID of the first displayed message in the chat.
+ *
+ * @returns {number|null} The ID of the first displayed message
+ */
+function getFirstDisplayedMessageId() {
+    const mesId = Number(document.querySelector('#chat .mes')?.getAttribute('mesid'));
+
+    if (!isNaN(mesId) && mesId >= 0) {
+        return mesId;
     }
 
     return null;
@@ -467,6 +476,7 @@ export function evaluateMacros(content, env, postProcessFn) {
         { regex: /{{lastUserMessage}}/gi, replace: () => getLastUserMessage() },
         { regex: /{{lastCharMessage}}/gi, replace: () => getLastCharMessage() },
         { regex: /{{firstIncludedMessageId}}/gi, replace: () => String(getFirstIncludedMessageId() ?? '') },
+        { regex: /{{firstDisplayedMessageId}}/gi, replace: () => String(getFirstDisplayedMessageId() ?? '') },
         { regex: /{{lastSwipeId}}/gi, replace: () => String(getLastSwipeId() ?? '') },
         { regex: /{{currentSwipeId}}/gi, replace: () => String(getCurrentSwipeId() ?? '') },
         { regex: /{{reverse:(.+?)}}/gi, replace: (_, str) => Array.from(str).reverse().join('') },

@@ -167,6 +167,7 @@ import {
     flashHighlight,
     isTrueBoolean,
     toggleDrawer,
+    isElementInViewport,
 } from './scripts/utils.js';
 import { debounce_timeout } from './scripts/constants.js';
 
@@ -1827,10 +1828,10 @@ export async function replaceCurrentChat() {
     }
 }
 
-export function showMoreMessages() {
+export function showMoreMessages(messagesToLoad = null) {
     const firstDisplayedMesId = $('#chat').children('.mes').first().attr('mesid');
     let messageId = Number(firstDisplayedMesId);
-    let count = power_user.chat_truncation || Number.MAX_SAFE_INTEGER;
+    let count = messagesToLoad || power_user.chat_truncation || Number.MAX_SAFE_INTEGER;
 
     // If there are no messages displayed, or the message somehow has no mesid, we default to one higher than last message id,
     // so the first "new" message being shown will be the last available message
@@ -1840,6 +1841,7 @@ export function showMoreMessages() {
 
     console.debug('Inserting messages before', messageId, 'count', count, 'chat length', chat.length);
     const prevHeight = $('#chat').prop('scrollHeight');
+    const isButtonInView = isElementInViewport($('#show_more_messages')[0]);
 
     while (messageId > 0 && count > 0) {
         let newMessageId = messageId - 1;
@@ -1852,8 +1854,10 @@ export function showMoreMessages() {
         $('#show_more_messages').remove();
     }
 
-    const newHeight = $('#chat').prop('scrollHeight');
-    $('#chat').scrollTop(newHeight - prevHeight);
+    if (isButtonInView) {
+        const newHeight = $('#chat').prop('scrollHeight');
+        $('#chat').scrollTop(newHeight - prevHeight);
+    }
 }
 
 export async function printMessages() {
@@ -5425,20 +5429,24 @@ async function promptItemize(itemizedPrompts, requestedMesId) {
     await popup.show();
 }
 
-function setInContextMessages(lastmsg, type) {
+function setInContextMessages(msgInContextCount, type) {
     $('#chat .mes').removeClass('lastInContext');
 
     if (type === 'swipe' || type === 'regenerate' || type === 'continue') {
-        lastmsg++;
+        msgInContextCount++;
     }
 
-    const lastMessageBlock = $('#chat .mes:not([is_system="true"])').eq(-lastmsg);
+    const lastMessageBlock = $('#chat .mes:not([is_system="true"])').eq(-msgInContextCount);
     lastMessageBlock.addClass('lastInContext');
 
     if (lastMessageBlock.length === 0) {
         const firstMessageId = getFirstDisplayedMessageId();
         $(`#chat .mes[mesid="${firstMessageId}"`).addClass('lastInContext');
     }
+
+    // Update last id to chat. No metadata save on purpose, gets hopefully saved via another call
+    const lastMessageId = Math.max(0, chat.length - msgInContextCount);
+    chat_metadata['lastInContextMessageId'] = lastMessageId;
 }
 
 /**
@@ -7301,7 +7309,7 @@ export function select_rm_info(type, charId, previousCharId = null) {
     // Set a timeout so multiple flashes don't overlap
     clearTimeout(importFlashTimeout);
     importFlashTimeout = setTimeout(function () {
-        if (type === 'char_import' || type === 'char_create') {
+        if (type === 'char_import' || type === 'char_create' || type === 'char_import_no_toast') {
             // Find the page at which the character is located
             const avatarFileName = charId;
             const charData = getEntitiesList({ doFilter: true });
@@ -8853,24 +8861,61 @@ export async function processDroppedFiles(files, data = new Map()) {
         'charx',
     ];
 
+    const avatarFileNames = [];
     for (const file of files) {
         const extension = file.name.split('.').pop().toLowerCase();
         if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
             const preservedName = data instanceof Map && data.get(file);
-            await importCharacter(file, preservedName);
+            const avatarFileName = await importCharacter(file, { preserveFileName: preservedName });
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
         } else {
             toastr.warning(t`Unsupported file type: ` + file.name);
+        }
+    }
+
+    if (avatarFileNames.length > 0) {
+        await importCharactersTags(avatarFileNames);
+        selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+    }
+}
+
+/**
+ * Imports tags for the given characters
+ * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
+ */
+async function importCharactersTags(avatarFileNames) {
+    await getCharacters();
+    for (let i = 0; i < avatarFileNames.length; i++) {
+        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
+            const importedCharacter = characters.find(character => character.avatar === avatarFileNames[i]);
+            await importTags(importedCharacter);
         }
     }
 }
 
 /**
+ * Selects the given imported char
+ * @param {string} charId char to select
+ */
+function selectImportedChar(charId) {
+    let oldSelectedChar = null;
+    if (this_chid !== undefined) {
+        oldSelectedChar = characters[this_chid].avatar;
+    }
+    select_rm_info('char_import_no_toast', charId, oldSelectedChar);
+}
+
+/**
  * Imports a character from a file.
  * @param {File} file File to import
- * @param {string?} preserveFileName Whether to preserve original file name
- * @returns {Promise<void>}
+ * @param {object} [options] - Options
+ * @param {string} [options.preserveFileName] Whether to preserve original file name
+ * @param {Boolean} [options.importTags=false] Whether to import tags
+ * @returns {Promise<string>}
  */
-async function importCharacter(file, preserveFileName = '') {
+async function importCharacter(file, { preserveFileName = '', importTags = false } = {}) {
     if (is_group_generating || is_send_press) {
         toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
         throw new Error('Cannot import character while generating');
@@ -8906,19 +8951,14 @@ async function importCharacter(file, preserveFileName = '') {
     if (data.file_name !== undefined) {
         $('#character_search_bar').val('').trigger('input');
 
-        let oldSelectedChar = null;
-        if (this_chid !== undefined) {
-            oldSelectedChar = characters[this_chid].avatar;
-        }
+        toastr.success(t`Character Created: ${String(data.file_name).replace('.png', '')}`);
+        let avatarFileName = `${data.file_name}.png`;
+        if (importTags) {
+            await importCharactersTags([avatarFileName]);
 
-        await getCharacters();
-        select_rm_info('char_import', data.file_name, oldSelectedChar);
-        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
-            let currentContext = getContext();
-            let avatarFileName = `${data.file_name}.png`;
-            let importedCharacter = currentContext.characters.find(character => character.avatar === avatarFileName);
-            await importTags(importedCharacter);
+            selectImportedChar(data.file_name);
         }
+        return avatarFileName;
     }
 }
 
@@ -10797,8 +10837,17 @@ jQuery(async function () {
             return;
         }
 
+        const avatarFileNames = [];
         for (const file of e.target.files) {
-            await importCharacter(file);
+            const avatarFileName = await importCharacter(file);
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
+        }
+
+        if (avatarFileNames.length > 0) {
+            await importCharactersTags(avatarFileNames);
+            selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
         }
     });
 
