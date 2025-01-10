@@ -5429,20 +5429,24 @@ async function promptItemize(itemizedPrompts, requestedMesId) {
     await popup.show();
 }
 
-function setInContextMessages(lastmsg, type) {
+function setInContextMessages(msgInContextCount, type) {
     $('#chat .mes').removeClass('lastInContext');
 
     if (type === 'swipe' || type === 'regenerate' || type === 'continue') {
-        lastmsg++;
+        msgInContextCount++;
     }
 
-    const lastMessageBlock = $('#chat .mes:not([is_system="true"])').eq(-lastmsg);
+    const lastMessageBlock = $('#chat .mes:not([is_system="true"])').eq(-msgInContextCount);
     lastMessageBlock.addClass('lastInContext');
 
     if (lastMessageBlock.length === 0) {
         const firstMessageId = getFirstDisplayedMessageId();
         $(`#chat .mes[mesid="${firstMessageId}"`).addClass('lastInContext');
     }
+
+    // Update last id to chat. No metadata save on purpose, gets hopefully saved via another call
+    const lastMessageId = Math.max(0, chat.length - msgInContextCount);
+    chat_metadata['lastInContextMessageId'] = lastMessageId;
 }
 
 /**
