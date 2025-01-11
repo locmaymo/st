@@ -1,4 +1,4 @@
-import { callPopup } from '../../../../../script.js';
+import { Popup } from '../../../../popup.js';
 import { getSortableDelay } from '../../../../utils.js';
 import { log, warn } from '../../index.js';
 import { QuickReply } from '../QuickReply.js';
@@ -280,7 +280,7 @@ export class SettingsUi {
     }
 
     async deleteQrSet() {
-        const confirmed = await callPopup(`Are you sure you want to delete the Quick Reply Set "${this.currentQrSet.name}"?<br>This cannot be undone.`, 'confirm');
+        const confirmed = await Popup.show.confirm('Delete Quick Reply Set', `Are you sure you want to delete the Quick Reply Set "${this.currentQrSet.name}"?<br>This cannot be undone.`);
         if (confirmed) {
             await this.doDeleteQrSet(this.currentQrSet);
             this.rerender();
@@ -305,7 +305,7 @@ export class SettingsUi {
     }
 
     async renameQrSet() {
-        const newName = await callPopup('Enter new name for the Quick Reply Set:', 'input');
+        const newName = await Popup.show.input('Rename Quick Reply Set', 'Enter a new name:', this.currentQrSet.name);
         if (newName && newName.length > 0) {
             const existingSet = QuickReplySet.get(newName);
             if (existingSet) {
@@ -343,11 +343,11 @@ export class SettingsUi {
     }
 
     async addQrSet() {
-        const name = await callPopup('Quick Reply Set Name:', 'input');
+        const name = await Popup.show.input('Create a new World Info', 'Enter a name for the new Quick Reply Set:');
         if (name && name.length > 0) {
             const oldQrs = QuickReplySet.get(name);
             if (oldQrs) {
-                const replace = await callPopup(`A Quick Reply Set named "${name}" already exists.<br>Do you want to overwrite the existing Quick Reply Set?<br>The existing set will be deleted. This cannot be undone.`, 'confirm');
+                const replace = Popup.show.confirm('Replace existing World Info', `A Quick Reply Set named "${name}" already exists.<br>Do you want to overwrite the existing Quick Reply Set?<br>The existing set will be deleted. This cannot be undone.`);
                 if (replace) {
                     const idx = QuickReplySet.list.indexOf(oldQrs);
                     await this.doDeleteQrSet(oldQrs);
@@ -408,7 +408,7 @@ export class SettingsUi {
                 qrs.init();
                 const oldQrs = QuickReplySet.get(props.name);
                 if (oldQrs) {
-                    const replace = await callPopup(`A Quick Reply Set named "${qrs.name}" already exists.<br>Do you want to overwrite the existing Quick Reply Set?<br>The existing set will be deleted. This cannot be undone.`, 'confirm');
+                    const replace = Popup.show.confirm('Replace existing World Info', `A Quick Reply Set named "${name}" already exists.<br>Do you want to overwrite the existing Quick Reply Set?<br>The existing set will be deleted. This cannot be undone.`);
                     if (replace) {
                         const idx = QuickReplySet.list.indexOf(oldQrs);
                         await this.doDeleteQrSet(oldQrs);
