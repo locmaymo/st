@@ -120,7 +120,8 @@ export class SettingsUi {
             importFile.value = null;
         });
         this.dom.querySelector('#qr--set-import').addEventListener('click', ()=>importFile.click());
-        this.dom.querySelector('#qr--set-export').addEventListener('click', async()=>this.exportQrSet());
+        this.dom.querySelector('#qr--set-export').addEventListener('click', async () => this.exportQrSet());
+        this.dom.querySelector('#qr--set-duplicate').addEventListener('click', async () => this.duplicateQrSet());
         this.dom.querySelector('#qr--set-delete').addEventListener('click', async()=>this.deleteQrSet());
         this.dom.querySelector('#qr--set-add').addEventListener('click', async()=>{
             this.currentQrSet.addQuickReply();
@@ -458,6 +459,40 @@ export class SettingsUi {
             a.click();
         }
         URL.revokeObjectURL(url);
+    }
+
+    async duplicateQrSet() {
+        const newName = await Popup.show.input('Duplicate Quick Reply Set', 'Enter a name for the new Quick Reply Set:', `${this.currentQrSet.name} (Copy)`);
+        if (newName && newName.length > 0) {
+            const existingSet = QuickReplySet.get(newName);
+            if (existingSet) {
+                toastr.error(`A Quick Reply Set named "${newName}" already exists.`);
+                return;
+            }
+            const newQrSet = QuickReplySet.from(JSON.parse(JSON.stringify(this.currentQrSet)));
+            newQrSet.name = newName;
+            newQrSet.qrList = this.currentQrSet.qrList.map(qr => QuickReply.from(JSON.parse(JSON.stringify(qr))));
+            newQrSet.addQuickReply();
+            const idx = QuickReplySet.list.findIndex(it => it.name.toLowerCase().localeCompare(newName.toLowerCase()) == 1);
+            if (idx > -1) {
+                QuickReplySet.list.splice(idx, 0, newQrSet);
+            } else {
+                QuickReplySet.list.push(newQrSet);
+            }
+            const opt = document.createElement('option'); {
+                opt.value = newQrSet.name;
+                opt.textContent = newQrSet.name;
+                if (idx > -1) {
+                    this.currentSet.children[idx].insertAdjacentElement('beforebegin', opt);
+                } else {
+                    this.currentSet.append(opt);
+                }
+            }
+            this.currentSet.value = newName;
+            this.onQrSetChange();
+            this.prepareGlobalSetList();
+            this.prepareChatSetList();
+        }
     }
 
     selectQrSet(qrs) {
