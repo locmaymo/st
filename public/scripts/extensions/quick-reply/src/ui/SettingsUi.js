@@ -317,15 +317,7 @@ export class SettingsUi {
             this.currentQrSet.name = newName;
             await this.currentQrSet.save();
 
-            // Update the option in all select dropdowns
-            /** @type {NodeListOf<HTMLOptionElement>} */
-            const options = this.dom.querySelectorAll(`#qr--set option[value="${oldName}"], select.qr--set option[value="${oldName}"]`);
-            options.forEach(option => {
-                option.value = newName;
-                option.textContent = newName;
-            });
-
-            // Update in in both set lists
+            // Update it in both set lists
             this.settings.config.setList.forEach(set => {
                 if (set.set.name === oldName) {
                     set.set.name = newName;
@@ -336,9 +328,19 @@ export class SettingsUi {
                     set.set.name = newName;
                 }
             });
-
             this.settings.save();
+
+            // Update the option in the current selected QR dropdown. All others will be refreshed via the prepare calls below.
+            /** @type {HTMLOptionElement} */
+            const option = this.currentSet.querySelector(`#qr--set option[value="${oldName}"]`);
+            option.value = newName;
+            option.textContent = newName;
+
             this.currentSet.value = newName;
+            this.onQrSetChange();
+            this.prepareGlobalSetList();
+            this.prepareChatSetList();
+
             console.info(`Quick Reply Set renamed from ""${oldName}" to "${newName}".`);
         }
     }
