@@ -111,6 +111,7 @@ export class SettingsUi {
 
     prepareQrEditor() {
         // qr editor
+        this.dom.querySelector('#qr--set-rename').addEventListener('click', async () => this.renameQrSet());
         this.dom.querySelector('#qr--set-new').addEventListener('click', async()=>this.addQrSet());
         /**@type {HTMLInputElement}*/
         const importFile = this.dom.querySelector('#qr--set-importFile');
@@ -301,6 +302,44 @@ export class SettingsUi {
             }
         }
         this.settings.save();
+    }
+
+    async renameQrSet() {
+        const newName = await callPopup('Enter new name for the Quick Reply Set:', 'input');
+        if (newName && newName.length > 0) {
+            const existingSet = QuickReplySet.get(newName);
+            if (existingSet) {
+                toastr.error(`A Quick Reply Set named "${newName}" already exists.`);
+                return;
+            }
+            const oldName = this.currentQrSet.name;
+            this.currentQrSet.name = newName;
+            await this.currentQrSet.save();
+
+            // Update the option in all select dropdowns
+            /** @type {NodeListOf<HTMLOptionElement>} */
+            const options = this.dom.querySelectorAll(`#qr--set option[value="${oldName}"], select.qr--set option[value="${oldName}"]`);
+            options.forEach(option => {
+                option.value = newName;
+                option.textContent = newName;
+            });
+
+            // Update in in both set lists
+            this.settings.config.setList.forEach(set => {
+                if (set.set.name === oldName) {
+                    set.set.name = newName;
+                }
+            });
+            this.settings.chatConfig?.setList.forEach(set => {
+                if (set.set.name === oldName) {
+                    set.set.name = newName;
+                }
+            });
+
+            this.settings.save();
+            this.currentSet.value = newName;
+            console.info(`Quick Reply Set renamed from ""${oldName}" to "${newName}".`);
+        }
     }
 
     async addQrSet() {
