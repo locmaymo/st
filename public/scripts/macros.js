@@ -50,8 +50,8 @@ export class MacrosParser {
      * @returns {IterableIterator<CustomMacro>}
      */
     static [Symbol.iterator] = function* () {
-        for (const macro of this.#macros.values()) {
-            yield { key: macro, description: this.#descriptions.get(macro) };
+        for (const macro of MacrosParser.#macros.keys()) {
+            yield { key: macro, description: MacrosParser.#descriptions.get(macro) };
         }
     };
 

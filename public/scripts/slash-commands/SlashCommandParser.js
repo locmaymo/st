@@ -23,6 +23,7 @@ import { SlashCommandDebugController } from './SlashCommandDebugController.js';
 import { commonEnumProviders } from './SlashCommandCommonEnumsProvider.js';
 import { SlashCommandBreak } from './SlashCommandBreak.js';
 import { MacrosParser } from '../macros.js';
+import { t } from '../i18n.js';
 
 /** @typedef {import('./SlashCommand.js').NamedArgumentsCapture} NamedArgumentsCapture */
 /** @typedef {import('./SlashCommand.js').NamedArguments} NamedArguments */
@@ -496,7 +497,8 @@ export class SlashCommandParser {
                     (li.querySelector('tt').remove(),li.innerHTML),
                 ));
                 for (const macro of MacrosParser) {
-                    options.push(new MacroAutoCompleteOption(macro.name, `{{${macro.name}}}`, macro.description || 'No description provided'));
+                    if (options.find(it => it.name === macro.key)) continue;
+                    options.push(new MacroAutoCompleteOption(macro.key, `{{${macro.key}}}`, macro.description || t`No description provided`));
                 }
                 const result = new AutoCompleteNameResult(
                     macro.name,
