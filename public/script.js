@@ -574,7 +574,7 @@ export const DEFAULT_SAVE_EDIT_TIMEOUT = debounce_timeout.relaxed;
 /** @type {debounce_timeout} The debounce timeout used for printing. debounce_timeout.quick: 100 ms */
 export const DEFAULT_PRINT_TIMEOUT = debounce_timeout.quick;
 
-export const saveSettingsDebounced = debounce(() => saveSettings(), DEFAULT_SAVE_EDIT_TIMEOUT);
+export const saveSettingsDebounced = debounce((loopCounter = 0) => saveSettings(loopCounter), DEFAULT_SAVE_EDIT_TIMEOUT);
 export const saveCharacterDebounced = debounce(() => $('#create_button').trigger('click'), DEFAULT_SAVE_EDIT_TIMEOUT);
 
 /**
@@ -6934,14 +6934,20 @@ function selectKoboldGuiPreset() {
         .trigger('change');
 }
 
-export async function saveSettings(type) {
+export async function saveSettings(loopCounter = 0) {
     if (!settingsReady) {
         console.warn('Settings not ready, aborting save');
         return;
     }
 
+    const MAX_RETRIES = 3;
     if (TempResponseLength.isCustomized()) {
-        console.warn('Response length is currently being overridden. Restoring previous value before saving.');
+        if (loopCounter < MAX_RETRIES) {
+            console.warn('Response length is currently being overridden, scheduling another save');
+            saveSettingsDebounced(++loopCounter);
+            return;
+        }
+        console.error('Response length is currently being overridden, but the save loop has reached the maximum number of retries');
         TempResponseLength.restore(null);
     }
 
