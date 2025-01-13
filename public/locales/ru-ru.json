@@ -1131,7 +1131,7 @@
     "Custom API Key": "Ключ от кастомного API",
     "(Optional)": "(необязательно)",
     "Enter a Model ID": "Введите идентификатор модели",
-    "Example: gpt-3.5-turbo": "Пример: gpt-3.5-turbo",
+    "Example: gpt-4o": "Пример: gpt-4o",
     "Available Models": "Доступные модели",
     "Prompt Post-Processing": "Постобработка промпта",
     "Applies additional processing to the prompt before sending it to the API.": "Позволяет обработать промпт перед отправкой в API.",

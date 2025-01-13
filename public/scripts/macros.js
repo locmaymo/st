@@ -26,6 +26,12 @@ Handlebars.registerHelper('helperMissing', function () {
  * @typedef {(nonce: string) => string} MacroFunction
  */
 
+/**
+ * @typedef {Object} CustomMacro
+ * @property {string} key - Macro name (key)
+ * @property {string} description - Optional description of the macro
+ */
+
 export class MacrosParser {
     /**
      * A map of registered macros.
@@ -34,11 +40,28 @@ export class MacrosParser {
     static #macros = new Map();
 
     /**
+     * A map of macro descriptions.
+     * @type {Map<string, string>}
+     */
+    static #descriptions = new Map();
+
+    /**
+     * Returns an iterator over all registered macros.
+     * @returns {IterableIterator<CustomMacro>}
+     */
+    static [Symbol.iterator] = function* () {
+        for (const macro of MacrosParser.#macros.keys()) {
+            yield { key: macro, description: MacrosParser.#descriptions.get(macro) };
+        }
+    };
+
+    /**
      * Registers a global macro that can be used anywhere where substitution is allowed.
      * @param {string} key Macro name (key)
      * @param {string|MacroFunction} value A string or a function that returns a string
+     * @param {string} [description] Optional description of the macro
      */
-    static registerMacro(key, value) {
+    static registerMacro(key, value, description = '') {
         if (typeof key !== 'string') {
             throw new Error('Macro key must be a string');
         }
@@ -64,6 +87,10 @@ export class MacrosParser {
         }
 
         this.#macros.set(key, value);
+
+        if (typeof description === 'string' && description) {
+            this.#descriptions.set(key, description);
+        }
     }
 
     /**
@@ -88,6 +115,8 @@ export class MacrosParser {
         if (!deleted) {
             console.warn(`Macro ${key} was not registered`);
         }
+
+        this.#descriptions.delete(key);
     }
 
     /**
