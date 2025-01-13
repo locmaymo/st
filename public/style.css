@@ -5735,3 +5735,15 @@ body:not(.movingUI) .drawer-content.maximized {
     }
 
 }
+
+/* Constrict the scroll of alternate greetings to only the dynamic form section */
+.alternate_grettings {
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.alternate_greetings_list {
+    overflow-y: scroll;
+}
