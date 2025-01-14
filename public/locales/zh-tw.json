@@ -880,7 +880,7 @@
     "popup-button-no": "取消",
     "popup-button-cancel": "關閉",
     "popup-button-import": "匯入",
-    "Advanced Defininitions": "- 進階定義",
+    "Advanced Definitions": "- 進階定義",
     "Prompt Overrides": "提示詞覆寫",
     "(For Chat Completion and Instruct Mode)": "（用於聊天補全和指令模式）",
     "Insert {{original}} into either box to include the respective default prompt from system settings.": "在任一框中插入 {{original}} 以包含系統設定中的預設提示詞。",
