@@ -1318,6 +1318,10 @@ button {
     transition: clip-path 200ms;
 }
 
+#send_textarea:placeholder-shown {
+    overflow: hidden;
+}
+
 #send_textarea:focus-visible {
     /* Disable outline for the chat bar itself, we add it to the outer div */
     outline: none;
