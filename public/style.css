@@ -3259,6 +3259,18 @@ grammarly-extension {
     align-items: center;
 }
 
+#creators_notes_div {
+    align-items: baseline;
+}
+
+#creators_note_desc_hidden {
+    display: none;
+}
+
+#creators_notes_div:has(#spoiler_free_desc_button.fa-eye-slash) #creators_note_desc_hidden {
+    display: initial;
+}
+
 .alternate_greeting details {
     padding: 2px;
 }
