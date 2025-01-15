@@ -319,8 +319,6 @@ export async function loadFeatherlessModels(data) {
         return;
     }
 
-    // Sort the data by model id (default A-Z)
-    data.sort((a, b) => a.id.localeCompare(b.id));
     originalModels = data;  // Store the original data for search
     featherlessModels = data;
 
@@ -334,10 +332,8 @@ export async function loadFeatherlessModels(data) {
     // Retrieve the stored number of items per page or default to 10
     const perPage = Number(localStorage.getItem(storageKey)) || 10;
 
-    // Initialize pagination with the full set of models
-    const currentModelIndex = data.findIndex(x => x.id === textgen_settings.featherless_model);
-    featherlessCurrentPage = currentModelIndex >= 0 ? (currentModelIndex / perPage) + 1 : 1;
-    setupPagination(originalModels, perPage);
+    // Initialize pagination
+    applyFiltersAndSort();
 
     // Function to set up pagination (also used for filtered results)
     function setupPagination(models, perPage, pageNumber = featherlessCurrentPage) {
@@ -507,6 +503,9 @@ export async function loadFeatherlessModels(data) {
         } else if (selectedSortOrder === 'date_desc') {
             filteredModels.sort((a, b) => b.created - a.created);
         }
+
+        const currentModelIndex = filteredModels.findIndex(x => x.id === textgen_settings.featherless_model);
+        featherlessCurrentPage = currentModelIndex >= 0 ? (currentModelIndex / perPage) + 1 : 1;
 
         setupPagination(filteredModels, Number(localStorage.getItem(storageKey)) || perPage, featherlessCurrentPage);
     }
