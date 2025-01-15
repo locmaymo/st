@@ -472,6 +472,7 @@ export async function loadFeatherlessModels(data) {
             featherlessTop = await fetchFeatherlessStats();
         }
         const featherlessIds = featherlessTop.map(stat => stat.id);
+
         if (selectedCategory === 'New') {
             featherlessNew = await fetchFeatherlessNew();
         }
@@ -493,7 +494,7 @@ export async function loadFeatherlessModels(data) {
                 return matchesSearch && matchesClass && matchesNew;
             }
             else {
-                return matchesSearch;
+                return matchesSearch && matchesClass;
             }
         });
 
@@ -528,7 +529,7 @@ async function fetchFeatherlessStats() {
 }
 
 async function fetchFeatherlessNew() {
-    const response = await fetch('https://api.featherless.ai/feather/models?sort=-created_at&perPage=10');
+    const response = await fetch('https://api.featherless.ai/feather/models?sort=-created_at&perPage=20');
     const data = await response.json();
     return data.items;
 }
