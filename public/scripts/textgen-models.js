@@ -383,7 +383,7 @@ export async function loadFeatherlessModels(data) {
 
                     const dateAddedDiv = document.createElement('div');
                     dateAddedDiv.classList.add('model-date-added');
-                    dateAddedDiv.textContent = `Added On: ${new Date(model.updated_at).toLocaleDateString()}`;
+                    dateAddedDiv.textContent = `Added On: ${new Date(model.created * 1000).toLocaleDateString()}`;
 
                     detailsContainer.appendChild(modelClassDiv);
                     detailsContainer.appendChild(contextLengthDiv);
@@ -502,9 +502,9 @@ export async function loadFeatherlessModels(data) {
         } else if (selectedSortOrder === 'desc') {
             filteredModels.sort((a, b) => b.id.localeCompare(a.id));
         } else if (selectedSortOrder === 'date_asc') {
-            filteredModels.sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+            filteredModels.sort((a, b) => a.created - b.created);
         } else if (selectedSortOrder === 'date_desc') {
-            filteredModels.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+            filteredModels.sort((a, b) => b.created - a.created);
         }
 
         setupPagination(filteredModels, Number(localStorage.getItem(storageKey)) || perPage, featherlessCurrentPage);
