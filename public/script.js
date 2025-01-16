@@ -168,6 +168,7 @@ import {
     isTrueBoolean,
     toggleDrawer,
     isElementInViewport,
+    copyText,
 } from './scripts/utils.js';
 import { debounce_timeout } from './scripts/constants.js';
 
@@ -2315,16 +2316,15 @@ export function addCopyToCodeBlocks(messageElement) {
     const codeBlocks = $(messageElement).find('pre code');
     for (let i = 0; i < codeBlocks.length; i++) {
         hljs.highlightElement(codeBlocks.get(i));
-        if (navigator.clipboard !== undefined) {
-            const copyButton = document.createElement('i');
-            copyButton.classList.add('fa-solid', 'fa-copy', 'code-copy', 'interactable');
-            copyButton.title = 'Copy code';
-            codeBlocks.get(i).appendChild(copyButton);
-            copyButton.addEventListener('pointerup', function (event) {
-                navigator.clipboard.writeText(codeBlocks.get(i).innerText);
-                toastr.info(t`Copied!`, '', { timeOut: 2000 });
-            });
-        }
+        const copyButton = document.createElement('i');
+        copyButton.classList.add('fa-solid', 'fa-copy', 'code-copy', 'interactable');
+        copyButton.title = 'Copy code';
+        codeBlocks.get(i).appendChild(copyButton);
+        copyButton.addEventListener('pointerup', async function () {
+            const text = codeBlocks.get(i).innerText;
+            await copyText(text);
+            toastr.info(t`Copied!`, '', { timeOut: 2000 });
+        });
     }
 }
 
@@ -2724,7 +2724,7 @@ export function getStoppingStrings(isImpersonate, isContinue) {
 export async function generateQuietPrompt(quiet_prompt, quietToLoud, skipWIAN, quietImage = null, quietName = null, responseLength = null, force_chid = null) {
     console.log('got into genQuietPrompt');
     const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
-    let eventHook = () => {};
+    let eventHook = () => { };
     try {
         /** @type {GenerateOptions} */
         const options = {
@@ -3390,7 +3390,7 @@ export async function generateRaw(prompt, api, instructOverride, quietToLoud, sy
     const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
     const isInstruct = power_user.instruct.enabled && api !== 'openai' && api !== 'novel' && !instructOverride;
     const isQuiet = true;
-    let eventHook = () => {};
+    let eventHook = () => { };
 
     if (systemPrompt) {
         systemPrompt = substituteParams(systemPrompt);
@@ -5469,7 +5469,7 @@ async function promptItemize(itemizedPrompts, requestedMesId) {
     } else {
         diffPrevPrompt.style.display = 'none';
     }
-    popup.dlg.querySelector('#copyPromptToClipboard').addEventListener('click', function () {
+    popup.dlg.querySelector('#copyPromptToClipboard').addEventListener('pointerup', async function () {
         let rawPrompt = itemizedPrompts[PromptArrayItemForRawPromptDisplay].rawPrompt;
         let rawPromptValues = rawPrompt;
 
@@ -5477,7 +5477,7 @@ async function promptItemize(itemizedPrompts, requestedMesId) {
             rawPromptValues = rawPrompt.map(x => x.content).join('\n');
         }
 
-        navigator.clipboard.writeText(rawPromptValues);
+        await copyText(rawPromptValues);
         toastr.info(t`Copied!`);
     });
 
@@ -9507,7 +9507,7 @@ API Settings: ${JSON.stringify(getSettingsContents[getSettingsContents.main_api 
         //console.log(logMessage);
 
         try {
-            await navigator.clipboard.writeText(logMessage);
+            await copyText(logMessage);
             toastr.info('Your ST API setup data has been copied to the clipboard.');
         } catch (error) {
             toastr.error('Failed to copy ST Setup to clipboard:', error);
@@ -10572,24 +10572,18 @@ jQuery(async function () {
         setTimeout(function () { $('#shadow_select_chat_popup').css('display', 'none'); }, animation_duration);
     });
 
-    if (navigator.clipboard === undefined) {
-        // No clipboard support
-        $('.mes_copy').remove();
-    }
-    else {
-        $(document).on('pointerup', '.mes_copy', function () {
-            if (this_chid !== undefined || selected_group || name2 === neutralCharacterName) {
-                try {
-                    const messageId = $(this).closest('.mes').attr('mesid');
-                    const text = chat[messageId]['mes'];
-                    navigator.clipboard.writeText(text);
-                    toastr.info('Copied!', '', { timeOut: 2000 });
-                } catch (err) {
-                    console.error('Failed to copy: ', err);
-                }
+    $(document).on('pointerup', '.mes_copy', async function () {
+        if (this_chid !== undefined || selected_group || name2 === neutralCharacterName) {
+            try {
+                const messageId = $(this).closest('.mes').attr('mesid');
+                const text = chat[messageId]['mes'];
+                await copyText(text);
+                toastr.info('Copied!', '', { timeOut: 2000 });
+            } catch (err) {
+                console.error('Failed to copy: ', err);
             }
-        });
-    }
+        }
+    });
 
     $(document).on('pointerup', '.mes_prompt', async function () {
         let mesIdForItemization = $(this).closest('.mes').attr('mesId');
@@ -11483,4 +11477,3 @@ jQuery(async function () {
 
     initCustomSelectedSamplers();
 });
-
