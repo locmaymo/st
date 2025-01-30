@@ -262,13 +262,13 @@ class AllTalkTtsProvider {
         console.debug('AllTalkTTS: Settings loaded');
         try {
             // Check if TTS provider is ready
+            this.setupEventListeners();
+            this.updateLanguageDropdown();
             await this.checkReady();
             await this.updateSettingsFromServer(); // Fetch dynamic settings from the TTS server
             await this.fetchTtsVoiceObjects(); // Fetch voices only if service is ready
             await this.fetchRvcVoiceObjects(); // Fetch RVC voices
             this.updateNarratorVoicesDropdown();
-            this.updateLanguageDropdown();
-            this.setupEventListeners();
             this.applySettingsToHTML();
             updateStatus('Ready');
         } catch (error) {
@@ -388,7 +388,7 @@ class AllTalkTtsProvider {
     }
 
     async fetchRvcVoiceObjects() {
-        if (this.settings.server_version !== 'v1') {
+        if (this.settings.server_version == 'v1') {
             console.log('Skipping RVC voices fetch for V1 server');
             return [];
         }
