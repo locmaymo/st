@@ -1,11 +1,10 @@
-const express = require('express');
-const fetch = require('node-fetch').default;
+import express from 'express';
+import fetch from 'node-fetch';
 
-const { jsonParser } = require('../../express-common');
+import { jsonParser } from '../../express-common.js';
+import { readSecret, SECRET_KEYS } from '../secrets.js';
 
-const { readSecret, SECRET_KEYS } = require('../secrets');
-
-const router = express.Router();
+export const router = express.Router();
 
 
 router.post('/generate', jsonParser, async function (request, response) {
@@ -72,7 +71,6 @@ router.post('/generate', jsonParser, async function (request, response) {
                 'Content-Type': 'application/json',
                 'cookie': `_jwt=${cookie}`,
             },
-            timeout: 0,
             body: JSON.stringify(body),
         });
 
@@ -82,6 +80,7 @@ router.post('/generate', jsonParser, async function (request, response) {
             return response.status(500).send({ error: { message: result.statusText } });
         }
 
+        /** @type {any} */
         const data = await result.json();
         const output = data?.result?.data?.json?.outputs?.[0] || '';
 
@@ -98,5 +97,3 @@ router.post('/generate', jsonParser, async function (request, response) {
         return response.sendStatus(500);
     }
 });
-
-module.exports = { router };

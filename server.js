@@ -1,32 +1,35 @@
 #!/usr/bin/env node
 
 // native node modules
-const fs = require('fs');
-const http = require('http');
-const https = require('https');
-const path = require('path');
-const util = require('util');
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import path from 'node:path';
+import util from 'node:util';
+import net from 'node:net';
+import dns from 'node:dns';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 // cli/fs related library imports
-const open = require('open');
-const yargs = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
+import open from 'open';
+import yargs from 'yargs/yargs';
+import { hideBin } from 'yargs/helpers';
 
 // express/server related library imports
-const cors = require('cors');
-const doubleCsrf = require('csrf-csrf').doubleCsrf;
-const express = require('express');
-const compression = require('compression');
-const cookieParser = require('cookie-parser');
-const cookieSession = require('cookie-session');
-const multer = require('multer');
-const responseTime = require('response-time');
-const helmet = require('helmet').default;
+import cors from 'cors';
+import { doubleCsrf } from 'csrf-csrf';
+import express from 'express';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import cookieSession from 'cookie-session';
+import multer from 'multer';
+import responseTime from 'response-time';
+import helmet from 'helmet';
+import bodyParser from 'body-parser';
 
 // net related library imports
-const net = require('net');
-const dns = require('dns');
-const fetch = require('node-fetch').default;
+import fetch from 'node-fetch';
 
 // Unrestrict console logs display limit
 util.inspect.defaultOptions.maxArrayLength = null;
@@ -34,17 +37,83 @@ util.inspect.defaultOptions.maxStringLength = null;
 util.inspect.defaultOptions.depth = 4;
 
 // local library imports
-const userModule = require('./src/users');
-const basicAuthMiddleware = require('./src/middleware/basicAuth');
-const whitelistMiddleware = require('./src/middleware/whitelist');
-const contentManager = require('./src/endpoints/content-manager');
-const {
+import { loadPlugins } from './src/plugin-loader.js';
+import {
+    initUserStorage,
+    getCsrfSecret,
+    getCookieSecret,
+    getCookieSessionName,
+    getAllEnabledUsers,
+    ensurePublicDirectoriesExist,
+    getUserDirectoriesList,
+    migrateSystemPrompts,
+    migrateUserData,
+    requireLoginMiddleware,
+    setUserDataMiddleware,
+    shouldRedirectToLogin,
+    tryAutoLogin,
+    router as userDataRouter,
+} from './src/users.js';
+
+import getWebpackServeMiddleware from './src/middleware/webpack-serve.js';
+import basicAuthMiddleware from './src/middleware/basicAuth.js';
+import whitelistMiddleware from './src/middleware/whitelist.js';
+import multerMonkeyPatch from './src/middleware/multerMonkeyPatch.js';
+import initRequestProxy from './src/request-proxy.js';
+import {
     getVersion,
     getConfigValue,
     color,
     forwardFetchResponse,
-} = require('./src/util');
-const { ensureThumbnailCache } = require('./src/endpoints/thumbnails');
+    removeColorFormatting,
+    getSeparator,
+} from './src/util.js';
+import { UPLOADS_DIRECTORY } from './src/constants.js';
+import { ensureThumbnailCache } from './src/endpoints/thumbnails.js';
+
+// Routers
+import { router as usersPublicRouter } from './src/endpoints/users-public.js';
+import { router as usersPrivateRouter } from './src/endpoints/users-private.js';
+import { router as usersAdminRouter } from './src/endpoints/users-admin.js';
+import { router as movingUIRouter } from './src/endpoints/moving-ui.js';
+import { router as imagesRouter } from './src/endpoints/images.js';
+import { router as quickRepliesRouter } from './src/endpoints/quick-replies.js';
+import { router as avatarsRouter } from './src/endpoints/avatars.js';
+import { router as themesRouter } from './src/endpoints/themes.js';
+import { router as openAiRouter } from './src/endpoints/openai.js';
+import { router as googleRouter } from './src/endpoints/google.js';
+import { router as anthropicRouter } from './src/endpoints/anthropic.js';
+import { router as tokenizersRouter } from './src/endpoints/tokenizers.js';
+import { router as presetsRouter } from './src/endpoints/presets.js';
+import { router as secretsRouter } from './src/endpoints/secrets.js';
+import { router as thumbnailRouter } from './src/endpoints/thumbnails.js';
+import { router as novelAiRouter } from './src/endpoints/novelai.js';
+import { router as extensionsRouter } from './src/endpoints/extensions.js';
+import { router as assetsRouter } from './src/endpoints/assets.js';
+import { router as filesRouter } from './src/endpoints/files.js';
+import { router as charactersRouter } from './src/endpoints/characters.js';
+import { router as chatsRouter } from './src/endpoints/chats.js';
+import { router as groupsRouter } from './src/endpoints/groups.js';
+import { router as worldInfoRouter } from './src/endpoints/worldinfo.js';
+import { router as statsRouter, init as statsInit, onExit as statsOnExit } from './src/endpoints/stats.js';
+import { router as backgroundsRouter } from './src/endpoints/backgrounds.js';
+import { router as spritesRouter } from './src/endpoints/sprites.js';
+import { router as contentManagerRouter, checkForNewContent } from './src/endpoints/content-manager.js';
+import { router as settingsRouter, init as settingsInit } from './src/endpoints/settings.js';
+import { router as stableDiffusionRouter } from './src/endpoints/stable-diffusion.js';
+import { router as hordeRouter } from './src/endpoints/horde.js';
+import { router as vectorsRouter } from './src/endpoints/vectors.js';
+import { router as translateRouter } from './src/endpoints/translate.js';
+import { router as classifyRouter } from './src/endpoints/classify.js';
+import { router as captionRouter } from './src/endpoints/caption.js';
+import { router as searchRouter } from './src/endpoints/search.js';
+import { router as openRouterRouter } from './src/endpoints/openrouter.js';
+import { router as chatCompletionsRouter } from './src/endpoints/backends/chat-completions.js';
+import { router as koboldRouter } from './src/endpoints/backends/kobold.js';
+import { router as textCompletionsRouter } from './src/endpoints/backends/text-completions.js';
+import { router as scaleAltRouter } from './src/endpoints/backends/scale-alt.js';
+import { router as speechRouter } from './src/endpoints/speech.js';
+import { router as azureRouter } from './src/endpoints/azure.js';
 
 // Work around a node v20.0.0, v20.1.0, and v20.2.0 bug. The issue was fixed in v20.3.0.
 // https://github.com/nodejs/node/issues/47822#issuecomment-1564708870
@@ -54,9 +123,6 @@ if (process.versions && process.versions.node && process.versions.node.match(/20
     if (net.setDefaultAutoSelectFamily) net.setDefaultAutoSelectFamily(false);
 }
 
-// Set default DNS resolution order to IPv4 first
-dns.setDefaultResultOrder('ipv4first');
-
 const DEFAULT_PORT = 8000;
 const DEFAULT_AUTORUN = false;
 const DEFAULT_LISTEN = false;
@@ -65,17 +131,52 @@ const DEFAULT_WHITELIST = true;
 const DEFAULT_ACCOUNTS = false;
 const DEFAULT_CSRF_DISABLED = false;
 const DEFAULT_BASIC_AUTH = false;
+const DEFAULT_PER_USER_BASIC_AUTH = false;
+
+const DEFAULT_ENABLE_IPV6 = false;
+const DEFAULT_ENABLE_IPV4 = true;
+
+const DEFAULT_PREFER_IPV6 = false;
+
+const DEFAULT_AVOID_LOCALHOST = false;
+
+const DEFAULT_AUTORUN_HOSTNAME = 'auto';
+const DEFAULT_AUTORUN_PORT = -1;
+
+const DEFAULT_PROXY_ENABLED = false;
+const DEFAULT_PROXY_URL = '';
+const DEFAULT_PROXY_BYPASS = [];
 
 const cliArguments = yargs(hideBin(process.argv))
     .usage('Usage: <your-start-script> <command> [options]')
-    .option('port', {
+    .option('enableIPv6', {
+        type: 'boolean',
+        default: null,
+        describe: `Enables IPv6.\n[config default: ${DEFAULT_ENABLE_IPV6}]`,
+    }).option('enableIPv4', {
+        type: 'boolean',
+        default: null,
+        describe: `Enables IPv4.\n[config default: ${DEFAULT_ENABLE_IPV4}]`,
+    }).option('port', {
         type: 'number',
         default: null,
         describe: `Sets the port under which SillyTavern will run.\nIf not provided falls back to yaml config 'port'.\n[config default: ${DEFAULT_PORT}]`,
+    }).option('dnsPreferIPv6', {
+        type: 'boolean',
+        default: null,
+        describe: `Prefers IPv6 for dns\nyou should probably have the enabled if you're on an IPv6 only network\nIf not provided falls back to yaml config 'preferIPv6'.\n[config default: ${DEFAULT_PREFER_IPV6}]`,
     }).option('autorun', {
         type: 'boolean',
         default: null,
         describe: `Automatically launch SillyTavern in the browser.\nAutorun is automatically disabled if --ssl is set to true.\nIf not provided falls back to yaml config 'autorun'.\n[config default: ${DEFAULT_AUTORUN}]`,
+    }).option('autorunHostname', {
+        type: 'string',
+        default: null,
+        describe: 'the autorun hostname, probably best left on \'auto\'.\nuse values like \'localhost\', \'st.example.com\'',
+    }).option('autorunPortOverride', {
+        type: 'string',
+        default: null,
+        describe: 'Overrides the port for autorun with open your browser with this port and ignore what port the server is running on. -1 is use server port',
     }).option('listen', {
         type: 'boolean',
         default: null,
@@ -108,15 +209,31 @@ const cliArguments = yargs(hideBin(process.argv))
         type: 'string',
         default: null,
         describe: 'Root directory for data storage',
+    }).option('avoidLocalhost', {
+        type: 'boolean',
+        default: null,
+        describe: 'Avoids using \'localhost\' for autorun in auto mode.\nuse if you don\'t have \'localhost\' in your hosts file',
     }).option('basicAuthMode', {
         type: 'boolean',
         default: null,
         describe: 'Enables basic authentication',
+    }).option('requestProxyEnabled', {
+        type: 'boolean',
+        default: null,
+        describe: 'Enables a use of proxy for outgoing requests',
+    }).option('requestProxyUrl', {
+        type: 'string',
+        default: null,
+        describe: 'Request proxy URL (HTTP or SOCKS protocols)',
+    }).option('requestProxyBypass', {
+        type: 'array',
+        default: null,
+        describe: 'Request proxy bypass list (space separated list of hosts)',
     }).parseSync();
 
 // change all relative paths
-console.log(`Node version: ${process.version}. Running in ${process.env.NODE_ENV} environment.`);
-const serverDirectory = __dirname;
+const serverDirectory = import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+console.log(`Node version: ${process.version}. Running in ${process.env.NODE_ENV} environment. Server directory: ${serverDirectory}`);
 process.chdir(serverDirectory);
 
 const app = express();
@@ -134,9 +251,39 @@ const enableWhitelist = cliArguments.whitelist ?? getConfigValue('whitelistMode'
 const dataRoot = cliArguments.dataRoot ?? getConfigValue('dataRoot', './data');
 const disableCsrf = cliArguments.disableCsrf ?? getConfigValue('disableCsrfProtection', DEFAULT_CSRF_DISABLED);
 const basicAuthMode = cliArguments.basicAuthMode ?? getConfigValue('basicAuthMode', DEFAULT_BASIC_AUTH);
+const perUserBasicAuth = getConfigValue('perUserBasicAuth', DEFAULT_PER_USER_BASIC_AUTH);
 const enableAccounts = getConfigValue('enableUserAccounts', DEFAULT_ACCOUNTS);
 
-const { UPLOADS_PATH } = require('./src/constants');
+const uploadsPath = path.join(dataRoot, UPLOADS_DIRECTORY);
+
+const enableIPv6 = cliArguments.enableIPv6 ?? getConfigValue('protocol.ipv6', DEFAULT_ENABLE_IPV6);
+const enableIPv4 = cliArguments.enableIPv4 ?? getConfigValue('protocol.ipv4', DEFAULT_ENABLE_IPV4);
+
+const autorunHostname = cliArguments.autorunHostname ?? getConfigValue('autorunHostname', DEFAULT_AUTORUN_HOSTNAME);
+const autorunPortOverride = cliArguments.autorunPortOverride ?? getConfigValue('autorunPortOverride', DEFAULT_AUTORUN_PORT);
+
+const dnsPreferIPv6 = cliArguments.dnsPreferIPv6 ?? getConfigValue('dnsPreferIPv6', DEFAULT_PREFER_IPV6);
+
+const avoidLocalhost = cliArguments.avoidLocalhost ?? getConfigValue('avoidLocalhost', DEFAULT_AVOID_LOCALHOST);
+
+const proxyEnabled = cliArguments.requestProxyEnabled ?? getConfigValue('requestProxy.enabled', DEFAULT_PROXY_ENABLED);
+const proxyUrl = cliArguments.requestProxyUrl ?? getConfigValue('requestProxy.url', DEFAULT_PROXY_URL);
+const proxyBypass = cliArguments.requestProxyBypass ?? getConfigValue('requestProxy.bypass', DEFAULT_PROXY_BYPASS);
+
+if (dnsPreferIPv6) {
+    // Set default DNS resolution order to IPv6 first
+    dns.setDefaultResultOrder('ipv6first');
+    console.log('Preferring IPv6 for DNS resolution');
+} else {
+    // Set default DNS resolution order to IPv4 first
+    dns.setDefaultResultOrder('ipv4first');
+    console.log('Preferring IPv4 for DNS resolution');
+}
+
+if (!enableIPv6 && !enableIPv4) {
+    console.error('error: You can\'t disable all internet protocols: at least IPv6 or IPv4 must be enabled.');
+    process.exit(1);
+}
 
 // CORS Settings //
 const CORS = cors({
@@ -151,7 +298,6 @@ if (listen && basicAuthMode) app.use(basicAuthMiddleware);
 app.use(whitelistMiddleware(enableWhitelist, listen));
 
 if (enableCorsProxy) {
-    const bodyParser = require('body-parser');
     app.use(bodyParser.json({
         limit: '200mb',
     }));
@@ -168,14 +314,14 @@ if (enableCorsProxy) {
 
         try {
             const headers = JSON.parse(JSON.stringify(req.headers));
-            delete headers['x-csrf-token'];
-            delete headers['host'];
-            delete headers['referer'];
-            delete headers['origin'];
-            delete headers['cookie'];
-            delete headers['sec-fetch-mode'];
-            delete headers['sec-fetch-site'];
-            delete headers['sec-fetch-dest'];
+            const headersToRemove = [
+                'x-csrf-token', 'host', 'referer', 'origin', 'cookie',
+                'x-forwarded-for', 'x-forwarded-protocol', 'x-forwarded-proto',
+                'x-forwarded-host', 'x-real-ip', 'sec-fetch-mode',
+                'sec-fetch-site', 'sec-fetch-dest',
+            ];
+
+            headersToRemove.forEach(header => delete headers[header]);
 
             const bodyMethods = ['POST', 'PUT', 'PATCH'];
 
@@ -200,12 +346,31 @@ if (enableCorsProxy) {
     });
 }
 
+function getSessionCookieAge() {
+    // Defaults to 24 hours in seconds if not set
+    const configValue = getConfigValue('sessionTimeout', 24 * 60 * 60);
+
+    // Convert to milliseconds
+    if (configValue > 0) {
+        return configValue * 1000;
+    }
+
+    // "No expiration" is just 400 days as per RFC 6265
+    if (configValue < 0) {
+        return 400 * 24 * 60 * 60 * 1000;
+    }
+
+    // 0 means session cookie is deleted when the browser session ends
+    // (depends on the implementation of the browser)
+    return undefined;
+}
+
 app.use(cookieSession({
-    name: userModule.getCookieSessionName(),
+    name: getCookieSessionName(),
     sameSite: 'strict',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    secret: userModule.getCookieSecret(),
+    maxAge: getSessionCookieAge(),
+    secret: getCookieSecret(),
 }));
 
 app.use(userModule.setUserDataMiddleware);
@@ -215,13 +380,12 @@ app.use('/api/st', require('./src/endpoints/users-proxyai').router);
 
 // CSRF Protection //
 if (!disableCsrf) {
-    const COOKIES_SECRET = userModule.getCookieSecret();
+    const COOKIES_SECRET = getCookieSecret();
 
     const { generateToken, doubleCsrfProtection } = doubleCsrf({
-        getSecret: userModule.getCsrfSecret,
+        getSecret: getCsrfSecret,
         cookieName: 'X-CSRF-Token',
         cookieOptions: {
-            httpOnly: true,
             sameSite: 'strict',
             secure: false,
         },
@@ -249,7 +413,7 @@ if (!disableCsrf) {
 // Static files
 // Host index page
 app.get('/', (request, response) => {
-    if (userModule.shouldRedirectToLogin(request)) {
+    if (shouldRedirectToLogin(request)) {
         const query = request.url.split('?')[1];
         const redirectUrl = query ? `/login?${query}` : '/login';
         return response.redirect(redirectUrl);
@@ -266,7 +430,7 @@ app.get('/login', async (request, response) => {
     }
 
     try {
-        const autoLogin = await userModule.tryAutoLogin(request);
+        const autoLogin = await tryAutoLogin(request, basicAuthMode);
 
         if (autoLogin) {
             return response.redirect('/');
@@ -279,13 +443,15 @@ app.get('/login', async (request, response) => {
 });
 
 // Host frontend assets
+const webpackMiddleware = getWebpackServeMiddleware();
+app.use(webpackMiddleware);
 app.use(express.static(process.cwd() + '/public', {}));
 
 // Public API
-app.use('/api/users', require('./src/endpoints/users-public').router);
+app.use('/api/users', usersPublicRouter);
 
 // Everything below this line requires authentication
-app.use(userModule.requireLoginMiddleware);
+app.use(requireLoginMiddleware);
 app.get('/api/ping', (_, response) => response.sendStatus(204));
 
 // File uploads
@@ -293,11 +459,11 @@ app.use(multer({ dest: UPLOADS_PATH, limits: { fieldSize: 100 * 1024 * 1024 } })
 app.use(require('./src/middleware/multerMonkeyPatch'));
 
 // User data mount
-app.use('/', userModule.router);
+app.use('/', userDataRouter);
 // Private endpoints
-app.use('/api/users', require('./src/endpoints/users-private').router);
+app.use('/api/users', usersPrivateRouter);
 // Admin endpoints
-app.use('/api/users', require('./src/endpoints/users-admin').router);
+app.use('/api/users', usersAdminRouter);
 
 app.get('/version', async function (_, response) {
     const data = await getVersion();
@@ -306,8 +472,8 @@ app.get('/version', async function (_, response) {
 
 function cleanUploads() {
     try {
-        if (fs.existsSync(UPLOADS_PATH)) {
-            const uploads = fs.readdirSync(UPLOADS_PATH);
+        if (fs.existsSync(uploadsPath)) {
+            const uploads = fs.readdirSync(uploadsPath);
 
             if (!uploads.length) {
                 return;
@@ -315,7 +481,7 @@ function cleanUploads() {
 
             console.debug(`Cleaning uploads folder (${uploads.length} files)`);
             uploads.forEach(file => {
-                const pathToFile = path.join(UPLOADS_PATH, file);
+                const pathToFile = path.join(uploadsPath, file);
                 fs.unlinkSync(pathToFile);
             });
         }
@@ -407,130 +573,60 @@ redirect('/api/content/import', '/api/content/importURL');
 // Redirect deprecated moving UI endpoints
 redirect('/savemovingui', '/api/moving-ui/save');
 
-// Moving UI
-app.use('/api/moving-ui', require('./src/endpoints/moving-ui').router);
+// Redirect Serp endpoints
+redirect('/api/serpapi/search', '/api/search/serpapi');
+redirect('/api/serpapi/visit', '/api/search/visit');
+redirect('/api/serpapi/transcript', '/api/search/transcript');
 
-// Image management
-app.use('/api/images', require('./src/endpoints/images').router);
+app.use('/api/moving-ui', movingUIRouter);
+app.use('/api/images', imagesRouter);
+app.use('/api/quick-replies', quickRepliesRouter);
+app.use('/api/avatars', avatarsRouter);
+app.use('/api/themes', themesRouter);
+app.use('/api/openai', openAiRouter);
+app.use('/api/google', googleRouter);
+app.use('/api/anthropic', anthropicRouter);
+app.use('/api/tokenizers', tokenizersRouter);
+app.use('/api/presets', presetsRouter);
+app.use('/api/secrets', secretsRouter);
+app.use('/thumbnail', thumbnailRouter);
+app.use('/api/novelai', novelAiRouter);
+app.use('/api/extensions', extensionsRouter);
+app.use('/api/assets', assetsRouter);
+app.use('/api/files', filesRouter);
+app.use('/api/characters', charactersRouter);
+app.use('/api/chats', chatsRouter);
+app.use('/api/groups', groupsRouter);
+app.use('/api/worldinfo', worldInfoRouter);
+app.use('/api/stats', statsRouter);
+app.use('/api/backgrounds', backgroundsRouter);
+app.use('/api/sprites', spritesRouter);
+app.use('/api/content', contentManagerRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/sd', stableDiffusionRouter);
+app.use('/api/horde', hordeRouter);
+app.use('/api/vector', vectorsRouter);
+app.use('/api/translate', translateRouter);
+app.use('/api/extra/classify', classifyRouter);
+app.use('/api/extra/caption', captionRouter);
+app.use('/api/search', searchRouter);
+app.use('/api/backends/text-completions', textCompletionsRouter);
+app.use('/api/openrouter', openRouterRouter);
+app.use('/api/backends/kobold', koboldRouter);
+app.use('/api/backends/chat-completions', chatCompletionsRouter);
+app.use('/api/backends/scale-alt', scaleAltRouter);
+app.use('/api/speech', speechRouter);
+app.use('/api/azure', azureRouter);
 
-// Quick reply management
-app.use('/api/quick-replies', require('./src/endpoints/quick-replies').router);
-
-// Avatar management
-app.use('/api/avatars', require('./src/endpoints/avatars').router);
-
-// Theme management
-app.use('/api/themes', require('./src/endpoints/themes').router);
-
-// OpenAI API
-app.use('/api/openai', require('./src/endpoints/openai').router);
-
-//Google API
-app.use('/api/google', require('./src/endpoints/google').router);
-
-//Anthropic API
-app.use('/api/anthropic', require('./src/endpoints/anthropic').router);
-
-// Tokenizers
-app.use('/api/tokenizers', require('./src/endpoints/tokenizers').router);
-
-// Preset management
-app.use('/api/presets', require('./src/endpoints/presets').router);
-
-// Secrets managemenet
-app.use('/api/secrets', require('./src/endpoints/secrets').router);
-
-// Thumbnail generation. These URLs are saved in chat, so this route cannot be renamed!
-app.use('/thumbnail', require('./src/endpoints/thumbnails').router);
-
-// NovelAI generation
-app.use('/api/novelai', require('./src/endpoints/novelai').router);
-
-// Third-party extensions
-app.use('/api/extensions', require('./src/endpoints/extensions').router);
-
-// Asset management
-app.use('/api/assets', require('./src/endpoints/assets').router);
-
-// File management
-app.use('/api/files', require('./src/endpoints/files').router);
-
-// Character management
-app.use('/api/characters', require('./src/endpoints/characters').router);
-
-// Chat management
-app.use('/api/chats', require('./src/endpoints/chats').router);
-
-// Group management
-app.use('/api/groups', require('./src/endpoints/groups').router);
-
-// World info management
-app.use('/api/worldinfo', require('./src/endpoints/worldinfo').router);
-
-// Stats calculation
-const statsEndpoint = require('./src/endpoints/stats');
-app.use('/api/stats', statsEndpoint.router);
-
-// Background management
-app.use('/api/backgrounds', require('./src/endpoints/backgrounds').router);
-
-// Character sprite management
-app.use('/api/sprites', require('./src/endpoints/sprites').router);
-
-// Custom content management
-app.use('/api/content', require('./src/endpoints/content-manager').router);
-
-// Settings load/store
-const settingsEndpoint = require('./src/endpoints/settings');
-app.use('/api/settings', settingsEndpoint.router);
-
-// Stable Diffusion generation
-app.use('/api/sd', require('./src/endpoints/stable-diffusion').router);
-
-// LLM and SD Horde generation
-app.use('/api/horde', require('./src/endpoints/horde').router);
-
-// Vector storage DB
-app.use('/api/vector', require('./src/endpoints/vectors').router);
-
-// Chat translation
-app.use('/api/translate', require('./src/endpoints/translate').router);
-
-// Emotion classification
-app.use('/api/extra/classify', require('./src/endpoints/classify').router);
-
-// Image captioning
-app.use('/api/extra/caption', require('./src/endpoints/caption').router);
-
-// Web search extension
-app.use('/api/serpapi', require('./src/endpoints/serpapi').router);
-
-// The different text generation APIs
-
-// Ooba/OpenAI text completions
-app.use('/api/backends/text-completions', require('./src/endpoints/backends/text-completions').router);
-
-// KoboldAI
-app.use('/api/backends/kobold', require('./src/endpoints/backends/kobold').router);
-
-// OpenAI chat completions
-app.use('/api/backends/chat-completions', require('./src/endpoints/backends/chat-completions').router);
-
-// Scale (alt method)
-app.use('/api/backends/scale-alt', require('./src/endpoints/backends/scale-alt').router);
-
-// Speech (text-to-speech and speech-to-text)
-app.use('/api/speech', require('./src/endpoints/speech').router);
+const tavernUrlV6 = new URL(
+    (cliArguments.ssl ? 'https://' : 'http://') +
+    (listen ? '[::]' : '[::1]') +
+    (':' + server_port),
+);
 
 const tavernUrl = new URL(
     (cliArguments.ssl ? 'https://' : 'http://') +
     (listen ? '0.0.0.0' : '127.0.0.1') +
-    (':' + server_port),
-);
-
-const autorunUrl = new URL(
-    (cliArguments.ssl ? 'https://' : 'http://') +
-    ('127.0.0.1') +
     (':' + server_port),
 );
 
@@ -550,22 +646,22 @@ const preSetupTasks = async function () {
     }
     console.log();
 
-    const directories = await userModule.getUserDirectoriesList();
-    await contentManager.checkForNewContent(directories);
+    const directories = await getUserDirectoriesList();
+    await checkForNewContent(directories);
     await ensureThumbnailCache();
     cleanUploads();
 
-    await settingsEndpoint.init();
-    await statsEndpoint.init();
+    await settingsInit();
+    await statsInit();
 
-    const cleanupPlugins = await loadPlugins();
+    const cleanupPlugins = await initializePlugins();
     const consoleTitle = process.title;
 
     let isExiting = false;
     const exitProcess = async () => {
         if (isExiting) return;
         isExiting = true;
-        statsEndpoint.onExit();
+        await statsOnExit();
         if (typeof cleanupPlugins === 'function') {
             await cleanupPlugins();
         }
@@ -580,33 +676,87 @@ const preSetupTasks = async function () {
         console.error('Uncaught exception:', err);
         exitProcess();
     });
+
+    // Add request proxy.
+    initRequestProxy({ enabled: proxyEnabled, url: proxyUrl, bypass: proxyBypass });
+
+    // Wait for frontend libs to compile
+    await webpackMiddleware.runWebpackCompiler();
 };
 
 /**
- * Tasks that need to be run after the server starts listening.
+ * Gets the hostname to use for autorun in the browser.
+ * @returns {string} The hostname to use for autorun
  */
-const postSetupTasks = async function () {
+function getAutorunHostname() {
+    if (autorunHostname === 'auto') {
+        if (enableIPv6 && enableIPv4) {
+            if (avoidLocalhost) return '[::1]';
+            return 'localhost';
+        }
+
+        if (enableIPv6) {
+            return '[::1]';
+        }
+
+        if (enableIPv4) {
+            return '127.0.0.1';
+        }
+    }
+
+    return autorunHostname;
+}
+
+/**
+ * Tasks that need to be run after the server starts listening.
+ * @param {boolean} v6Failed If the server failed to start on IPv6
+ * @param {boolean} v4Failed If the server failed to start on IPv4
+ */
+const postSetupTasks = async function (v6Failed, v4Failed) {
+    const autorunUrl = new URL(
+        (cliArguments.ssl ? 'https://' : 'http://') +
+        (getAutorunHostname()) +
+        (':') +
+        ((autorunPortOverride >= 0) ? autorunPortOverride : server_port),
+    );
+
     console.log('Launching...');
 
     if (autorun) open(autorunUrl.toString());
 
     setWindowTitle('SillyTavern WebServer');
 
-    console.log(color.green('SillyTavern is listening on: ' + tavernUrl));
+    let logListen = 'SillyTavern is listening on';
+
+    if (enableIPv6 && !v6Failed) {
+        logListen += color.green(' IPv6: ' + tavernUrlV6.host);
+    }
+
+    if (enableIPv4 && !v4Failed) {
+        logListen += color.green(' IPv4: ' + tavernUrl.host);
+    }
+
+    const goToLog = 'Go to: ' + color.blue(autorunUrl) + ' to open SillyTavern';
+    const plainGoToLog = removeColorFormatting(goToLog);
+
+    console.log(logListen);
+    console.log('\n' + getSeparator(plainGoToLog.length) + '\n');
+    console.log(goToLog);
+    console.log('\n' + getSeparator(plainGoToLog.length) + '\n');
 
     if (listen) {
-        console.log('\n0.0.0.0 means SillyTavern is listening on all network interfaces (Wi-Fi, LAN, localhost). If you want to limit it only to internal localhost (127.0.0.1), change the setting in config.yaml to "listen: false". Check "access.log" file in the SillyTavern directory if you want to inspect incoming connections.\n');
+        console.log('[::] or 0.0.0.0 means SillyTavern is listening on all network interfaces (Wi-Fi, LAN, localhost). If you want to limit it only to internal localhost ([::1] or 127.0.0.1), change the setting in config.yaml to "listen: false". Check "access.log" file in the SillyTavern directory if you want to inspect incoming connections.\n');
     }
 
     if (basicAuthMode) {
-        const basicAuthUser = getConfigValue('basicAuthUser', {});
-        if (!basicAuthUser?.username || !basicAuthUser?.password) {
-            console.warn(color.yellow('Basic Authentication is enabled, but username or password is not set or empty!'));
+        if (perUserBasicAuth && !enableAccounts) {
+            console.error(color.red('Per-user basic authentication is enabled, but user accounts are disabled. This configuration may be insecure.'));
+        } else if (!perUserBasicAuth) {
+            const basicAuthUser = getConfigValue('basicAuthUser', {});
+            if (!basicAuthUser?.username || !basicAuthUser?.password) {
+                console.warn(color.yellow('Basic Authentication is enabled, but username or password is not set or empty!'));
+            }
         }
-    }
-
-    if (listen && !basicAuthMode && enableAccounts) {
-        await userModule.checkAccountsProtection();
     }
 };
 
@@ -614,25 +764,14 @@ const postSetupTasks = async function () {
  * Loads server plugins from a directory.
  * @returns {Promise<Function>} Function to be run on server exit
  */
-async function loadPlugins() {
+async function initializePlugins() {
     try {
         const pluginDirectory = path.join(serverDirectory, 'plugins');
-        const loader = require('./src/plugin-loader');
-        const cleanupPlugins = await loader.loadPlugins(app, pluginDirectory);
+        const cleanupPlugins = await loadPlugins(app, pluginDirectory);
         return cleanupPlugins;
     } catch {
         console.log('Plugin loading failed.');
         return () => { };
-    }
-}
-
-if (listen && !enableWhitelist && !basicAuthMode) {
-    if (getConfigValue('securityOverride', false)) {
-        console.warn(color.red('Security has been overridden. If it\'s not a trusted network, change the settings.'));
-    }
-    else {
-        console.error(color.red('Your SillyTavern is currently unsecurely open to the public. Enable whitelisting or basic authentication.'));
-        process.exit(1);
     }
 }
 
@@ -649,28 +788,147 @@ function setWindowTitle(title) {
     }
 }
 
-// User storage module needs to be initialized before starting the server
-userModule.initUserStorage(dataRoot)
-    .then(userModule.ensurePublicDirectoriesExist)
-    .then(userModule.migrateUserData)
-    .then(preSetupTasks)
-    .finally(() => {
-        if (cliArguments.ssl) {
-            https.createServer(
-                {
-                    cert: fs.readFileSync(cliArguments.certPath),
-                    key: fs.readFileSync(cliArguments.keyPath),
-                }, app)
-                .listen(
-                    Number(tavernUrl.port) || 443,
-                    tavernUrl.hostname,
-                    postSetupTasks,
-                );
-        } else {
-            http.createServer(app).listen(
-                Number(tavernUrl.port) || 80,
-                tavernUrl.hostname,
-                postSetupTasks,
-            );
-        }
+/**
+ * Prints an error message and exits the process if necessary
+ * @param {string} message The error message to print
+ * @returns {void}
+ */
+function logSecurityAlert(message) {
+    if (basicAuthMode || enableWhitelist) return; // safe!
+    console.error(color.red(message));
+    if (getConfigValue('securityOverride', false)) {
+        console.warn(color.red('Security has been overridden. If it\'s not a trusted network, change the settings.'));
+        return;
+    }
+    process.exit(1);
+}
+
+/**
+ * Handles the case where the server failed to start on one or both protocols.
+ * @param {boolean} v6Failed If the server failed to start on IPv6
+ * @param {boolean} v4Failed If the server failed to start on IPv4
+ */
+function handleServerListenFail(v6Failed, v4Failed) {
+    if (v6Failed && !enableIPv4) {
+        console.error(color.red('fatal error: Failed to start server on IPv6 and IPv4 disabled'));
+        process.exit(1);
+    }
+
+    if (v4Failed && !enableIPv6) {
+        console.error(color.red('fatal error: Failed to start server on IPv4 and IPv6 disabled'));
+        process.exit(1);
+    }
+
+    if (v6Failed && v4Failed) {
+        console.error(color.red('fatal error: Failed to start server on both IPv6 and IPv4'));
+        process.exit(1);
+    }
+}
+
+/**
+ * Creates an HTTPS server.
+ * @param {URL} url The URL to listen on
+ * @returns {Promise<void>} A promise that resolves when the server is listening
+ * @throws {Error} If the server fails to start
+ */
+function createHttpsServer(url) {
+    return new Promise((resolve, reject) => {
+        const server = https.createServer(
+            {
+                cert: fs.readFileSync(cliArguments.certPath),
+                key: fs.readFileSync(cliArguments.keyPath),
+            }, app);
+        server.on('error', reject);
+        server.on('listening', resolve);
+        server.listen(Number(url.port || 443), url.hostname);
     });
+}
+
+/**
+ * Creates an HTTP server.
+ * @param {URL} url The URL to listen on
+ * @returns {Promise<void>} A promise that resolves when the server is listening
+ * @throws {Error} If the server fails to start
+ */
+function createHttpServer(url) {
+    return new Promise((resolve, reject) => {
+        const server = http.createServer(app);
+        server.on('error', reject);
+        server.on('listening', resolve);
+        server.listen(Number(url.port || 80), url.hostname);
+    });
+}
+
+async function startHTTPorHTTPS() {
+    let v6Failed = false;
+    let v4Failed = false;
+
+    const createFunc = cliArguments.ssl ? createHttpsServer : createHttpServer;
+
+    if (enableIPv6) {
+        try {
+            await createFunc(tavernUrlV6);
+        } catch (error) {
+            console.error('non-fatal error: failed to start server on IPv6');
+            console.error(error);
+
+            v6Failed = true;
+        }
+    }
+
+    if (enableIPv4) {
+        try {
+            await createFunc(tavernUrl);
+        } catch (error) {
+            console.error('non-fatal error: failed to start server on IPv4');
+            console.error(error);
+
+            v4Failed = true;
+        }
+    }
+
+    return [v6Failed, v4Failed];
+}
+
+async function startServer() {
+    const [v6Failed, v4Failed] = await startHTTPorHTTPS();
+
+    handleServerListenFail(v6Failed, v4Failed);
+    postSetupTasks(v6Failed, v4Failed);
+}
+
+async function verifySecuritySettings() {
+    // Skip all security checks as listen is set to false
+    if (!listen) {
+        return;
+    }
+
+    if (!enableAccounts) {
+        logSecurityAlert('Your SillyTavern is currently insecurely open to the public. Enable whitelisting, basic authentication or user accounts.');
+    }
+
+    const users = await getAllEnabledUsers();
+    const unprotectedUsers = users.filter(x => !x.password);
+    const unprotectedAdminUsers = unprotectedUsers.filter(x => x.admin);
+
+    if (unprotectedUsers.length > 0) {
+        console.warn(color.blue('A friendly reminder that the following users are not password protected:'));
+        unprotectedUsers.map(x => `${color.yellow(x.handle)} ${color.red(x.admin ? '(admin)' : '')}`).forEach(x => console.warn(x));
+        console.log();
+        console.warn(`Consider setting a password in the admin panel or by using the ${color.blue('recover.js')} script.`);
+        console.log();
+
+        if (unprotectedAdminUsers.length > 0) {
+            logSecurityAlert('If you are not using basic authentication or whitelisting, you should set a password for all admin users.');
+        }
+    }
+}
+
+// User storage module needs to be initialized before starting the server
+initUserStorage(dataRoot)
+    .then(ensurePublicDirectoriesExist)
+    .then(migrateUserData)
+    .then(migrateSystemPrompts)
+    .then(verifySecuritySettings)
+    .then(preSetupTasks)
+    .finally(startServer);

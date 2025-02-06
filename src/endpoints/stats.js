@@ -1,14 +1,15 @@
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const writeFileAtomic = require('write-file-atomic');
-const crypto = require('crypto');
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+
+import express from 'express';
+import writeFileAtomic from 'write-file-atomic';
 
 const readFile = fs.promises.readFile;
 const readdir = fs.promises.readdir;
 
-const { jsonParser } = require('../express-common');
-const { getAllUserHandles, getUserDirectories } = require('../users');
+import { jsonParser } from '../express-common.js';
+import { getAllUserHandles, getUserDirectories } from '../users.js';
 
 const STATS_FILE = 'stats.json';
 
@@ -16,7 +17,10 @@ const STATS_FILE = 'stats.json';
  * @type {Map<string, Object>} The stats object for each user.
  */
 const STATS = new Map();
-let lastSaveTimestamp = 0;
+/**
+ * @type {Map<string, number>} The timestamps for each user.
+ */
+const TIMESTAMPS = new Map();
 
 /**
  * Convert a timestamp to an integer timestamp.
@@ -119,7 +123,6 @@ function timestampToMoment(timestamp) {
  * @returns {Promise<Object>} The aggregated stats object.
  */
 async function collectAndCreateStats(chatsPath, charactersPath) {
-    console.log('Collecting and creating stats...');
     const files = await readdir(charactersPath);
 
     const pngFiles = files.filter((file) => file.endsWith('.png'));
@@ -144,18 +147,18 @@ async function collectAndCreateStats(chatsPath, charactersPath) {
  * @param {string} chatsPath Path to the directory containing the chat files.
  * @param {string} charactersPath Path to the directory containing the character files.
  */
-async function recreateStats(handle, chatsPath, charactersPath) {
+export async function recreateStats(handle, chatsPath, charactersPath) {
+    console.log('Collecting and creating stats for user:', handle);
     const stats = await collectAndCreateStats(chatsPath, charactersPath);
     STATS.set(handle, stats);
     await saveStatsToFile();
-    console.debug('Stats (re)created and saved to file.');
 }
 
 /**
  * Loads the stats file into memory. If the file doesn't exist or is invalid,
  * initializes stats by collecting and creating them for each character.
  */
-async function init() {
+export async function init() {
     try {
         const userHandles = await getAllUserHandles();
         for (const handle of userHandles) {
@@ -167,7 +170,7 @@ async function init() {
             } catch (err) {
                 // If the file doesn't exist or is invalid, initialize stats
                 if (err.code === 'ENOENT' || err instanceof SyntaxError) {
-                    recreateStats(handle, directories.chats, directories.characters);
+                    await recreateStats(handle, directories.chats, directories.characters);
                 } else {
                     throw err; // Rethrow the error if it's something we didn't expect
                 }
@@ -185,13 +188,17 @@ async function init() {
 async function saveStatsToFile() {
     const userHandles = await getAllUserHandles();
     for (const handle of userHandles) {
-        const charStats = STATS.get(handle) || {};
+        if (!STATS.has(handle)) {
+            continue;
+        }
+        const charStats = STATS.get(handle);
+        const lastSaveTimestamp = TIMESTAMPS.get(handle) || 0;
         if (charStats.timestamp > lastSaveTimestamp) {
             try {
                 const directories = getUserDirectories(handle);
                 const statsFilePath = path.join(directories.root, STATS_FILE);
                 await writeFileAtomic(statsFilePath, JSON.stringify(charStats));
-                lastSaveTimestamp = Date.now();
+                TIMESTAMPS.set(handle, Date.now());
             } catch (error) {
                 console.log('Failed to save stats to file.', error);
             }
@@ -203,7 +210,7 @@ async function saveStatsToFile() {
  * Attempts to save charStats to a file and then terminates the process.
  * If an error occurs during the file write, it logs the error before exiting.
  */
-async function onExit() {
+export async function onExit() {
     try {
         await saveStatsToFile();
     } catch (err) {
@@ -428,7 +435,7 @@ function calculateTotalGenTimeAndWordCount(
     };
 }
 
-const router = express.Router();
+export const router = express.Router();
 
 /**
  * Handle a POST request to get the stats object
@@ -459,10 +466,3 @@ router.post('/update', jsonParser, function (request, response) {
     setCharStats(request.user.profile.handle, request.body);
     return response.sendStatus(200);
 });
-
-module.exports = {
-    router,
-    recreateStats,
-    init,
-    onExit,
-};

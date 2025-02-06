@@ -1,11 +1,13 @@
-const express = require('express');
-const fetch = require('node-fetch').default;
+import fs from 'node:fs';
+import express from 'express';
+import fetch from 'node-fetch';
 
-const { jsonParser } = require('../../express-common');
-const { forwardFetchResponse, delay } = require('../../util');
-const { getOverrideHeaders, setAdditionalHeaders } = require('../../additional-headers');
+import { jsonParser, urlencodedParser } from '../../express-common.js';
+import { forwardFetchResponse, delay } from '../../util.js';
+import { getOverrideHeaders, setAdditionalHeaders, setAdditionalHeadersByType } from '../../additional-headers.js';
+import { TEXTGEN_TYPES } from '../../constants.js';
 
-const router = express.Router();
+export const router = express.Router();
 
 router.post('/generate', jsonParser, async function (request, response_generate) {
     if (!request.body) return response_generate.sendStatus(400);
@@ -94,7 +96,7 @@ router.post('/generate', jsonParser, async function (request, response_generate)
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
             const url = request.body.streaming ? `${request.body.api_server}/extra/generate/stream` : `${request.body.api_server}/v1/generate`;
-            const response = await fetch(url, { method: 'POST', timeout: 0, ...args });
+            const response = await fetch(url, { method: 'POST', ...args });
 
             if (request.body.streaming) {
                 // Pipe remote SSE stream to Express response
@@ -154,6 +156,7 @@ router.post('/status', jsonParser, async function (request, response) {
 
     const result = {};
 
+    /** @type {any} */
     const [koboldUnitedResponse, koboldExtraResponse, koboldModelResponse] = await Promise.all([
         // We catch errors both from the response not having a successful HTTP status and from JSON parsing failing
 
@@ -185,4 +188,53 @@ router.post('/status', jsonParser, async function (request, response) {
     response.send(result);
 });
 
-module.exports = { router };
+router.post('/transcribe-audio', urlencodedParser, async function (request, response) {
+    try {
+        const server = request.body.server;
+
+        if (!server) {
+            console.log('Server is not set');
+            return response.sendStatus(400);
+        }
+
+        if (!request.file) {
+            console.log('No audio file found');
+            return response.sendStatus(400);
+        }
+
+        console.log('Transcribing audio with KoboldCpp', server);
+
+        const fileBase64 = fs.readFileSync(request.file.path).toString('base64');
+        fs.rmSync(request.file.path);
+
+        const headers = {};
+        setAdditionalHeadersByType(headers, TEXTGEN_TYPES.KOBOLDCPP, server, request.user.directories);
+
+        const url = new URL(server);
+        url.pathname = '/api/extra/transcribe';
+
+        const result = await fetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+            },
+            body: JSON.stringify({
+                prompt: '',
+                audio_data: fileBase64,
+            }),
+        });
+
+        if (!result.ok) {
+            const text = await result.text();
+            console.log('KoboldCpp request failed', result.statusText, text);
+            return response.status(500).send(text);
+        }
+
+        const data = await result.json();
+        console.log('KoboldCpp transcription response', data);
+        return response.json(data);
+    } catch (error) {
+        console.error('KoboldCpp transcription failed', error);
+        response.status(500).send('Internal server error');
+    }
+});

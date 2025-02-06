@@ -1,13 +1,14 @@
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const sanitize = require('sanitize-filename');
-const writeFileAtomicSync = require('write-file-atomic').sync;
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { jsonParser } = require('../express-common');
-const { humanizedISO8601DateTime } = require('../util');
+import express from 'express';
+import sanitize from 'sanitize-filename';
+import { sync as writeFileAtomicSync } from 'write-file-atomic';
 
-const router = express.Router();
+import { jsonParser } from '../express-common.js';
+import { humanizedISO8601DateTime } from '../util.js';
+
+export const router = express.Router();
 
 router.post('/all', jsonParser, (request, response) => {
     const groups = [];
@@ -77,7 +78,7 @@ router.post('/create', jsonParser, (request, response) => {
         generation_mode_join_suffix: request.body.generation_mode_join_suffix ?? '',
     };
     const pathToFile = path.join(request.user.directories.groups, `${id}.json`);
-    const fileData = JSON.stringify(groupMetadata);
+    const fileData = JSON.stringify(groupMetadata, null, 4);
 
     if (!fs.existsSync(request.user.directories.groups)) {
         fs.mkdirSync(request.user.directories.groups);
@@ -93,7 +94,7 @@ router.post('/edit', jsonParser, (request, response) => {
     }
     const id = request.body.id;
     const pathToFile = path.join(request.user.directories.groups, `${id}.json`);
-    const fileData = JSON.stringify(request.body);
+    const fileData = JSON.stringify(request.body, null, 4);
 
     writeFileAtomicSync(pathToFile, fileData);
     return response.send({ ok: true });
@@ -131,5 +132,3 @@ router.post('/delete', jsonParser, async (request, response) => {
 
     return response.send({ ok: true });
 });
-
-module.exports = { router };

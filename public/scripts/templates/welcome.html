@@ -1,13 +1,26 @@
 <h3>
-    <span id="version_display_welcome"></span>
+    <span id="version_display_welcome">{{displayVersion}}</span>
 </h3>
 <h3 data-i18n="How to start chatting?">Xem Hướng Dẫn Sử Dụng Trên Video</h3>
 <ol>
     <li>
-        <span data-i18n="Click ">Click </span><code><i class="fa-solid fa-plug"></i></code><span data-i18n="and select a"> and select a </span><a href="https://docs.sillytavern.app/usage/api-connections/" target="_blank" data-i18n="Chat API">Chat API</a>.</span>
+        <span data-i18n="Click _space">Click </span>
+        <button class="menu_button menu_button_icon drawer-opener inline-flex" data-target="sys-settings-button">
+            <i class="fa-solid fa-plug"></i>
+            <span data-i18n="API Connections">API Connections</span>
+        </button>
+        <span data-i18n="and connect to an">and connect to an</span>
+        <a href="https://docs.sillytavern.app/usage/api-connections/" target="_blank">
+            <span class="fa-solid fa-circle-question"></span>
+            <span data-i18n="API">API</span></a>.
     </li>
     <li>
-        <span data-i18n="Click ">Click </span><code><i class="fa-solid fa-address-card"></i></code><span data-i18n="and pick a character."> and pick a character.</span>
+        <span data-i18n="Click _space">Click </span>
+        <button class="menu_button menu_button_icon drawer-opener inline-flex" data-target="rightNavHolder">
+            <i class="fa-solid fa-address-card"></i>
+            <span data-i18n="Character Management">Character Management</span>
+        </button>
+        <span data-i18n="and pick a character."> and pick a character.</span>
     </li>
 </ol>
 <span data-i18n="You can browse a list of bundled characters in the Download Extensions & Assets menu within">You can browse a list of bundled characters in the <i>Download Extensions & Assets</i> menu within </span><code><i class="fa-solid fa-cubes"></i></code><span>.</span>
@@ -31,4 +44,3 @@
         </a>
     </li>
 </ul>
-

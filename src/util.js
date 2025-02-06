@@ -1,15 +1,18 @@
-const path = require('path');
-const fs = require('fs');
-const commandExistsSync = require('command-exists').sync;
-const writeFileAtomicSync = require('write-file-atomic').sync;
-const _ = require('lodash');
-const yauzl = require('yauzl');
-const mime = require('mime-types');
-const yaml = require('yaml');
-const { default: simpleGit } = require('simple-git');
-const { Readable } = require('stream');
+import path from 'node:path';
+import fs from 'node:fs';
+import http2 from 'node:http2';
+import process from 'node:process';
+import { Readable } from 'node:stream';
+import { createRequire } from 'node:module';
+import { Buffer } from 'node:buffer';
 
-const { PUBLIC_DIRECTORIES } = require('./constants');
+import yaml from 'yaml';
+import { sync as commandExistsSync } from 'command-exists';
+import { sync as writeFileAtomicSync } from 'write-file-atomic';
+import _ from 'lodash';
+import yauzl from 'yauzl';
+import mime from 'mime-types';
+import { default as simpleGit } from 'simple-git';
 
 /**
  * Parsed config object.
@@ -20,7 +23,7 @@ let CACHED_CONFIG = null;
  * Returns the config object from the config.yaml file.
  * @returns {object} Config object
  */
-function getConfig() {
+export function getConfig() {
     if (CACHED_CONFIG) {
         return CACHED_CONFIG;
     }
@@ -36,8 +39,9 @@ function getConfig() {
         CACHED_CONFIG = config;
         return config;
     } catch (error) {
-        console.warn('Failed to read config.yaml');
-        return {};
+        console.error(color.red('FATAL: Failed to read config.yaml. Please check the file for syntax errors.'));
+        console.error(error.message);
+        process.exit(1);
     }
 }
 
@@ -47,7 +51,7 @@ function getConfig() {
  * @param {any} defaultValue - Default value to return if the key is not found
  * @returns {any} Value for the given key
  */
-function getConfigValue(key, defaultValue = null) {
+export function getConfigValue(key, defaultValue = null) {
     const config = getConfig();
     return _.get(config, key, defaultValue);
 }
@@ -57,7 +61,7 @@ function getConfigValue(key, defaultValue = null) {
  * @param {string} key Key to set
  * @param {any} value Value to set
  */
-function setConfigValue(key, value) {
+export function setConfigValue(key, value) {
     // Reset cache so that the next getConfig call will read the updated config file
     CACHED_CONFIG = null;
     const config = getConfig();
@@ -70,7 +74,7 @@ function setConfigValue(key, value) {
  * @param {string} auth username:password
  * @returns {string} Basic Auth header value
  */
-function getBasicAuthHeader(auth) {
+export function getBasicAuthHeader(auth) {
     const encoded = Buffer.from(`${auth}`).toString('base64');
     return `Basic ${encoded}`;
 }
@@ -80,7 +84,7 @@ function getBasicAuthHeader(auth) {
  * Also returns the agent string for the Horde API.
  * @returns {Promise<{agent: string, pkgVersion: string, gitRevision: string | null, gitBranch: string | null, commitDate: string | null, isLatest: boolean}>} Version info object
  */
-async function getVersion() {
+export async function getVersion() {
     let pkgVersion = 'UNKNOWN';
     let gitRevision = null;
     let gitBranch = null;
@@ -88,9 +92,10 @@ async function getVersion() {
     let isLatest = true;
 
     try {
+        const require = createRequire(import.meta.url);
         const pkgJson = require(path.join(process.cwd(), './package.json'));
         pkgVersion = pkgJson.version;
-        if (!process['pkg'] && commandExistsSync('git')) {
+        if (commandExistsSync('git')) {
             const git = simpleGit();
             const cwd = process.cwd();
             gitRevision = await git.cwd(cwd).revparse(['--short', 'HEAD']);
@@ -118,7 +123,7 @@ async function getVersion() {
  * @param {number} ms Milliseconds to wait
  * @returns {Promise<void>} Promise that resolves after the given amount of milliseconds
  */
-function delay(ms) {
+export function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -128,7 +133,7 @@ function delay(ms) {
  * @returns {string} Random hex string
  * @example getHexString(8) // 'a1b2c3d4'
  */
-function getHexString(length) {
+export function getHexString(length) {
     const chars = '0123456789abcdef';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -138,12 +143,25 @@ function getHexString(length) {
 }
 
 /**
- * Extracts a file with given extension from an ArrayBuffer containing a ZIP archive.
- * @param {ArrayBuffer} archiveBuffer Buffer containing a ZIP archive
- * @param {string} fileExtension File extension to look for
- * @returns {Promise<Buffer>} Buffer containing the extracted file
+ * Formats a byte size into a human-readable string with units
+ * @param {number} bytes - The size in bytes to format
+ * @returns {string} The formatted string (e.g., "1.5 MB")
  */
-async function extractFileFromZipBuffer(archiveBuffer, fileExtension) {
+export function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Extracts a file with given extension from an ArrayBuffer containing a ZIP archive.
+ * @param {ArrayBufferLike} archiveBuffer Buffer containing a ZIP archive
+ * @param {string} fileExtension File extension to look for
+ * @returns {Promise<Buffer|null>} Buffer containing the extracted file. Null if the file was not found.
+ */
+export async function extractFileFromZipBuffer(archiveBuffer, fileExtension) {
     return await new Promise((resolve, reject) => yauzl.fromBuffer(Buffer.from(archiveBuffer), { lazyEntries: true }, (err, zipfile) => {
         if (err) {
             reject(err);
@@ -151,7 +169,7 @@ async function extractFileFromZipBuffer(archiveBuffer, fileExtension) {
 
         zipfile.readEntry();
         zipfile.on('entry', (entry) => {
-            if (entry.fileName.endsWith(fileExtension)) {
+            if (entry.fileName.endsWith(fileExtension) && !entry.fileName.startsWith('__MACOSX')) {
                 console.log(`Extracting ${entry.fileName}`);
                 zipfile.openReadStream(entry, (err, readStream) => {
                     if (err) {
@@ -173,6 +191,7 @@ async function extractFileFromZipBuffer(archiveBuffer, fileExtension) {
                 zipfile.readEntry();
             }
         });
+        zipfile.on('end', () => resolve(null));
     }));
 }
 
@@ -181,7 +200,7 @@ async function extractFileFromZipBuffer(archiveBuffer, fileExtension) {
  * @param {string} zipFilePath Path to the ZIP archive
  * @returns {Promise<[string, Buffer][]>} Array of image buffers
  */
-async function getImageBuffers(zipFilePath) {
+export async function getImageBuffers(zipFilePath) {
     return new Promise((resolve, reject) => {
         // Check if the zip file exists
         if (!fs.existsSync(zipFilePath)) {
@@ -237,7 +256,7 @@ async function getImageBuffers(zipFilePath) {
  * @param {any} readableStream Readable stream to read from
  * @returns {Promise<Buffer[]>} Array of chunks
  */
-async function readAllChunks(readableStream) {
+export async function readAllChunks(readableStream) {
     return new Promise((resolve, reject) => {
         // Consume the readable stream
         const chunks = [];
@@ -261,7 +280,7 @@ function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
-function deepMerge(target, source) {
+export function deepMerge(target, source) {
     let output = Object.assign({}, target);
     if (isObject(target) && isObject(source)) {
         Object.keys(source).forEach(key => {
@@ -278,7 +297,7 @@ function deepMerge(target, source) {
     return output;
 }
 
-const color = {
+export const color = {
     byNum: (mess, fgNum) => {
         mess = mess || '';
         fgNum = fgNum === undefined ? 31 : fgNum;
@@ -294,7 +313,14 @@ const color = {
     white: (mess) => color.byNum(mess, 37),
 };
 
-function uuidv4() {
+/**
+ * Gets a random UUIDv4 string.
+ * @returns {string} A UUIDv4 string
+ */
+export function uuidv4() {
+    if ('crypto' in globalThis && 'randomUUID' in globalThis.crypto) {
+        return globalThis.crypto.randomUUID();
+    }
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -302,7 +328,7 @@ function uuidv4() {
     });
 }
 
-function humanizedISO8601DateTime(date) {
+export function humanizedISO8601DateTime(date) {
     let baseDate = typeof date === 'number' ? new Date(date) : new Date();
     let humanYear = baseDate.getFullYear();
     let humanMonth = (baseDate.getMonth() + 1);
@@ -315,7 +341,7 @@ function humanizedISO8601DateTime(date) {
     return HumanizedDateTime;
 }
 
-function tryParse(str) {
+export function tryParse(str) {
     try {
         return JSON.parse(str);
     } catch {
@@ -330,7 +356,7 @@ function tryParse(str) {
  * @param {string} inputPath The path to be converted.
  * @returns The relative URL path from which the client can access the file.
  */
-function clientRelativePath(root, inputPath) {
+export function clientRelativePath(root, inputPath) {
     if (!inputPath.startsWith(root)) {
         throw new Error('Input path does not start with the root directory');
     }
@@ -343,11 +369,11 @@ function clientRelativePath(root, inputPath) {
  * @param {string} filename The file name to remove the extension from.
  * @returns The file name, sans extension
  */
-function removeFileExtension(filename) {
+export function removeFileExtension(filename) {
     return filename.replace(/\.[^.]+$/, '');
 }
 
-function generateTimestamp() {
+export function generateTimestamp() {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -360,28 +386,55 @@ function generateTimestamp() {
 }
 
 /**
- * @param {string} prefix
+ * Remove old backups with the given prefix from a specified directory.
+ * @param {string} directory The root directory to remove backups from.
+ * @param {string} prefix File prefix to filter backups by.
+ * @param {number?} limit Maximum number of backups to keep. If null, the limit is determined by the `backups.common.numberOfBackups` config value.
  */
-function removeOldBackups(prefix) {
-    const MAX_BACKUPS = 50;
+export function removeOldBackups(directory, prefix, limit = null) {
+    const MAX_BACKUPS = limit ?? Number(getConfigValue('backups.common.numberOfBackups', 50));
 
-    let files = fs.readdirSync(PUBLIC_DIRECTORIES.backups).filter(f => f.startsWith(prefix));
+    let files = fs.readdirSync(directory).filter(f => f.startsWith(prefix));
     if (files.length > MAX_BACKUPS) {
-        files = files.map(f => path.join(PUBLIC_DIRECTORIES.backups, f));
+        files = files.map(f => path.join(directory, f));
         files.sort((a, b) => fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs);
 
-        fs.rmSync(files[0]);
+        while (files.length > MAX_BACKUPS) {
+            const oldest = files.shift();
+            if (!oldest) {
+                break;
+            }
+
+            fs.rmSync(oldest);
+        }
     }
 }
 
-function getImages(path) {
+/**
+ * Get a list of images in a directory.
+ * @param {string} directoryPath Path to the directory containing the images
+ * @param {'name' | 'date'} sortBy Sort images by name or date
+ * @returns {string[]} List of image file names
+ */
+export function getImages(directoryPath, sortBy = 'name') {
+    function getSortFunction() {
+        switch (sortBy) {
+            case 'name':
+                return Intl.Collator().compare;
+            case 'date':
+                return (a, b) => fs.statSync(path.join(directoryPath, a)).mtimeMs - fs.statSync(path.join(directoryPath, b)).mtimeMs;
+            default:
+                return (_a, _b) => 0;
+        }
+    }
+
     return fs
-        .readdirSync(path)
+        .readdirSync(directoryPath)
         .filter(file => {
             const type = mime.lookup(file);
             return type && type.startsWith('image/');
         })
-        .sort(Intl.Collator().compare);
+        .sort(getSortFunction());
 }
 
 /**
@@ -389,7 +442,7 @@ function getImages(path) {
  * @param {import('node-fetch').Response} from The Fetch API response to pipe from.
  * @param {import('express').Response} to The Express response to pipe to.
  */
-function forwardFetchResponse(from, to) {
+export function forwardFetchResponse(from, to) {
     let statusCode = from.status;
     let statusText = from.statusText;
 
@@ -408,17 +461,22 @@ function forwardFetchResponse(from, to) {
 
     to.statusCode = statusCode;
     to.statusMessage = statusText;
-    from.body.pipe(to);
 
-    to.socket.on('close', function () {
-        if (from.body instanceof Readable) from.body.destroy(); // Close the remote stream
-        to.end(); // End the Express response
-    });
+    if (from.body && to.socket) {
+        from.body.pipe(to);
 
-    from.body.on('end', function () {
-        console.log('Streaming request finished');
+        to.socket.on('close', function () {
+            if (from.body instanceof Readable) from.body.destroy(); // Close the remote stream
+            to.end(); // End the Express response
+        });
+
+        from.body.on('end', function () {
+            console.log('Streaming request finished');
+            to.end();
+        });
+    } else {
         to.end();
-    });
+    }
 }
 
 /**
@@ -431,10 +489,9 @@ function forwardFetchResponse(from, to) {
  * @param {object} headers Request headers
  * @returns {Promise<string>} Response body
  */
-function makeHttp2Request(endpoint, method, body, headers) {
+export function makeHttp2Request(endpoint, method, body, headers) {
     return new Promise((resolve, reject) => {
         try {
-            const http2 = require('http2');
             const url = new URL(endpoint);
             const client = http2.connect(url.origin);
 
@@ -485,7 +542,7 @@ function makeHttp2Request(endpoint, method, body, headers) {
  * @param {string} yamlString YAML-serialized object
  * @returns
  */
-function mergeObjectWithYaml(obj, yamlString) {
+export function mergeObjectWithYaml(obj, yamlString) {
     if (!yamlString) {
         return;
     }
@@ -514,7 +571,7 @@ function mergeObjectWithYaml(obj, yamlString) {
  * @param {string} yamlString YAML-serialized array
  * @returns {void} Nothing
  */
-function excludeKeysByYaml(obj, yamlString) {
+export function excludeKeysByYaml(obj, yamlString) {
     if (!yamlString) {
         return;
     }
@@ -543,14 +600,14 @@ function excludeKeysByYaml(obj, yamlString) {
  * @param {string} str Input string
  * @returns {string} Trimmed string
  */
-function trimV1(str) {
+export function trimV1(str) {
     return String(str ?? '').replace(/\/$/, '').replace(/\/v1$/, '');
 }
 
 /**
  * Simple TTL memory cache.
  */
-class Cache {
+export class Cache {
     /**
      * @param {number} ttl Time to live in milliseconds
      */
@@ -602,31 +659,215 @@ class Cache {
     }
 }
 
-module.exports = {
-    getConfig,
-    getConfigValue,
-    setConfigValue,
-    getVersion,
-    getBasicAuthHeader,
-    extractFileFromZipBuffer,
-    getImageBuffers,
-    readAllChunks,
-    delay,
-    deepMerge,
-    color,
-    uuidv4,
-    humanizedISO8601DateTime,
-    tryParse,
-    clientRelativePath,
-    removeFileExtension,
-    generateTimestamp,
-    removeOldBackups,
-    getImages,
-    forwardFetchResponse,
-    getHexString,
-    mergeObjectWithYaml,
-    excludeKeysByYaml,
-    trimV1,
-    Cache,
-    makeHttp2Request,
-};
+/**
+ * Removes color formatting from a text string.
+ * @param {string} text Text with color formatting
+ * @returns {string} Text without color formatting
+ */
+export function removeColorFormatting(text) {
+    // ANSI escape codes for colors are usually in the format \x1b[<codes>m
+    return text.replace(/\x1b\[\d{1,2}(;\d{1,2})*m/g, '');
+}
+
+/**
+ * Gets a separator string repeated n times.
+ * @param {number} n Number of times to repeat the separator
+ * @returns {string} Separator string
+ */
+export function getSeparator(n) {
+    return '='.repeat(n);
+}
+
+/**
+ * Checks if the string is a valid URL.
+ * @param {string} url String to check
+ * @returns {boolean} If the URL is valid
+ */
+export function isValidUrl(url) {
+    try {
+        new URL(url);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * MemoryLimitedMap class that limits the memory usage of string values.
+ */
+export class MemoryLimitedMap {
+    /**
+     * Creates an instance of MemoryLimitedMap.
+     * @param {number} maxMemoryInBytes - The maximum allowed memory in bytes for string values.
+     */
+    constructor(maxMemoryInBytes) {
+        if (typeof maxMemoryInBytes !== 'number' || maxMemoryInBytes <= 0 || isNaN(maxMemoryInBytes)) {
+            console.warn('Invalid maxMemoryInBytes, using a fallback value of 1 GB.');
+            maxMemoryInBytes = 1024 * 1024 * 1024; // 1 GB
+        }
+        this.maxMemory = maxMemoryInBytes;
+        this.currentMemory = 0;
+        this.map = new Map();
+        this.queue = [];
+    }
+
+    /**
+     * Estimates the memory usage of a string in bytes.
+     * Assumes each character occupies 2 bytes (UTF-16).
+     * @param {string} str
+     * @returns {number}
+     */
+    static estimateStringSize(str) {
+        return str ? str.length * 2 : 0;
+    }
+
+    /**
+     * Adds or updates a key-value pair in the map.
+     * If adding the new value exceeds the memory limit, evicts oldest entries.
+     * @param {string} key
+     * @param {string} value
+     */
+    set(key, value) {
+        if (typeof key !== 'string' || typeof value !== 'string') {
+            return;
+        }
+
+        const newValueSize = MemoryLimitedMap.estimateStringSize(value);
+
+        // If the new value itself exceeds the max memory, reject it
+        if (newValueSize > this.maxMemory) {
+            return;
+        }
+
+        // Check if the key already exists to adjust memory accordingly
+        if (this.map.has(key)) {
+            const oldValue = this.map.get(key);
+            const oldValueSize = MemoryLimitedMap.estimateStringSize(oldValue);
+            this.currentMemory -= oldValueSize;
+            // Remove the key from its current position in the queue
+            const index = this.queue.indexOf(key);
+            if (index > -1) {
+                this.queue.splice(index, 1);
+            }
+        }
+
+        // Evict oldest entries until there's enough space
+        while (this.currentMemory + newValueSize > this.maxMemory && this.queue.length > 0) {
+            const oldestKey = this.queue.shift();
+            const oldestValue = this.map.get(oldestKey);
+            const oldestValueSize = MemoryLimitedMap.estimateStringSize(oldestValue);
+            this.map.delete(oldestKey);
+            this.currentMemory -= oldestValueSize;
+        }
+
+        // After eviction, check again if there's enough space
+        if (this.currentMemory + newValueSize > this.maxMemory) {
+            return;
+        }
+
+        // Add the new key-value pair
+        this.map.set(key, value);
+        this.queue.push(key);
+        this.currentMemory += newValueSize;
+    }
+
+    /**
+     * Retrieves the value associated with the given key.
+     * @param {string} key
+     * @returns {string | undefined}
+     */
+    get(key) {
+        return this.map.get(key);
+    }
+
+    /**
+     * Checks if the map contains the given key.
+     * @param {string} key
+     * @returns {boolean}
+     */
+    has(key) {
+        return this.map.has(key);
+    }
+
+    /**
+     * Deletes the key-value pair associated with the given key.
+     * @param {string} key
+     * @returns {boolean} - Returns true if the key was found and deleted, else false.
+     */
+    delete(key) {
+        if (!this.map.has(key)) {
+            return false;
+        }
+        const value = this.map.get(key);
+        const valueSize = MemoryLimitedMap.estimateStringSize(value);
+        this.map.delete(key);
+        this.currentMemory -= valueSize;
+
+        // Remove the key from the queue
+        const index = this.queue.indexOf(key);
+        if (index > -1) {
+            this.queue.splice(index, 1);
+        }
+
+        return true;
+    }
+
+    /**
+     * Clears all entries from the map.
+     */
+    clear() {
+        this.map.clear();
+        this.queue = [];
+        this.currentMemory = 0;
+    }
+
+    /**
+     * Returns the number of key-value pairs in the map.
+     * @returns {number}
+     */
+    size() {
+        return this.map.size;
+    }
+
+    /**
+     * Returns the current memory usage in bytes.
+     * @returns {number}
+     */
+    totalMemory() {
+        return this.currentMemory;
+    }
+
+    /**
+     * Returns an iterator over the keys in the map.
+     * @returns {IterableIterator<string>}
+     */
+    keys() {
+        return this.map.keys();
+    }
+
+    /**
+     * Returns an iterator over the values in the map.
+     * @returns {IterableIterator<string>}
+     */
+    values() {
+        return this.map.values();
+    }
+
+    /**
+     * Iterates over the map in insertion order.
+     * @param {Function} callback - Function to execute for each element.
+     */
+    forEach(callback) {
+        this.map.forEach((value, key) => {
+            callback(value, key, this);
+        });
+    }
+
+    /**
+     * Makes the MemoryLimitedMap iterable.
+     * @returns {Iterator} - Iterator over [key, value] pairs.
+     */
+    [Symbol.iterator]() {
+        return this.map[Symbol.iterator]();
+    }
+}

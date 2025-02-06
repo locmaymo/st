@@ -12,6 +12,18 @@
         "type": "theme"
     },
     {
+        "filename": "themes/Celestial Macaron.json",
+        "type": "theme"
+    },
+    {
+        "filename": "themes/Dark V 1.0.json",
+        "type": "theme"
+    },
+    {
+        "filename": "themes/Azure.json",
+        "type": "theme"
+    },
+    {
         "filename": "themes/ProxyAI.me.json",
         "type": "theme"
     },
@@ -137,6 +149,10 @@
     },
     {
         "filename": "Default_Comfy_Workflow.json",
+        "type": "workflow"
+    },
+    {
+        "filename": "Char_Avatar_Comfy_Workflow.json",
         "type": "workflow"
     },
     {
@@ -324,6 +340,26 @@
         "type": "novel_preset"
     },
     {
+        "filename": "presets/novel/Erato-Dragonfruit.json",
+        "type": "novel_preset"
+    },
+    {
+        "filename": "presets/novel/Erato-Golden Arrow.json",
+        "type": "novel_preset"
+    },
+    {
+        "filename": "presets/novel/Erato-Shosetsu.json",
+        "type": "novel_preset"
+    },
+    {
+        "filename": "presets/novel/Erato-Wilder.json",
+        "type": "novel_preset"
+    },
+    {
+        "filename": "presets/novel/Erato-Zany Scribe.json",
+        "type": "novel_preset"
+    },
+    {
         "filename": "presets/textgen/Asterism.json",
         "type": "textgen_preset"
     },
@@ -496,10 +532,6 @@
         "type": "context"
     },
     {
-        "filename": "presets/context/Alpaca-Roleplay.json",
-        "type": "context"
-    },
-    {
         "filename": "presets/context/Alpaca-Single-Turn.json",
         "type": "context"
     },
@@ -516,7 +548,11 @@
         "type": "context"
     },
     {
-        "filename": "presets/context/DreamGen Role-Play V1.json",
+        "filename": "presets/context/DreamGen Role-Play V1 ChatML.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/context/DreamGen Role-Play V1 Llama3.json",
         "type": "context"
     },
     {
@@ -533,10 +569,6 @@
     },
     {
         "filename": "presets/context/Minimalist.json",
-        "type": "context"
-    },
-    {
-        "filename": "presets/context/Mistral.json",
         "type": "context"
     },
     {
@@ -580,10 +612,6 @@
         "type": "instruct"
     },
     {
-        "filename": "presets/instruct/Alpaca-Roleplay.json",
-        "type": "instruct"
-    },
-    {
         "filename": "presets/instruct/Alpaca-Single-Turn.json",
         "type": "instruct"
     },
@@ -596,7 +624,11 @@
         "type": "instruct"
     },
     {
-        "filename": "presets/instruct/DreamGen Role-Play V1.json",
+        "filename": "presets/instruct/DreamGen Role-Play V1 ChatML.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/instruct/DreamGen Role-Play V1 Llama3.json",
         "type": "instruct"
     },
     {
@@ -620,10 +652,6 @@
         "type": "instruct"
     },
     {
-        "filename": "presets/instruct/Mistral.json",
-        "type": "instruct"
-    },
-    {
         "filename": "presets/instruct/OpenOrca-OpenChat.json",
         "type": "instruct"
     },
@@ -638,6 +666,14 @@
     {
         "filename": "presets/instruct/Synthia.json",
         "type": "instruct"
+    },
+    {
+        "filename": "presets/instruct/Tulu.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Tulu.json",
+        "type": "context"
     },
     {
         "filename": "presets/instruct/Vicuna 1.0.json",
@@ -697,6 +733,94 @@
     },
     {
         "filename": "presets/context/ChatML-Names.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/context/Gemma 2.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/instruct/Gemma 2.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/sysprompt/Actor.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Assistant - Expert.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Assistant - Simple.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Chain of Thought.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Roleplay - Detailed.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Roleplay - Immersive.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Roleplay - Simple.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Text Adventure.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Writer - Creative.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Writer - Realistic.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Blank.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/sysprompt/Neutral - Chat.json",
+        "type": "sysprompt"
+    },
+    {
+        "filename": "presets/instruct/Mistral V1.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Mistral V1.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/instruct/Mistral V2 & V3.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Mistral V2 & V3.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/instruct/Mistral V3-Tekken.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Mistral V3-Tekken.json",
+        "type": "context"
+    },
+    {
+        "filename": "presets/instruct/Mistral V7.json",
+        "type": "instruct"
+    },
+    {
+        "filename": "presets/context/Mistral V7.json",
         "type": "context"
     }
 ]

@@ -1,11 +1,30 @@
-const path = require('path');
-const fs = require('fs');
-const writeFileSyncAtomic = require('write-file-atomic').sync;
-const express = require('express');
-const router = express.Router();
-const { validateAssetFileName } = require('./assets');
-const { jsonParser } = require('../express-common');
-const { clientRelativePath } = require('../util');
+import path from 'node:path';
+import fs from 'node:fs';
+
+import express from 'express';
+import sanitize from 'sanitize-filename';
+import { sync as writeFileSyncAtomic } from 'write-file-atomic';
+
+import { validateAssetFileName } from './assets.js';
+import { jsonParser } from '../express-common.js';
+import { clientRelativePath } from '../util.js';
+
+export const router = express.Router();
+
+router.post('/sanitize-filename', jsonParser, async (request, response) => {
+    try {
+        const fileName = String(request.body.fileName);
+        if (!fileName) {
+            return response.status(400).send('No fileName specified');
+        }
+
+        const sanitizedFilename = sanitize(fileName);
+        return response.send({ fileName: sanitizedFilename });
+    } catch (error) {
+        console.log(error);
+        return response.sendStatus(500);
+    }
+});
 
 router.post('/upload', jsonParser, async (request, response) => {
     try {
@@ -81,5 +100,3 @@ router.post('/verify', jsonParser, async (request, response) => {
         return response.sendStatus(500);
     }
 });
-
-module.exports = { router };

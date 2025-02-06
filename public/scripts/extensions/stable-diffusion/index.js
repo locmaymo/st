@@ -1,47 +1,69 @@
+import { Popper } from '../../../lib.js';
 import {
-    saveSettingsDebounced,
-    systemUserName,
-    hideSwipeButtons,
-    showSwipeButtons,
-    callPopup,
-    getRequestHeaders,
-    event_types,
-    eventSource,
-    generateQuietPrompt,
-    this_chid,
-    getCurrentChatId,
     animation_duration,
     appendMediaToMessage,
-    getUserAvatar,
-    user_avatar,
-    getCharacterAvatar,
+    event_types,
+    eventSource,
     formatCharacterAvatar,
+    generateQuietPrompt,
+    getCharacterAvatar,
+    getCurrentChatId,
+    getRequestHeaders,
+    getUserAvatar,
+    saveSettingsDebounced,
     substituteParams,
+    substituteParamsExtended,
+    systemUserName,
+    this_chid,
+    user_avatar,
 } from '../../../script.js';
-import { getApiUrl, getContext, extension_settings, doExtrasFetch, modules, renderExtensionTemplateAsync } from '../../extensions.js';
+import {
+    doExtrasFetch,
+    extension_settings,
+    getApiUrl,
+    getContext,
+    modules,
+    renderExtensionTemplateAsync,
+    writeExtensionField,
+} from '../../extensions.js';
 import { selected_group } from '../../group-chats.js';
-import { stringFormat, initScrollHeight, resetScrollHeight, getCharaFilename, saveBase64AsFile, getBase64Async, delay, isTrueBoolean } from '../../utils.js';
+import {
+    debounce,
+    deepMerge,
+    delay,
+    getBase64Async,
+    getCharaFilename,
+    initScrollHeight,
+    isFalseBoolean,
+    isTrueBoolean,
+    resetScrollHeight,
+    saveBase64AsFile,
+    stringFormat,
+} from '../../utils.js';
 import { getMessageTimeStamp, humanizedDateTime } from '../../RossAscends-mods.js';
-import { SECRET_KEYS, secret_state } from '../../secrets.js';
-import { getNovelUnlimitedImageGeneration, getNovelAnlas, loadNovelSubscriptionData } from '../../nai-settings.js';
+import { SECRET_KEYS, secret_state, writeSecret } from '../../secrets.js';
+import { getNovelAnlas, getNovelUnlimitedImageGeneration, loadNovelSubscriptionData } from '../../nai-settings.js';
 import { getMultimodalCaption } from '../shared.js';
 import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';
 import { SlashCommand } from '../../slash-commands/SlashCommand.js';
-import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../slash-commands/SlashCommandArgument.js';
-import { resolveVariable } from '../../variables.js';
+import {
+    ARGUMENT_TYPE,
+    SlashCommandArgument,
+    SlashCommandNamedArgument,
+} from '../../slash-commands/SlashCommandArgument.js';
+import { debounce_timeout } from '../../constants.js';
+import { SlashCommandEnumValue } from '../../slash-commands/SlashCommandEnumValue.js';
+import { callGenericPopup, Popup, POPUP_RESULT, POPUP_TYPE } from '../../popup.js';
+import { commonEnumProviders } from '../../slash-commands/SlashCommandCommonEnumsProvider.js';
+import { ToolManager } from '../../tool-calling.js';
+
 export { MODULE_NAME };
 
-// Wraps a string into monospace font-face span
-const m = x => `<span class="monospace">${x}</span>`;
-// Joins an array of strings with ' / '
-const j = a => a.join(' / ');
-// Wraps a string into paragraph block
-const p = a => `<p>${a}</p>`;
-
 const MODULE_NAME = 'sd';
-const UPDATE_INTERVAL = 1000;
 // This is a 1x1 transparent PNG
 const PNG_PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+const CUSTOM_STOP_EVENT = 'sd_stop_generation';
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 const sources = {
     extras: 'extras',
@@ -54,9 +76,25 @@ const sources = {
     togetherai: 'togetherai',
     drawthings: 'drawthings',
     pollinations: 'pollinations',
+    stability: 'stability',
+    blockentropy: 'blockentropy',
+    huggingface: 'huggingface',
+    nanogpt: 'nanogpt',
+    bfl: 'bfl',
+};
+
+const initiators = {
+    command: 'command',
+    action: 'action',
+    interactive: 'interactive',
+    wand: 'wand',
+    swipe: 'swipe',
+    tool: 'tool',
 };
 
 const generationMode = {
+    TOOL: -2,
+    MESSAGE: -1,
     CHARACTER: 0,
     USER: 1,
     SCENARIO: 2,
@@ -68,6 +106,7 @@ const generationMode = {
     CHARACTER_MULTIMODAL: 8,
     USER_MULTIMODAL: 9,
     FACE_MULTIMODAL: 10,
+    FREE_EXTENDED: 11,
 };
 
 const multimodalMap = {
@@ -77,6 +116,8 @@ const multimodalMap = {
 };
 
 const modeLabels = {
+    [generationMode.TOOL]: 'Function Tool Prompt Description',
+    [generationMode.MESSAGE]: 'Chat Message Template',
     [generationMode.CHARACTER]: 'Character ("Yourself")',
     [generationMode.FACE]: 'Portrait ("Your Face")',
     [generationMode.USER]: 'User ("Me")',
@@ -87,6 +128,7 @@ const modeLabels = {
     [generationMode.CHARACTER_MULTIMODAL]: 'Character (Multimodal Mode)',
     [generationMode.FACE_MULTIMODAL]: 'Portrait (Multimodal Mode)',
     [generationMode.USER_MULTIMODAL]: 'User (Multimodal Mode)',
+    [generationMode.FREE_EXTENDED]: 'Free Mode (LLM-Extended)',
 };
 
 const triggerWords = {
@@ -100,27 +142,32 @@ const triggerWords = {
 };
 
 const messageTrigger = {
-    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render)\b.*\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those)?)?(.+)/i,
+    activationRegex: /\b(send|mail|imagine|generate|make|create|draw|paint|render|show)\b.{0,10}\b(pic|picture|image|drawing|painting|photo|photograph)\b(?:\s+of)?(?:\s+(?:a|an|the|this|that|those|your)?\s+)?(.+)/i,
     specialCases: {
         [generationMode.CHARACTER]: ['you', 'yourself'],
         [generationMode.USER]: ['me', 'myself'],
         [generationMode.SCENARIO]: ['story', 'scenario', 'whole story'],
         [generationMode.NOW]: ['last message'],
-        [generationMode.FACE]: ['your face', 'your portrait', 'your selfie'],
+        [generationMode.FACE]: ['face', 'portrait', 'selfie'],
         [generationMode.BACKGROUND]: ['background', 'scene background', 'scene', 'scenery', 'surroundings', 'environment'],
     },
 };
 
 const promptTemplates = {
-    /*OLD:     [generationMode.CHARACTER]: "Pause your roleplay and provide comma-delimited list of phrases and keywords which describe {{char}}'s physical appearance and clothing. Ignore {{char}}'s personality traits, and chat history when crafting this description. End your response once the comma-delimited list is complete. Do not roleplay when writing this description, and do not attempt to continue the story.", */
-    [generationMode.CHARACTER]: '[In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}. The list must include all of the following items in this order: name, species and race, gender, age, clothing, occupation, physical features and appearances. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'full body portrait,\']',
+    // Not really a prompt template, rather an outcome message template and function tool prompt
+    [generationMode.MESSAGE]: '[{{char}} sends a picture that contains: {{prompt}}].',
+    [generationMode.TOOL]: [
+        'The text prompt used to generate the image.',
+        'Must represent an exhaustive description of the desired image that will allow an artist or a photographer to perfectly recreate it.',
+    ].join(' '),
+    [generationMode.CHARACTER]: 'In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}. The list must include all of the following items in this order: name, species and race, gender, age, clothing, occupation, physical features and appearances. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'full body portrait,\'',
     //face-specific prompt
-    [generationMode.FACE]: '[In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}. The list must include all of the following items in this order: name, species and race, gender, age, facial features and expressions, occupation, hair and hair accessories (if any), what they are wearing on their upper body (if anything). Do not describe anything below their neck. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'close up facial portrait,\']',
+    [generationMode.FACE]: 'In the next response I want you to provide only a detailed comma-delimited list of keywords and phrases which describe {{char}}. The list must include all of the following items in this order: name, species and race, gender, age, facial features and expressions, occupation, hair and hair accessories (if any), what they are wearing on their upper body (if anything). Do not describe anything below their neck. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'close up facial portrait,\'',
     //prompt for only the last message
-    [generationMode.USER]: '[Pause your roleplay and provide a detailed description of {{user}}\'s physical appearance from the perspective of {{char}} in the form of a comma-delimited list of keywords and phrases. The list must include all of the following items in this order: name, species and race, gender, age, clothing, occupation, physical features and appearances. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'full body portrait,\'. Ignore the rest of the story when crafting this description. Do not roleplay as {{char}} when writing this description, and do not attempt to continue the story.]',
-    [generationMode.SCENARIO]: '[Pause your roleplay and provide a detailed description for all of the following: a brief recap of recent events in the story, {{char}}\'s appearance, and {{char}}\'s surroundings. Do not roleplay while writing this description.]',
+    [generationMode.USER]: 'Ignore previous instructions and provide a detailed description of {{user}}\'s physical appearance from the perspective of {{char}} in the form of a comma-delimited list of keywords and phrases. The list must include all of the following items in this order: name, species and race, gender, age, clothing, occupation, physical features and appearances. Do not include descriptions of non-visual qualities such as personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'full body portrait,\'. Ignore the rest of the story when crafting this description. Do not reply as {{char}} when writing this description, and do not attempt to continue the story.',
+    [generationMode.SCENARIO]: 'Ignore previous instructions and provide a detailed description for all of the following: a brief recap of recent events in the story, {{char}}\'s appearance, and {{char}}\'s surroundings. Do not reply as {{char}} while writing this description.',
 
-    [generationMode.NOW]: `[Pause your roleplay. Your next response must be formatted as a single comma-delimited list of concise keywords.  The list will describe of the visual details included in the last chat message.
+    [generationMode.NOW]: `Ignore previous instructions. Your next response must be formatted as a single comma-delimited list of concise keywords.  The list will describe of the visual details included in the last chat message.
 
     Only mention characters by using pronouns ('he','his','she','her','it','its') or neutral nouns ('male', 'the man', 'female', 'the woman').
 
@@ -142,19 +189,15 @@ const promptTemplates = {
     If character actions involve direct physical interaction with another character, mention specifically which body parts interacting and how.
 
     A correctly formatted example response would be:
-    '(location),(character list by gender),(primary action), (relative character position) POV, (character 1's description and actions), (character 2's description and actions)']`,
+    '(location),(character list by gender),(primary action), (relative character position) POV, (character 1's description and actions), (character 2's description and actions)'`,
 
-    [generationMode.RAW_LAST]: '[Pause your roleplay and provide ONLY the last chat message string back to me verbatim. Do not write anything after the string. Do not roleplay at all in your response. Do not continue the roleplay story.]',
-    [generationMode.BACKGROUND]: '[Pause your roleplay and provide a detailed description of {{char}}\'s surroundings in the form of a comma-delimited list of keywords and phrases. The list must include all of the following items in this order: location, time of day, weather, lighting, and any other relevant details. Do not include descriptions of characters and non-visual qualities such as names, personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'background,\'. Ignore the rest of the story when crafting this description. Do not roleplay as {{user}} when writing this description, and do not attempt to continue the story.]',
+    [generationMode.RAW_LAST]: 'Ignore previous instructions and provide ONLY the last chat message string back to me verbatim. Do not write anything after the string. Do not reply as {{char}} when writing this description, and do not attempt to continue the story.',
+    [generationMode.BACKGROUND]: 'Ignore previous instructions and provide a detailed description of {{char}}\'s surroundings in the form of a comma-delimited list of keywords and phrases. The list must include all of the following items in this order: location, time of day, weather, lighting, and any other relevant details. Do not include descriptions of characters and non-visual qualities such as names, personality, movements, scents, mental traits, or anything which could not be seen in a still photograph. Do not write in full sentences. Prefix your description with the phrase \'background,\'. Ignore the rest of the story when crafting this description. Do not reply as {{char}} when writing this description, and do not attempt to continue the story.',
     [generationMode.FACE_MULTIMODAL]: 'Provide an exhaustive comma-separated list of tags describing the appearance of the character on this image in great detail. Start with "close-up portrait".',
     [generationMode.CHARACTER_MULTIMODAL]: 'Provide an exhaustive comma-separated list of tags describing the appearance of the character on this image in great detail. Start with "full body portrait".',
     [generationMode.USER_MULTIMODAL]: 'Provide an exhaustive comma-separated list of tags describing the appearance of the character on this image in great detail. Start with "full body portrait".',
+    [generationMode.FREE_EXTENDED]: 'Ignore previous instructions and provide an exhaustive comma-separated list of tags describing the appearance of "{0}" in great detail. Start with {{charPrefix}} (sic) if the subject is associated with {{char}}.',
 };
-
-const helpString = [
-    `${m('[quiet=false/true] (argument)')} – requests to generate an image and posts it to chat (unless quiet=true argument is specified). Supported arguments: ${m(j(Object.values(triggerWords).flat()))}.`,
-    'Anything else would trigger a "free mode" to make generate whatever you prompted. Example: \'/imagine apple tree\' would generate a picture of an apple tree. Returns a link to the generated image.',
-].join(' ');
 
 const defaultPrefix = 'best quality, absurdres, aesthetic,';
 const defaultNegative = 'lowres, bad anatomy, bad hands, text, error, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry';
@@ -167,13 +210,15 @@ const defaultStyles = [
     },
 ];
 
+const placeholderVae = 'Automatic';
+
 const defaultSettings = {
     source: sources.extras,
 
     // CFG Scale
     scale_min: 1,
     scale_max: 30,
-    scale_step: 0.5,
+    scale_step: 0.1,
     scale: 7,
 
     // Sampler steps
@@ -197,10 +242,12 @@ const defaultSettings = {
     sampler: 'DDIM',
     model: '',
     vae: '',
+    seed: -1,
 
     // Automatic1111/Horde exclusives
     restore_faces: false,
     enable_hr: false,
+    adetailer_face: false,
 
     // Horde settings
     horde: false,
@@ -210,10 +257,11 @@ const defaultSettings = {
 
     // Refine mode
     refine_mode: false,
-    expand: false,
     interactive_mode: false,
     multimodal_captioning: false,
     snap: false,
+    free_extend: false,
+    function_tool: false,
 
     prompts: promptTemplates,
 
@@ -228,7 +276,7 @@ const defaultSettings = {
     drawthings_auth: '',
 
     hr_upscaler: 'Latent',
-    hr_scale: 2.0,
+    hr_scale: 1.0,
     hr_scale_min: 1.0,
     hr_scale_max: 4.0,
     hr_scale_step: 0.1,
@@ -241,14 +289,17 @@ const defaultSettings = {
     hr_second_pass_steps_max: 150,
     hr_second_pass_steps_step: 1,
 
+    // CLIP skip
+    clip_skip_min: 1,
+    clip_skip_max: 12,
+    clip_skip_step: 1,
+    clip_skip: 1,
+
     // NovelAI settings
-    novel_upscale_ratio_min: 1.0,
-    novel_upscale_ratio_max: 4.0,
-    novel_upscale_ratio_step: 0.1,
-    novel_upscale_ratio: 1.0,
     novel_anlas_guard: false,
     novel_sm: false,
     novel_sm_dyn: false,
+    novel_decrisper: false,
 
     // OpenAI settings
     openai_style: 'vivid',
@@ -263,10 +314,38 @@ const defaultSettings = {
 
     // Pollinations settings
     pollinations_enhance: false,
-    pollinations_refine: false,
+
+    // Visibility toggles
+    wand_visible: false,
+    command_visible: false,
+    interactive_visible: false,
+    tool_visible: false,
+
+    // Stability AI settings
+    stability_style_preset: 'anime',
+
+    // BFL API settings
+    bfl_upsampling: false,
 };
 
-function processTriggers(chat, _, abort) {
+const writePromptFieldsDebounced = debounce(writePromptFields, debounce_timeout.relaxed);
+
+/**
+ * Generate interceptor for interactive mode triggers.
+ * @param {any[]} chat Chat messages
+ * @param {number} _ Context size (unused)
+ * @param {function(boolean): void} abort Abort generation function
+ * @param {string} type Type of the generation
+ */
+function processTriggers(chat, _, abort, type) {
+    if (type === 'quiet') {
+        return;
+    }
+
+    if (extension_settings.sd.function_tool && ToolManager.isToolCallingSupported()) {
+        return;
+    }
+
     if (!extension_settings.sd.interactive_mode) {
         return;
     }
@@ -300,7 +379,7 @@ function processTriggers(chat, _, abort) {
             return;
         }
 
-        console.log(`SD: Triggered by "${message}", detected subject: ${subject}"`);
+        console.log(`SD: Triggered by "${message}", detected subject: "${subject}"`);
 
         outer: for (const [specialMode, triggers] of Object.entries(messageTrigger.specialCases)) {
             for (const trigger of triggers) {
@@ -313,10 +392,9 @@ function processTriggers(chat, _, abort) {
         }
 
         abort(true);
-        setTimeout(() => generatePicture('sd', subject, message), 1);
+        setTimeout(() => generatePicture(initiators.interactive, {}, subject, message), 1);
     } catch {
         console.log('SD: Failed to process triggers.');
-        return;
     }
 }
 
@@ -388,21 +466,20 @@ async function loadSettings() {
     $('#sd_hr_scale').val(extension_settings.sd.hr_scale).trigger('input');
     $('#sd_denoising_strength').val(extension_settings.sd.denoising_strength).trigger('input');
     $('#sd_hr_second_pass_steps').val(extension_settings.sd.hr_second_pass_steps).trigger('input');
-    $('#sd_novel_upscale_ratio').val(extension_settings.sd.novel_upscale_ratio).trigger('input');
     $('#sd_novel_anlas_guard').prop('checked', extension_settings.sd.novel_anlas_guard);
     $('#sd_novel_sm').prop('checked', extension_settings.sd.novel_sm);
     $('#sd_novel_sm_dyn').prop('checked', extension_settings.sd.novel_sm_dyn);
     $('#sd_novel_sm_dyn').prop('disabled', !extension_settings.sd.novel_sm);
+    $('#sd_novel_decrisper').prop('checked', extension_settings.sd.novel_decrisper);
     $('#sd_pollinations_enhance').prop('checked', extension_settings.sd.pollinations_enhance);
-    $('#sd_pollinations_refine').prop('checked', extension_settings.sd.pollinations_refine);
     $('#sd_horde').prop('checked', extension_settings.sd.horde);
     $('#sd_horde_nsfw').prop('checked', extension_settings.sd.horde_nsfw);
     $('#sd_horde_karras').prop('checked', extension_settings.sd.horde_karras);
     $('#sd_horde_sanitize').prop('checked', extension_settings.sd.horde_sanitize);
     $('#sd_restore_faces').prop('checked', extension_settings.sd.restore_faces);
     $('#sd_enable_hr').prop('checked', extension_settings.sd.enable_hr);
+    $('#sd_adetailer_face').prop('checked', extension_settings.sd.adetailer_face);
     $('#sd_refine_mode').prop('checked', extension_settings.sd.refine_mode);
-    $('#sd_expand').prop('checked', extension_settings.sd.expand);
     $('#sd_multimodal_captioning').prop('checked', extension_settings.sd.multimodal_captioning);
     $('#sd_auto_url').val(extension_settings.sd.auto_url);
     $('#sd_auto_auth').val(extension_settings.sd.auto_auth);
@@ -416,6 +493,18 @@ async function loadSettings() {
     $('#sd_comfy_url').val(extension_settings.sd.comfy_url);
     $('#sd_comfy_prompt').val(extension_settings.sd.comfy_prompt);
     $('#sd_snap').prop('checked', extension_settings.sd.snap);
+    $('#sd_clip_skip').val(extension_settings.sd.clip_skip);
+    $('#sd_clip_skip_value').val(extension_settings.sd.clip_skip);
+    $('#sd_seed').val(extension_settings.sd.seed);
+    $('#sd_free_extend').prop('checked', extension_settings.sd.free_extend);
+    $('#sd_wand_visible').prop('checked', extension_settings.sd.wand_visible);
+    $('#sd_command_visible').prop('checked', extension_settings.sd.command_visible);
+    $('#sd_interactive_visible').prop('checked', extension_settings.sd.interactive_visible);
+    $('#sd_tool_visible').prop('checked', extension_settings.sd.tool_visible);
+    $('#sd_stability_style_preset').val(extension_settings.sd.stability_style_preset);
+    $('#sd_huggingface_model_id').val(extension_settings.sd.huggingface_model_id);
+    $('#sd_function_tool').prop('checked', extension_settings.sd.function_tool);
+    $('#sd_bfl_upsampling').prop('checked', extension_settings.sd.bfl_upsampling);
 
     for (const style of extension_settings.sd.styles) {
         const option = document.createElement('option');
@@ -430,6 +519,7 @@ async function loadSettings() {
 
     toggleSourceControls();
     addPromptTemplates();
+    registerFunctionTool();
 
     await loadSettingOptions();
 }
@@ -473,10 +563,11 @@ async function loadSettingOptions() {
 function addPromptTemplates() {
     $('#sd_prompt_templates').empty();
 
-    for (const [name, prompt] of Object.entries(extension_settings.sd.prompts)) {
+    for (const [name, prompt] of Object.entries(extension_settings.sd.prompts).sort((a, b) => Number(a[0]) - Number(b[0]))) {
         const label = $('<label></label>')
             .text(modeLabels[name])
-            .attr('for', `sd_prompt_${name}`);
+            .attr('for', `sd_prompt_${name}`)
+            .attr('data-i18n', `sd_prompt_${name}`);
         const textarea = $('<textarea></textarea>')
             .addClass('textarea_compact text_pole')
             .attr('id', `sd_prompt_${name}`)
@@ -488,9 +579,13 @@ function addPromptTemplates() {
         const button = $('<button></button>')
             .addClass('menu_button fa-solid fa-undo')
             .attr('title', 'Restore default')
+            .attr('data-i18n', 'Restore default')
             .on('click', () => {
                 textarea.val(promptTemplates[name]);
                 extension_settings.sd.prompts[name] = promptTemplates[name];
+                if (String(name) === String(generationMode.TOOL)) {
+                    registerFunctionTool();
+                }
                 saveSettingsDebounced();
             });
         const container = $('<div></div>')
@@ -532,8 +627,44 @@ function onStyleSelect() {
     saveSettingsDebounced();
 }
 
+async function onDeleteStyleClick() {
+    const selectedStyle = String($('#sd_style').find(':selected').val());
+    const styleObject = extension_settings.sd.styles.find(x => x.name === selectedStyle);
+
+    if (!styleObject) {
+        return;
+    }
+
+    const confirmed = await callGenericPopup(`Are you sure you want to delete the style "${selectedStyle}"?`, POPUP_TYPE.CONFIRM, '', { okButton: 'Delete', cancelButton: 'Cancel' });
+
+    if (!confirmed) {
+        return;
+    }
+
+    const index = extension_settings.sd.styles.indexOf(styleObject);
+
+    if (index === -1) {
+        return;
+    }
+
+    extension_settings.sd.styles.splice(index, 1);
+    $('#sd_style').find(`option[value="${selectedStyle}"]`).remove();
+
+    if (extension_settings.sd.styles.length > 0) {
+        extension_settings.sd.style = extension_settings.sd.styles[0].name;
+        $('#sd_style').val(extension_settings.sd.style).trigger('change');
+    } else {
+        extension_settings.sd.style = '';
+        $('#sd_prompt_prefix').val('').trigger('input');
+        $('#sd_negative_prompt').val('').trigger('input');
+        $('#sd_style').val('');
+    }
+
+    saveSettingsDebounced();
+}
+
 async function onSaveStyleClick() {
-    const userInput = await callPopup('Enter style name:', 'input', '', { okButton: 'Save' });
+    const userInput = await callGenericPopup('Enter style name:', POPUP_TYPE.INPUT);
 
     if (!userInput) {
         return;
@@ -569,43 +700,19 @@ async function onSaveStyleClick() {
     saveSettingsDebounced();
 }
 
-async function expandPrompt(prompt) {
-    try {
-        const response = await fetch('/api/sd/expand', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ prompt: prompt }),
-        });
-
-        if (!response.ok) {
-            throw new Error('API returned an error.');
-        }
-
-        const data = await response.json();
-        return data.prompt;
-    } catch {
-        return prompt;
-    }
-}
-
 /**
- * Modifies prompt based on auto-expansion and user inputs.
+ * Modifies prompt based on user inputs.
  * @param {string} prompt Prompt to refine
- * @param {boolean} allowExpand Whether to allow auto-expansion
  * @param {boolean} isNegative Whether the prompt is a negative one
  * @returns {Promise<string>} Refined prompt
  */
-async function refinePrompt(prompt, allowExpand, isNegative = false) {
-    if (allowExpand && extension_settings.sd.expand) {
-        prompt = await expandPrompt(prompt);
-    }
-
+async function refinePrompt(prompt, isNegative) {
     if (extension_settings.sd.refine_mode) {
         const text = isNegative ? '<h3>Review and edit the <i>negative</i> prompt:</h3>' : '<h3>Review and edit the prompt:</h3>';
-        const refinedPrompt = await callPopup(text + 'Press "Cancel" to abort the image generation.', 'input', prompt.trim(), { rows: 5, okButton: 'Continue' });
+        const refinedPrompt = await callGenericPopup(text + 'Press "Cancel" to abort the image generation.', POPUP_TYPE.INPUT, prompt.trim(), { rows: 5, okButton: 'Continue' });
 
         if (refinedPrompt) {
-            return refinedPrompt;
+            return String(refinedPrompt);
         } else {
             throw new Error('Generation aborted by user.');
         }
@@ -614,30 +721,64 @@ async function refinePrompt(prompt, allowExpand, isNegative = false) {
     return prompt;
 }
 
-function onChatChanged() {
+async function onChatChanged() {
     if (this_chid === undefined || selected_group) {
         $('#sd_character_prompt_block').hide();
         return;
     }
 
     $('#sd_character_prompt_block').show();
+
     const key = getCharaFilename(this_chid);
-    $('#sd_character_prompt').val(key ? (extension_settings.sd.character_prompts[key] || '') : '');
-    $('#sd_character_negative_prompt').val(key ? (extension_settings.sd.character_negative_prompts[key] || '') : '');
+    let characterPrompt = key ? (extension_settings.sd.character_prompts[key] || '') : '';
+    let negativePrompt = key ? (extension_settings.sd.character_negative_prompts[key] || '') : '';
+
+    const context = getContext();
+    const sharedPromptData = context?.characters[this_chid]?.data?.extensions?.sd_character_prompt;
+    const hasSharedData = sharedPromptData && typeof sharedPromptData === 'object';
+
+    if (typeof sharedPromptData?.positive === 'string' && !characterPrompt && sharedPromptData.positive) {
+        characterPrompt = sharedPromptData.positive;
+        extension_settings.sd.character_prompts[key] = characterPrompt;
+    }
+    if (typeof sharedPromptData?.negative === 'string' && !negativePrompt && sharedPromptData.negative) {
+        negativePrompt = sharedPromptData.negative;
+        extension_settings.sd.character_negative_prompts[key] = negativePrompt;
+    }
+
+    $('#sd_character_prompt').val(characterPrompt);
+    $('#sd_character_negative_prompt').val(negativePrompt);
+    $('#sd_character_prompt_share').prop('checked', hasSharedData);
+    await adjustElementScrollHeight();
 }
 
-function onCharacterPromptInput() {
+async function adjustElementScrollHeight() {
+    if (CSS.supports('field-sizing', 'content') || !$('.sd_settings').is(':visible')) {
+        return;
+    }
+
+    await resetScrollHeight($('#sd_prompt_prefix'));
+    await resetScrollHeight($('#sd_negative_prompt'));
+    await resetScrollHeight($('#sd_character_prompt'));
+    await resetScrollHeight($('#sd_character_negative_prompt'));
+}
+
+async function onCharacterPromptInput() {
     const key = getCharaFilename(this_chid);
     extension_settings.sd.character_prompts[key] = $('#sd_character_prompt').val();
-    resetScrollHeight($(this));
     saveSettingsDebounced();
+    writePromptFieldsDebounced(this_chid);
+    if (CSS.supports('field-sizing', 'content')) return;
+    await resetScrollHeight($(this));
 }
 
-function onCharacterNegativePromptInput() {
+async function onCharacterNegativePromptInput() {
     const key = getCharaFilename(this_chid);
     extension_settings.sd.character_negative_prompts[key] = $('#sd_character_negative_prompt').val();
-    resetScrollHeight($(this));
     saveSettingsDebounced();
+    writePromptFieldsDebounced(this_chid);
+    if (CSS.supports('field-sizing', 'content')) return;
+    await resetScrollHeight($(this));
 }
 
 function getCharacterPrefix() {
@@ -691,42 +832,80 @@ function combinePrefixes(str1, str2, macro = '') {
     return process(result);
 }
 
-function onExpandInput() {
-    extension_settings.sd.expand = !!$(this).prop('checked');
-    saveSettingsDebounced();
-}
-
 function onRefineModeInput() {
     extension_settings.sd.refine_mode = !!$('#sd_refine_mode').prop('checked');
     saveSettingsDebounced();
 }
 
+function onFreeExtendInput() {
+    extension_settings.sd.free_extend = !!$('#sd_free_extend').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onWandVisibleInput() {
+    extension_settings.sd.wand_visible = !!$('#sd_wand_visible').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onCommandVisibleInput() {
+    extension_settings.sd.command_visible = !!$('#sd_command_visible').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onInteractiveVisibleInput() {
+    extension_settings.sd.interactive_visible = !!$('#sd_interactive_visible').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onToolVisibleInput() {
+    extension_settings.sd.tool_visible = !!$('#sd_tool_visible').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onClipSkipInput() {
+    extension_settings.sd.clip_skip = Number($('#sd_clip_skip').val());
+    $('#sd_clip_skip_value').val(extension_settings.sd.clip_skip);
+    saveSettingsDebounced();
+}
+
+function onSeedInput() {
+    extension_settings.sd.seed = Number($('#sd_seed').val());
+    saveSettingsDebounced();
+}
+
 function onScaleInput() {
     extension_settings.sd.scale = Number($('#sd_scale').val());
-    $('#sd_scale_value').text(extension_settings.sd.scale.toFixed(1));
+    $('#sd_scale_value').val(extension_settings.sd.scale.toFixed(1));
     saveSettingsDebounced();
 }
 
 function onStepsInput() {
     extension_settings.sd.steps = Number($('#sd_steps').val());
-    $('#sd_steps_value').text(extension_settings.sd.steps);
+    $('#sd_steps_value').val(extension_settings.sd.steps);
     saveSettingsDebounced();
 }
 
-function onPromptPrefixInput() {
+async function onPromptPrefixInput() {
     extension_settings.sd.prompt_prefix = $('#sd_prompt_prefix').val();
-    resetScrollHeight($(this));
     saveSettingsDebounced();
+    if (CSS.supports('field-sizing', 'content')) return;
+    await resetScrollHeight($(this));
 }
 
-function onNegativePromptInput() {
+async function onNegativePromptInput() {
     extension_settings.sd.negative_prompt = $('#sd_negative_prompt').val();
-    resetScrollHeight($(this));
     saveSettingsDebounced();
+    if (CSS.supports('field-sizing', 'content')) return;
+    await resetScrollHeight($(this));
 }
 
 function onSamplerChange() {
     extension_settings.sd.sampler = $('#sd_sampler').find(':selected').val();
+    saveSettingsDebounced();
+}
+
+function onADetailerFaceChange() {
+    extension_settings.sd.adetailer_face = !!$('#sd_adetailer_face').prop('checked');
     saveSettingsDebounced();
 }
 
@@ -772,13 +951,23 @@ function onSchedulerChange() {
 
 function onWidthInput() {
     extension_settings.sd.width = Number($('#sd_width').val());
-    $('#sd_width_value').text(extension_settings.sd.width);
+    $('#sd_width_value').val(extension_settings.sd.width);
     saveSettingsDebounced();
 }
 
 function onHeightInput() {
     extension_settings.sd.height = Number($('#sd_height').val());
-    $('#sd_height_value').text(extension_settings.sd.height);
+    $('#sd_height_value').val(extension_settings.sd.height);
+    saveSettingsDebounced();
+}
+
+function onSwapDimensionsClick() {
+    const w = extension_settings.sd.height;
+    const h = extension_settings.sd.width;
+    extension_settings.sd.width = w;
+    extension_settings.sd.height = h;
+    $('#sd_width').val(w).trigger('input');
+    $('#sd_height').val(h).trigger('input');
     saveSettingsDebounced();
 }
 
@@ -786,9 +975,17 @@ async function onSourceChange() {
     extension_settings.sd.source = $('#sd_source').find(':selected').val();
     extension_settings.sd.model = null;
     extension_settings.sd.sampler = null;
+    extension_settings.sd.scheduler = null;
+    extension_settings.sd.vae = null;
     toggleSourceControls();
     saveSettingsDebounced();
     await loadSettingOptions();
+}
+
+function onFunctionToolInput() {
+    extension_settings.sd.function_tool = !!$(this).prop('checked');
+    saveSettingsDebounced();
+    registerFunctionTool();
 }
 
 async function onOpenAiStyleSelect() {
@@ -815,12 +1012,6 @@ async function onViewAnlasClick() {
     toastr.info(`Free image generation: ${unlimitedGeneration ? 'Yes' : 'No'}`, `Anlas: ${anlas}`);
 }
 
-function onNovelUpscaleRatioInput() {
-    extension_settings.sd.novel_upscale_ratio = Number($('#sd_novel_upscale_ratio').val());
-    $('#sd_novel_upscale_ratio_value').text(extension_settings.sd.novel_upscale_ratio.toFixed(1));
-    saveSettingsDebounced();
-}
-
 function onNovelAnlasGuardInput() {
     extension_settings.sd.novel_anlas_guard = !!$('#sd_novel_anlas_guard').prop('checked');
     saveSettingsDebounced();
@@ -842,13 +1033,13 @@ function onNovelSmDynInput() {
     saveSettingsDebounced();
 }
 
-function onPollinationsEnhanceInput() {
-    extension_settings.sd.pollinations_enhance = !!$('#sd_pollinations_enhance').prop('checked');
+function onNovelDecrisperInput() {
+    extension_settings.sd.novel_decrisper = !!$('#sd_novel_decrisper').prop('checked');
     saveSettingsDebounced();
 }
 
-function onPollinationsRefineInput() {
-    extension_settings.sd.pollinations_refine = !!$('#sd_pollinations_refine').prop('checked');
+function onPollinationsEnhanceInput() {
+    extension_settings.sd.pollinations_enhance = !!$('#sd_pollinations_enhance').prop('checked');
     saveSettingsDebounced();
 }
 
@@ -914,24 +1105,30 @@ function onHrUpscalerChange() {
 
 function onHrScaleInput() {
     extension_settings.sd.hr_scale = Number($('#sd_hr_scale').val());
-    $('#sd_hr_scale_value').text(extension_settings.sd.hr_scale.toFixed(1));
+    $('#sd_hr_scale_value').val(extension_settings.sd.hr_scale.toFixed(1));
     saveSettingsDebounced();
 }
 
 function onDenoisingStrengthInput() {
     extension_settings.sd.denoising_strength = Number($('#sd_denoising_strength').val());
-    $('#sd_denoising_strength_value').text(extension_settings.sd.denoising_strength.toFixed(2));
+    $('#sd_denoising_strength_value').val(extension_settings.sd.denoising_strength.toFixed(2));
     saveSettingsDebounced();
 }
 
 function onHrSecondPassStepsInput() {
     extension_settings.sd.hr_second_pass_steps = Number($('#sd_hr_second_pass_steps').val());
-    $('#sd_hr_second_pass_steps_value').text(extension_settings.sd.hr_second_pass_steps);
+    $('#sd_hr_second_pass_steps_value').val(extension_settings.sd.hr_second_pass_steps);
     saveSettingsDebounced();
 }
 
 function onComfyUrlInput() {
-    extension_settings.sd.comfy_url = $('#sd_comfy_url').val();
+    // Remove trailing slashes
+    extension_settings.sd.comfy_url = String($('#sd_comfy_url').val());
+    saveSettingsDebounced();
+}
+
+function onHFModelInput() {
+    extension_settings.sd.huggingface_model_id = $('#sd_huggingface_model_id').val();
     saveSettingsDebounced();
 }
 
@@ -939,6 +1136,49 @@ function onComfyWorkflowChange() {
     extension_settings.sd.comfy_workflow = $('#sd_comfy_workflow').find(':selected').val();
     saveSettingsDebounced();
 }
+
+async function onApiKeyClick(popupText, secretKey) {
+    const key = await callGenericPopup(popupText, POPUP_TYPE.INPUT, '', {
+        customButtons: [{
+            text: 'Remove Key',
+            appendAtEnd: true,
+            result: POPUP_RESULT.NEGATIVE,
+            action: async () => {
+                await writeSecret(secretKey, '');
+                toastr.success('API Key removed');
+                await loadSettingOptions();
+            },
+        }],
+    });
+
+    if (!key) {
+        return;
+    }
+
+    await writeSecret(secretKey, String(key));
+
+    toastr.success('API Key saved');
+    await loadSettingOptions();
+}
+
+async function onStabilityKeyClick() {
+    return onApiKeyClick('Stability AI API Key:', SECRET_KEYS.STABILITY);
+}
+
+async function onBflKeyClick() {
+    return onApiKeyClick('BFL API Key:', SECRET_KEYS.BFL);
+}
+
+function onBflUpsamplingInput() {
+    extension_settings.sd.bfl_upsampling = !!$('#sd_bfl_upsampling').prop('checked');
+    saveSettingsDebounced();
+}
+
+function onStabilityStylePresetChange() {
+    extension_settings.sd.stability_style_preset = String($('#sd_stability_style_preset').val());
+    saveSettingsDebounced();
+}
+
 async function changeComfyWorkflow(_, name) {
     name = name.replace(/(\.json)?$/i, '.json');
     if ($(`#sd_comfy_workflow > [value="${name}"]`).length > 0) {
@@ -948,6 +1188,7 @@ async function changeComfyWorkflow(_, name) {
     } else {
         toastr.error(`ComfyUI Workflow "${name}" does not exist.`);
     }
+    return '';
 }
 
 async function validateAutoUrl() {
@@ -1047,7 +1288,18 @@ async function onModelChange() {
     extension_settings.sd.model = $('#sd_model').find(':selected').val();
     saveSettingsDebounced();
 
-    const cloudSources = [sources.horde, sources.novel, sources.openai, sources.togetherai, sources.pollinations];
+    const cloudSources = [
+        sources.horde,
+        sources.novel,
+        sources.openai,
+        sources.togetherai,
+        sources.pollinations,
+        sources.stability,
+        sources.blockentropy,
+        sources.huggingface,
+        sources.nanogpt,
+        sources.bfl,
+    ];
 
     if (cloudSources.includes(extension_settings.sd.source)) {
         return;
@@ -1075,8 +1327,7 @@ async function getAutoRemoteModel() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.text();
-        return data;
+        return await result.text();
     } catch (error) {
         console.error(error);
         return null;
@@ -1095,9 +1346,7 @@ async function getDrawthingsRemoteModel() {
             throw new Error('SD DrawThings API returned an error.');
         }
 
-        const data = await result.text();
-
-        return data;
+        return await result.text();
     } catch (error) {
         console.error(error);
         return null;
@@ -1120,11 +1369,29 @@ async function getAutoRemoteUpscalers() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         console.error(error);
         return [extension_settings.sd.hr_upscaler];
+    }
+}
+
+async function getAutoRemoteSchedulers() {
+    try {
+        const result = await fetch('/api/sd/schedulers', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify(getSdRequestBody()),
+        });
+
+        if (!result.ok) {
+            throw new Error('SD WebUI returned an error.');
+        }
+
+        return await result.json();
+    } catch (error) {
+        console.error(error);
+        return ['N/A'];
     }
 }
 
@@ -1140,11 +1407,31 @@ async function getVladRemoteUpscalers() {
             throw new Error('SD.Next returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         console.error(error);
         return [extension_settings.sd.hr_upscaler];
+    }
+}
+
+async function getDrawthingsRemoteUpscalers() {
+    try {
+        const result = await fetch('/api/sd/drawthings/get-upscaler', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify(getSdRequestBody()),
+        });
+
+        if (!result.ok) {
+            throw new Error('SD DrawThings API returned an error.');
+        }
+
+        const data = await result.text();
+
+        return data ? [data] : ['N/A'];
+    } catch (error) {
+        console.error(error);
+        return ['N/A'];
     }
 }
 
@@ -1215,6 +1502,21 @@ async function loadSamplers() {
         case sources.pollinations:
             samplers = ['N/A'];
             break;
+        case sources.stability:
+            samplers = ['N/A'];
+            break;
+        case sources.blockentropy:
+            samplers = ['N/A'];
+            break;
+        case sources.huggingface:
+            samplers = ['N/A'];
+            break;
+        case sources.nanogpt:
+            samplers = ['N/A'];
+            break;
+        case sources.bfl:
+            samplers = ['N/A'];
+            break;
     }
 
     for (const sampler of samplers) {
@@ -1238,8 +1540,7 @@ async function loadHordeSamplers() {
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return data;
+        return await result.json();
     }
 
     return [];
@@ -1278,8 +1579,7 @@ async function loadAutoSamplers() {
             throw new Error('SD WebUI returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -1317,25 +1617,19 @@ async function loadVladSamplers() {
             throw new Error('SD.Next returned an error.');
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
 }
 
 async function loadNovelSamplers() {
-    if (!secret_state[SECRET_KEYS.NOVEL]) {
-        console.debug('NovelAI API key is not set.');
-        return [];
-    }
-
     return [
+        'k_euler_ancestral',
+        'k_euler',
         'k_dpmpp_2m',
         'k_dpmpp_sde',
         'k_dpmpp_2s_ancestral',
-        'k_euler',
-        'k_euler_ancestral',
         'k_dpm_fast',
         'ddim',
     ];
@@ -1398,6 +1692,21 @@ async function loadModels() {
         case sources.pollinations:
             models = await loadPollinationsModels();
             break;
+        case sources.stability:
+            models = await loadStabilityModels();
+            break;
+        case sources.blockentropy:
+            models = await loadBlockEntropyModels();
+            break;
+        case sources.huggingface:
+            models = [{ value: '', text: '<Enter Model ID above>' }];
+            break;
+        case sources.nanogpt:
+            models = await loadNanoGPTModels();
+            break;
+        case sources.bfl:
+            models = await loadBflModels();
+            break;
     }
 
     for (const model of models) {
@@ -1414,53 +1723,38 @@ async function loadModels() {
     }
 }
 
-async function loadPollinationsModels() {
+async function loadStabilityModels() {
+    $('#sd_stability_key').toggleClass('success', !!secret_state[SECRET_KEYS.STABILITY]);
+
     return [
-        {
-            value: 'pixart',
-            text: 'PixArt-αlpha',
-        },
-        {
-            value: 'playground',
-            text: 'Playground v2',
-        },
-        {
-            value: 'dalle3xl',
-            text: 'DALL•E 3 XL',
-        },
-        {
-            value: 'formulaxl',
-            text: 'FormulaXL',
-        },
-        {
-            value: 'dreamshaper',
-            text: 'DreamShaper',
-        },
-        {
-            value: 'deliberate',
-            text: 'Deliberate',
-        },
-        {
-            value: 'dpo',
-            text: 'SDXL-DPO',
-        },
-        {
-            value: 'swizz8',
-            text: 'Swizz8',
-        },
-        {
-            value: 'juggernaut',
-            text: 'Juggernaut',
-        },
-        {
-            value: 'turbo',
-            text: 'SDXL Turbo',
-        },
-        {
-            value: 'realvis',
-            text: 'Realistic Vision',
-        },
+        { value: 'stable-image-ultra', text: 'Stable Image Ultra' },
+        { value: 'stable-image-core', text: 'Stable Image Core' },
+        { value: 'stable-diffusion-3', text: 'Stable Diffusion 3' },
     ];
+}
+
+async function loadBflModels() {
+    $('#sd_bfl_key').toggleClass('success', !!secret_state[SECRET_KEYS.BFL]);
+
+    return [
+        { value: 'flux-pro-1.1-ultra', text: 'flux-pro-1.1-ultra' },
+        { value: 'flux-pro-1.1', text: 'flux-pro-1.1' },
+        { value: 'flux-pro', text: 'flux-pro' },
+        { value: 'flux-dev', text: 'flux-dev' },
+    ];
+}
+
+async function loadPollinationsModels() {
+    const result = await fetch('/api/sd/pollinations/models', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+    });
+
+    if (result.ok) {
+        return await result.json();
+    }
+
+    return [];
 }
 
 async function loadTogetherAIModels() {
@@ -1475,8 +1769,45 @@ async function loadTogetherAIModels() {
     });
 
     if (result.ok) {
+        return await result.json();
+    }
+
+    return [];
+}
+
+async function loadBlockEntropyModels() {
+    if (!secret_state[SECRET_KEYS.BLOCKENTROPY]) {
+        console.debug('Block Entropy API key is not set.');
+        return [];
+    }
+
+    const result = await fetch('/api/sd/blockentropy/models', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+    });
+    console.log(result);
+    if (result.ok) {
         const data = await result.json();
+        console.log(data);
         return data;
+    }
+
+    return [];
+}
+
+async function loadNanoGPTModels() {
+    if (!secret_state[SECRET_KEYS.NANOGPT]) {
+        console.debug('NanoGPT API key is not set.');
+        return [];
+    }
+
+    const result = await fetch('/api/sd/nanogpt/models', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+    });
+
+    if (result.ok) {
+        return await result.json();
     }
 
     return [];
@@ -1492,8 +1823,10 @@ async function loadHordeModels() {
     if (result.ok) {
         const data = await result.json();
         data.sort((a, b) => b.count - a.count);
-        const models = data.map(x => ({ value: x.name, text: `${x.name} (ETA: ${x.eta}s, Queue: ${x.queued}, Workers: ${x.count})` }));
-        return models;
+        return data.map(x => ({
+            value: x.name,
+            text: `${x.name} (ETA: ${x.eta}s, Queue: ${x.queued}, Workers: ${x.count})`,
+        }));
     }
 
     return [];
@@ -1518,8 +1851,7 @@ async function loadExtrasModels() {
 
     if (getModelsResult.ok) {
         const data = await getModelsResult.json();
-        const view_models = data.models.map(x => ({ value: x, text: x }));
-        return view_models;
+        return data.models.map(x => ({ value: x, text: x }));
     }
 
     return [];
@@ -1561,8 +1893,7 @@ async function loadAutoModels() {
             }
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
@@ -1581,6 +1912,21 @@ async function loadDrawthingsModels() {
         }
 
         const data = [{ value: currentModel, text: currentModel }];
+
+
+        const upscalers = await getDrawthingsRemoteUpscalers();
+
+        if (Array.isArray(upscalers) && upscalers.length > 0) {
+            $('#sd_hr_upscaler').empty();
+
+            for (const upscaler of upscalers) {
+                const option = document.createElement('option');
+                option.innerText = upscaler;
+                option.value = upscaler;
+                option.selected = upscaler === extension_settings.sd.hr_upscaler;
+                $('#sd_hr_upscaler').append(option);
+            }
+        }
 
         return data;
     } catch (error) {
@@ -1632,20 +1978,18 @@ async function loadVladModels() {
             }
         }
 
-        const data = await result.json();
-        return data;
+        return await result.json();
     } catch (error) {
         return [];
     }
 }
 
 async function loadNovelModels() {
-    if (!secret_state[SECRET_KEYS.NOVEL]) {
-        console.debug('NovelAI API key is not set.');
-        return [];
-    }
-
     return [
+        {
+            value: 'nai-diffusion-4-curated-preview',
+            text: 'NAI Diffusion Anime V4 (Curated Preview)',
+        },
         {
             value: 'nai-diffusion-3',
             text: 'NAI Diffusion Anime V3',
@@ -1655,22 +1999,14 @@ async function loadNovelModels() {
             text: 'NAI Diffusion Anime V2',
         },
         {
-            value: 'nai-diffusion',
-            text: 'NAI Diffusion Anime V1 (Full)',
-        },
-        {
-            value: 'safe-diffusion',
-            text: 'NAI Diffusion Anime V1 (Curated)',
-        },
-        {
             value: 'nai-diffusion-furry-3',
             text: 'NAI Diffusion Furry V3',
         },
-        {
-            value: 'nai-diffusion-furry',
-            text: 'NAI Diffusion Furry',
-        },
     ];
+}
+
+function loadNovelSchedulers() {
+    return ['karras', 'native', 'exponential', 'polyexponential'];
 }
 
 async function loadComfyModels() {
@@ -1707,10 +2043,10 @@ async function loadSchedulers() {
             schedulers = ['N/A'];
             break;
         case sources.auto:
-            schedulers = ['N/A'];
+            schedulers = await getAutoRemoteSchedulers();
             break;
         case sources.novel:
-            schedulers = ['N/A'];
+            schedulers = loadNovelSchedulers();
             break;
         case sources.vlad:
             schedulers = ['N/A'];
@@ -1730,6 +2066,21 @@ async function loadSchedulers() {
         case sources.comfy:
             schedulers = await loadComfySchedulers();
             break;
+        case sources.stability:
+            schedulers = ['N/A'];
+            break;
+        case sources.blockentropy:
+            schedulers = ['N/A'];
+            break;
+        case sources.huggingface:
+            schedulers = ['N/A'];
+            break;
+        case sources.nanogpt:
+            schedulers = ['N/A'];
+            break;
+        case sources.bfl:
+            schedulers = ['N/A'];
+            break;
     }
 
     for (const scheduler of schedulers) {
@@ -1738,6 +2089,11 @@ async function loadSchedulers() {
         option.value = scheduler;
         option.selected = scheduler === extension_settings.sd.scheduler;
         $('#sd_scheduler').append(option);
+    }
+
+    if (!extension_settings.sd.scheduler && schedulers.length > 0 && schedulers[0] !== 'N/A') {
+        extension_settings.sd.scheduler = schedulers[0];
+        $('#sd_scheduler').val(extension_settings.sd.scheduler).trigger('change');
     }
 }
 
@@ -1775,7 +2131,7 @@ async function loadVaes() {
             vaes = ['N/A'];
             break;
         case sources.auto:
-            vaes = ['N/A'];
+            vaes = await loadAutoVaes();
             break;
         case sources.novel:
             vaes = ['N/A'];
@@ -1798,6 +2154,21 @@ async function loadVaes() {
         case sources.comfy:
             vaes = await loadComfyVaes();
             break;
+        case sources.stability:
+            vaes = ['N/A'];
+            break;
+        case sources.blockentropy:
+            vaes = ['N/A'];
+            break;
+        case sources.huggingface:
+            vaes = ['N/A'];
+            break;
+        case sources.nanogpt:
+            vaes = ['N/A'];
+            break;
+        case sources.bfl:
+            vaes = ['N/A'];
+            break;
     }
 
     for (const vae of vaes) {
@@ -1806,6 +2177,35 @@ async function loadVaes() {
         option.value = vae;
         option.selected = vae === extension_settings.sd.vae;
         $('#sd_vae').append(option);
+    }
+
+    if (!extension_settings.sd.vae && vaes.length > 0 && vaes[0] !== 'N/A') {
+        extension_settings.sd.vae = vaes[0];
+        $('#sd_vae').val(extension_settings.sd.vae).trigger('change');
+    }
+}
+
+async function loadAutoVaes() {
+    if (!extension_settings.sd.auto_url) {
+        return ['N/A'];
+    }
+
+    try {
+        const result = await fetch('/api/sd/vaes', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify(getSdRequestBody()),
+        });
+
+        if (!result.ok) {
+            throw new Error('SD WebUI returned an error.');
+        }
+
+        const data = await result.json();
+        Array.isArray(data) && data.unshift(placeholderVae);
+        return data;
+    } catch (error) {
+        return ['N/A'];
     }
 }
 
@@ -1857,7 +2257,7 @@ async function loadComfyWorkflows() {
             $('#sd_comfy_workflow').append(option);
         }
     } catch (error) {
-        return;
+        console.error(`Could not load ComfyUI workflows: ${error.message}`);
     }
 }
 
@@ -1877,6 +2277,10 @@ function getGenerationType(prompt) {
         mode = multimodalMap[mode];
     }
 
+    if (mode === generationMode.FREE && extension_settings.sd.free_extend) {
+        mode = generationMode.FREE_EXTENDED;
+    }
+
     return mode;
 }
 
@@ -1888,6 +2292,11 @@ function getQuietPrompt(mode, trigger) {
     return stringFormat(extension_settings.sd.prompts[mode], trigger);
 }
 
+/**
+ * Sanitizes generated prompt for image generation.
+ * @param {string} str String to process
+ * @returns {string} Processed reply
+ */
 function processReply(str) {
     if (!str) {
         return '';
@@ -1895,9 +2304,9 @@ function processReply(str) {
 
     str = str.replaceAll('"', '');
     str = str.replaceAll('“', '');
-    str = str.replaceAll('.', ',');
     str = str.replaceAll('\n', ', ');
-    str = str.replace(/[^a-zA-Z0-9,:()\-']+/g, ' '); // Replace everything except alphanumeric characters and commas with spaces
+    str = str.normalize('NFD');
+    str = str.replace(/[^a-zA-Z0-9.,:_(){}<>[\]\-']+/g, ' ');
     str = str.replace(/\s+/g, ' '); // Collapse multiple whitespaces into one
     str = str.trim();
 
@@ -1941,7 +2350,36 @@ function getRawLastMessage() {
     return `((${processReply(lastMessage.mes)})), (${processReply(character.scenario)}:0.7), (${processReply(character.description)}:0.5)`;
 }
 
-async function generatePicture(args, trigger, message, callback) {
+/**
+ * Ensure that the selected option exists in the dropdown.
+ * @param {string} setting Setting key
+ * @param {string} selector Dropdown selector
+ * @returns {void}
+ */
+function ensureSelectionExists(setting, selector) {
+    /** @type {HTMLSelectElement} */
+    const selectElement = document.querySelector(selector);
+    if (!selectElement) {
+        return;
+    }
+    const options = Array.from(selectElement.options);
+    const value = extension_settings.sd[setting];
+    if (selectElement.selectedOptions.length && !options.some(option => option.value === value)) {
+        extension_settings.sd[setting] = selectElement.selectedOptions[0].value;
+    }
+}
+
+/**
+ * Generates an image based on the given trigger word.
+ * @param {string} initiator The initiator of the image generation
+ * @param {Record<string, object>} args Command arguments
+ * @param {string} trigger Subject trigger word
+ * @param {string} [message] Chat message
+ * @param {function} [callback] Callback function
+ * @returns {Promise<string|undefined>} Image path
+ * @throws {Error} If the prompt or image generation fails
+ */
+async function generatePicture(initiator, args, trigger, message, callback) {
     if (!trigger || trigger.trim().length === 0) {
         console.log('Trigger word empty, aborting');
         return;
@@ -1952,29 +2390,31 @@ async function generatePicture(args, trigger, message, callback) {
         return;
     }
 
-    extension_settings.sd.sampler = $('#sd_sampler').find(':selected').val();
-    extension_settings.sd.model = $('#sd_model').find(':selected').val();
+    ensureSelectionExists('sampler', '#sd_sampler');
+    ensureSelectionExists('model', '#sd_model');
 
     trigger = trigger.trim();
     const generationType = getGenerationType(trigger);
-    console.log('Generation mode', generationType, 'triggered with', trigger);
+    const generationTypeKey = Object.keys(generationMode).find(key => generationMode[key] === generationType);
+    console.log(`Image generation mode ${generationTypeKey} triggered with "${trigger}"`);
+
     const quietPrompt = getQuietPrompt(generationType, trigger);
     const context = getContext();
 
-    // if context.characterId is not null, then we get context.characters[context.characterId].avatar, else we get groupId and context.groups[groupId].id
-    // sadly, groups is not an array, but is a dict with keys being index numbers, so we have to filter it
-    const characterName = context.characterId ? context.characters[context.characterId].name : context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString();
+    const characterName = context.groupId
+        ? context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString()
+        : context.characters[context.characterId]?.name;
 
-    if (generationType == generationMode.BACKGROUND) {
+    if (generationType === generationMode.BACKGROUND) {
         const callbackOriginal = callback;
-        callback = async function (prompt, imagePath, generationType) {
+        callback = async function (prompt, imagePath, generationType, _negativePromptPrefix, _initiator, prefixedPrompt) {
             const imgUrl = `url("${encodeURI(imagePath)}")`;
-            eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
+            await eventSource.emit(event_types.FORCE_SET_BACKGROUND, { url: imgUrl, path: imagePath });
 
             if (typeof callbackOriginal === 'function') {
-                callbackOriginal(prompt, imagePath, generationType, negativePromptPrefix);
+                await callbackOriginal(prompt, imagePath, generationType, negativePromptPrefix, initiator, prefixedPrompt);
             } else {
-                sendMessage(prompt, imagePath, generationType, negativePromptPrefix);
+                await sendMessage(prompt, imagePath, generationType, negativePromptPrefix, initiator, prefixedPrompt);
             }
         };
     }
@@ -1983,26 +2423,43 @@ async function generatePicture(args, trigger, message, callback) {
         callback = () => { };
     }
 
-    const negativePromptPrefix = resolveVariable(args?.negative) || '';
     const dimensions = setTypeSpecificDimensions(generationType);
+    const abortController = new AbortController();
+    const stopButton = document.getElementById('sd_stop_gen');
+    let negativePromptPrefix = args?.negative || '';
     let imagePath = '';
 
+    const stopListener = () => abortController.abort('Aborted by user');
+
     try {
-        const prompt = await getPrompt(generationType, message, trigger, quietPrompt);
+        const combineNegatives = (prefix) => { negativePromptPrefix = combinePrefixes(negativePromptPrefix, prefix); };
+
+        // generate the text prompt for the image
+        const prompt = await getPrompt(generationType, message, trigger, quietPrompt, combineNegatives);
         console.log('Processed image prompt:', prompt);
 
-        context.deactivateSendButtons();
-        hideSwipeButtons();
+        $(stopButton).show();
+        eventSource.once(CUSTOM_STOP_EVENT, stopListener);
 
-        imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback);
+        if (typeof args?._abortController?.addEventListener === 'function') {
+            args._abortController.addEventListener('abort', stopListener);
+        }
+
+        // generate the image
+        imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiator, abortController.signal);
     } catch (err) {
         console.trace(err);
-        throw new Error('SD prompt text generation failed.');
+        // errors here are most likely due to text generation failure
+        // sendGenerationRequest mostly deals with its own errors
+        const reason = err.error?.message || err.message || 'Unknown error';
+        const errorText = 'SD prompt text generation failed. ' + reason;
+        toastr.error(errorText, 'Image Generation');
+        throw new Error(errorText);
     }
     finally {
+        $(stopButton).hide();
         restoreOriginalDimensions(dimensions);
-        context.activateSendButtons();
-        showSwipeButtons();
+        eventSource.removeListener(CUSTOM_STOP_EVENT, stopListener);
     }
 
     return imagePath;
@@ -2014,12 +2471,12 @@ function setTypeSpecificDimensions(generationType) {
     const aspectRatio = extension_settings.sd.width / extension_settings.sd.height;
 
     // Face images are always portrait (pun intended)
-    if ((generationType == generationMode.FACE || generationType == generationMode.FACE_MULTIMODAL) && aspectRatio >= 1) {
+    if ((generationType === generationMode.FACE || generationType === generationMode.FACE_MULTIMODAL) && aspectRatio >= 1) {
         // Round to nearest multiple of 64
         extension_settings.sd.height = Math.round(extension_settings.sd.width * 1.5 / 64) * 64;
     }
 
-    if (generationType == generationMode.BACKGROUND) {
+    if (generationType === generationMode.BACKGROUND) {
         // Background images are always landscape
         if (aspectRatio <= 1) {
             // Round to nearest multiple of 64
@@ -2057,15 +2514,24 @@ function restoreOriginalDimensions(savedParams) {
     extension_settings.sd.width = savedParams.width;
 }
 
-async function getPrompt(generationType, message, trigger, quietPrompt) {
+/**
+ * Generates a prompt for image generation.
+ * @param {number} generationType The type of image generation to perform.
+ * @param {string} message A message text to use for the image generation.
+ * @param {string} trigger A trigger string to use for the image generation.
+ * @param {string} quietPrompt A quiet prompt to use for the image generation.
+ * @param {function} combineNegatives A function that combines the negative prompt with other prompts.
+ * @returns {Promise<string>} - A promise that resolves when the prompt generation completes.
+ */
+async function getPrompt(generationType, message, trigger, quietPrompt, combineNegatives) {
     let prompt;
-
+    console.log('getPrompt: Generation mode', generationType, 'triggered with', trigger);
     switch (generationType) {
         case generationMode.RAW_LAST:
             prompt = message || getRawLastMessage();
             break;
         case generationMode.FREE:
-            prompt = generateFreeModePrompt(trigger.trim());
+            prompt = generateFreeModePrompt(trigger.trim(), combineNegatives);
             break;
         case generationMode.FACE_MULTIMODAL:
         case generationMode.CHARACTER_MULTIMODAL:
@@ -2077,8 +2543,12 @@ async function getPrompt(generationType, message, trigger, quietPrompt) {
             break;
     }
 
+    if (generationType === generationMode.FREE_EXTENDED) {
+        prompt = generateFreeModePrompt(prompt.trim(), combineNegatives);
+    }
+
     if (generationType !== generationMode.FREE) {
-        prompt = await refinePrompt(prompt, true);
+        prompt = await refinePrompt(prompt, false);
     }
 
     return prompt;
@@ -2087,11 +2557,12 @@ async function getPrompt(generationType, message, trigger, quietPrompt) {
 /**
  * Generates a free prompt with a character-specific prompt prefix support.
  * @param {string} trigger - The prompt to use for the image generation.
+ * @param {function} combineNegatives - A function that combines the negative prompt with other prompts.
  * @returns {string}
  */
-function generateFreeModePrompt(trigger) {
+function generateFreeModePrompt(trigger, combineNegatives) {
     return trigger
-        .replace(/(?:^char(\s|,)|\{\{charPrefix\}\})/gi, (_, suffix) => {
+        .replace(/^char(\s|,)|{{charPrefix}}/gi, (_, suffix) => {
             const getLastCharacterKey = () => {
                 if (typeof this_chid !== 'undefined') {
                     return getCharaFilename(this_chid);
@@ -2099,18 +2570,18 @@ function generateFreeModePrompt(trigger) {
                 const context = getContext();
                 for (let i = context.chat.length - 1; i >= 0; i--) {
                     const message = context.chat[i];
-                    if (message.is_user || message.is_system) {
-                        continue;
-                    } else if (typeof message.original_avatar === 'string') {
+                    if (!message.is_user && !message.is_system && typeof message.original_avatar === 'string') {
                         return message.original_avatar.replace(/\.[^/.]+$/, '');
                     }
                 }
-                throw new Error('No usable messages found.');
+                return '';
             };
 
             const key = getLastCharacterKey();
             const value = (extension_settings.sd.character_prompts[key] || '').trim();
-            return value ? value + (suffix || '') : '';
+            const negativeValue = (extension_settings.sd.character_negative_prompts[key] || '').trim();
+            typeof combineNegatives === 'function' && negativeValue ? combineNegatives(negativeValue) : void 0;
+            return value ? combinePrefixes(value, (suffix || '')) : '';
         });
 }
 
@@ -2122,15 +2593,16 @@ function generateFreeModePrompt(trigger) {
 async function generateMultimodalPrompt(generationType, quietPrompt) {
     let avatarUrl;
 
-    if (generationType == generationMode.USER_MULTIMODAL) {
+    if (generationType === generationMode.USER_MULTIMODAL) {
         avatarUrl = getUserAvatarUrl();
     }
 
-    if (generationType == generationMode.CHARACTER_MULTIMODAL || generationType === generationMode.FACE_MULTIMODAL) {
+    if (generationType === generationMode.CHARACTER_MULTIMODAL || generationType === generationMode.FACE_MULTIMODAL) {
         avatarUrl = getCharacterAvatarUrl();
     }
 
     try {
+        const toast = toastr.info('Generating multimodal caption...', 'Image Generation');
         const response = await fetch(avatarUrl);
 
         if (!response.ok) {
@@ -2141,6 +2613,7 @@ async function generateMultimodalPrompt(generationType, quietPrompt) {
         const avatarBase64 = await getBase64Async(avatarBlob);
 
         const caption = await getMultimodalCaption(avatarBase64, quietPrompt);
+        toastr.clear(toast);
 
         if (!caption) {
             throw new Error('No caption returned from the API.');
@@ -2194,12 +2667,14 @@ async function generatePrompt(quietPrompt) {
  * @param {number} generationType Type of image generation
  * @param {string} prompt Prompt to be used for image generation
  * @param {string} additionalNegativePrefix Additional negative prompt to be used for image generation
- * @param {string} [characterName] Name of the character
- * @param {function} [callback] Callback function to be called after image generation
+ * @param {string} characterName Name of the character
+ * @param {function} callback Callback function to be called after image generation
+ * @param {string} initiator The initiator of the image generation
+ * @param {AbortSignal} signal Abort signal to cancel the request
  * @returns
  */
-async function sendGenerationRequest(generationType, prompt, additionalNegativePrefix, characterName = null, callback) {
-    const noCharPrefix = [generationMode.FREE, generationMode.BACKGROUND, generationMode.USER, generationMode.USER_MULTIMODAL];
+async function sendGenerationRequest(generationType, prompt, additionalNegativePrefix, characterName, callback, initiator, signal) {
+    const noCharPrefix = [generationMode.FREE, generationMode.BACKGROUND, generationMode.USER, generationMode.USER_MULTIMODAL, generationMode.FREE_EXTENDED];
     const prefix = noCharPrefix.includes(generationType)
         ? extension_settings.sd.prompt_prefix
         : combinePrefixes(extension_settings.sd.prompt_prefix, getCharacterPrefix());
@@ -2216,34 +2691,49 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
     try {
         switch (extension_settings.sd.source) {
             case sources.extras:
-                result = await generateExtrasImage(prefixedPrompt, negativePrompt);
+                result = await generateExtrasImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.horde:
-                result = await generateHordeImage(prefixedPrompt, negativePrompt);
+                result = await generateHordeImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.vlad:
-                result = await generateAutoImage(prefixedPrompt, negativePrompt);
+                result = await generateAutoImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.drawthings:
-                result = await generateDrawthingsImage(prefixedPrompt, negativePrompt);
+                result = await generateDrawthingsImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.auto:
-                result = await generateAutoImage(prefixedPrompt, negativePrompt);
+                result = await generateAutoImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.novel:
-                result = await generateNovelImage(prefixedPrompt, negativePrompt);
+                result = await generateNovelImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.openai:
-                result = await generateOpenAiImage(prefixedPrompt);
+                result = await generateOpenAiImage(prefixedPrompt, signal);
                 break;
             case sources.comfy:
-                result = await generateComfyImage(prefixedPrompt, negativePrompt);
+                result = await generateComfyImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.togetherai:
-                result = await generateTogetherAIImage(prefixedPrompt, negativePrompt);
+                result = await generateTogetherAIImage(prefixedPrompt, negativePrompt, signal);
                 break;
             case sources.pollinations:
-                result = await generatePollinationsImage(prefixedPrompt, negativePrompt);
+                result = await generatePollinationsImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.stability:
+                result = await generateStabilityImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.blockentropy:
+                result = await generateBlockEntropyImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.huggingface:
+                result = await generateHuggingFaceImage(prefixedPrompt, signal);
+                break;
+            case sources.nanogpt:
+                result = await generateNanoGPTImage(prefixedPrompt, negativePrompt, signal);
+                break;
+            case sources.bfl:
+                result = await generateBflImage(prefixedPrompt, signal);
                 break;
         }
 
@@ -2251,7 +2741,7 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
             throw new Error('Endpoint did not return image data.');
         }
     } catch (err) {
-        console.error(err);
+        console.error('Image generation request error: ', err);
         toastr.error('Image generation failed. Please try again.' + '\n\n' + String(err), 'Image Generation');
         return;
     }
@@ -2264,14 +2754,24 @@ async function sendGenerationRequest(generationType, prompt, additionalNegativeP
 
     const filename = `${characterName}_${humanizedDateTime()}`;
     const base64Image = await saveBase64AsFile(result.data, characterName, filename, result.format);
-    callback ? callback(prompt, base64Image, generationType, additionalNegativePrefix) : sendMessage(prompt, base64Image, generationType, additionalNegativePrefix);
+    callback
+        ? await callback(prompt, base64Image, generationType, additionalNegativePrefix, initiator, prefixedPrompt)
+        : await sendMessage(prompt, base64Image, generationType, additionalNegativePrefix, initiator, prefixedPrompt);
     return base64Image;
 }
 
-async function generateTogetherAIImage(prompt, negativePrompt) {
+/**
+ * Generates an image using the TogetherAI API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateTogetherAIImage(prompt, negativePrompt, signal) {
     const result = await fetch('/api/sd/together/generate', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             negative_prompt: negativePrompt,
@@ -2279,22 +2779,64 @@ async function generateTogetherAIImage(prompt, negativePrompt) {
             steps: extension_settings.sd.steps,
             width: extension_settings.sd.width,
             height: extension_settings.sd.height,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
     if (result.ok) {
-        const data = await result.json();
-        return { format: 'jpg', data: data?.output?.choices?.[0]?.image_base64 };
+        return await result.json();
     } else {
         const text = await result.text();
         throw new Error(text);
     }
 }
 
-async function generatePollinationsImage(prompt, negativePrompt) {
+async function generateBlockEntropyImage(prompt, negativePrompt, signal) {
+    const result = await fetch('/api/sd/blockentropy/generate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        signal: signal,
+        body: JSON.stringify({
+            prompt: prompt,
+            negative_prompt: negativePrompt,
+            model: extension_settings.sd.model,
+            steps: extension_settings.sd.steps,
+            width: extension_settings.sd.width,
+            height: extension_settings.sd.height,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+
+        // Default format is 'jpg'
+        let format = 'jpg';
+
+        // Check if a format is specified in the result
+        if (data.format) {
+            format = data.format.toLowerCase();
+        }
+
+        return { format: format, data: data.images[0] };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
+/**
+ * Generates an image using the Pollinations API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generatePollinationsImage(prompt, negativePrompt, signal) {
     const result = await fetch('/api/sd/pollinations/generate', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             negative_prompt: negativePrompt,
@@ -2302,7 +2844,7 @@ async function generatePollinationsImage(prompt, negativePrompt) {
             width: extension_settings.sd.width,
             height: extension_settings.sd.height,
             enhance: extension_settings.sd.pollinations_enhance,
-            refine: extension_settings.sd.pollinations_refine,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
@@ -2320,9 +2862,10 @@ async function generatePollinationsImage(prompt, negativePrompt) {
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateExtrasImage(prompt, negativePrompt) {
+async function generateExtrasImage(prompt, negativePrompt, signal) {
     const url = new URL(getApiUrl());
     url.pathname = '/api/image';
     const result = await doExtrasFetch(url, {
@@ -2330,6 +2873,7 @@ async function generateExtrasImage(prompt, negativePrompt) {
         headers: {
             'Content-Type': 'application/json',
         },
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             sampler: extension_settings.sd.sampler,
@@ -2345,6 +2889,7 @@ async function generateExtrasImage(prompt, negativePrompt) {
             hr_scale: extension_settings.sd.hr_scale,
             denoising_strength: extension_settings.sd.denoising_strength,
             hr_second_pass_steps: extension_settings.sd.hr_second_pass_steps,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
@@ -2358,16 +2903,98 @@ async function generateExtrasImage(prompt, negativePrompt) {
 }
 
 /**
+ * Gets an aspect ratio for Stability that is the closest to the given width and height.
+ * @param {number} width Target width
+ * @param {number} height Target height
+ * @returns {string} Closest aspect ratio as a string
+ */
+function getClosestAspectRatio(width, height) {
+    const aspectRatios = {
+        '16:9': 16 / 9,
+        '1:1': 1,
+        '21:9': 21 / 9,
+        '2:3': 2 / 3,
+        '3:2': 3 / 2,
+        '4:5': 4 / 5,
+        '5:4': 5 / 4,
+        '9:16': 9 / 16,
+        '9:21': 9 / 21,
+    };
+
+    const aspectRatio = width / height;
+
+    let closestAspectRatio = Object.keys(aspectRatios)[0];
+    let minDiff = Math.abs(aspectRatio - aspectRatios[closestAspectRatio]);
+
+    for (const key in aspectRatios) {
+        const diff = Math.abs(aspectRatio - aspectRatios[key]);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestAspectRatio = key;
+        }
+    }
+
+    return closestAspectRatio;
+}
+
+/**
+ * Generates an image using Stability AI.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateStabilityImage(prompt, negativePrompt, signal) {
+    const IMAGE_FORMAT = 'png';
+    const PROMPT_LIMIT = 10000;
+
+    try {
+        const response = await fetch('/api/sd/stability/generate', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            signal: signal,
+            body: JSON.stringify({
+                model: extension_settings.sd.model,
+                payload: {
+                    prompt: prompt.slice(0, PROMPT_LIMIT),
+                    negative_prompt: negativePrompt.slice(0, PROMPT_LIMIT),
+                    aspect_ratio: getClosestAspectRatio(extension_settings.sd.width, extension_settings.sd.height),
+                    seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
+                    style_preset: extension_settings.sd.stability_style_preset,
+                    output_format: IMAGE_FORMAT,
+                },
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const base64Image = await response.text();
+
+        return {
+            format: IMAGE_FORMAT,
+            data: base64Image,
+        };
+    } catch (error) {
+        console.error('Error generating image with Stability AI:', error);
+        throw error;
+    }
+}
+
+/**
  * Generates a "horde" image using the provided prompt and configuration settings.
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateHordeImage(prompt, negativePrompt) {
+async function generateHordeImage(prompt, negativePrompt, signal) {
     const result = await fetch('/api/horde/generate-image', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             sampler: extension_settings.sd.sampler,
@@ -2381,6 +3008,8 @@ async function generateHordeImage(prompt, negativePrompt) {
             restore_faces: !!extension_settings.sd.restore_faces,
             enable_hr: !!extension_settings.sd.enable_hr,
             sanitize: !!extension_settings.sd.horde_sanitize,
+            clip_skip: extension_settings.sd.clip_skip,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
@@ -2398,33 +3027,65 @@ async function generateHordeImage(prompt, negativePrompt) {
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateAutoImage(prompt, negativePrompt) {
+async function generateAutoImage(prompt, negativePrompt, signal) {
+    const isValidVae = extension_settings.sd.vae && !['N/A', placeholderVae].includes(extension_settings.sd.vae);
+    let payload = {
+        ...getSdRequestBody(),
+        prompt: prompt,
+        negative_prompt: negativePrompt,
+        sampler_name: extension_settings.sd.sampler,
+        scheduler: extension_settings.sd.scheduler,
+        steps: extension_settings.sd.steps,
+        cfg_scale: extension_settings.sd.scale,
+        width: extension_settings.sd.width,
+        height: extension_settings.sd.height,
+        restore_faces: !!extension_settings.sd.restore_faces,
+        enable_hr: !!extension_settings.sd.enable_hr,
+        hr_upscaler: extension_settings.sd.hr_upscaler,
+        hr_scale: extension_settings.sd.hr_scale,
+        hr_additional_modules: [],
+        denoising_strength: extension_settings.sd.denoising_strength,
+        hr_second_pass_steps: extension_settings.sd.hr_second_pass_steps,
+        seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
+        override_settings: {
+            CLIP_stop_at_last_layers: extension_settings.sd.clip_skip,
+            sd_vae: isValidVae ? extension_settings.sd.vae : undefined,
+            forge_additional_modules: isValidVae ? [extension_settings.sd.vae] : undefined, // For SD Forge
+        },
+        override_settings_restore_afterwards: true,
+        clip_skip: extension_settings.sd.clip_skip, // For SD.Next
+        save_images: true,
+        send_images: true,
+        do_not_save_grid: false,
+        do_not_save_samples: false,
+    };
+
+    // Conditionally add the ADetailer if adetailer_face is enabled
+    if (extension_settings.sd.adetailer_face) {
+        payload = deepMerge(payload, {
+            alwayson_scripts: {
+                ADetailer: {
+                    args: [
+                        true, // ad_enable
+                        true, // skip_img2img
+                        {
+                            'ad_model': 'face_yolov8n.pt',
+                        },
+                    ],
+                },
+            },
+        });
+    }
+
+    // Make the fetch call with the payload
     const result = await fetch('/api/sd/generate', {
         method: 'POST',
         headers: getRequestHeaders(),
-        body: JSON.stringify({
-            ...getSdRequestBody(),
-            prompt: prompt,
-            negative_prompt: negativePrompt,
-            sampler_name: extension_settings.sd.sampler,
-            steps: extension_settings.sd.steps,
-            cfg_scale: extension_settings.sd.scale,
-            width: extension_settings.sd.width,
-            height: extension_settings.sd.height,
-            restore_faces: !!extension_settings.sd.restore_faces,
-            enable_hr: !!extension_settings.sd.enable_hr,
-            hr_upscaler: extension_settings.sd.hr_upscaler,
-            hr_scale: extension_settings.sd.hr_scale,
-            denoising_strength: extension_settings.sd.denoising_strength,
-            hr_second_pass_steps: extension_settings.sd.hr_second_pass_steps,
-            // Ensure generated img is saved to disk
-            save_images: true,
-            send_images: true,
-            do_not_save_grid: false,
-            do_not_save_samples: false,
-        }),
+        signal: signal,
+        body: JSON.stringify(payload),
     });
 
     if (result.ok) {
@@ -2441,12 +3102,14 @@ async function generateAutoImage(prompt, negativePrompt) {
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateDrawthingsImage(prompt, negativePrompt) {
+async function generateDrawthingsImage(prompt, negativePrompt, signal) {
     const result = await fetch('/api/sd/drawthings/generate', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             ...getSdRequestBody(),
             prompt: prompt,
@@ -2459,6 +3122,9 @@ async function generateDrawthingsImage(prompt, negativePrompt) {
             restore_faces: !!extension_settings.sd.restore_faces,
             enable_hr: !!extension_settings.sd.enable_hr,
             denoising_strength: extension_settings.sd.denoising_strength,
+            clip_skip: extension_settings.sd.clip_skip,
+            upscaler_scale: extension_settings.sd.hr_scale,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
             // TODO: advanced API parameters: hr, upscaler
         }),
     });
@@ -2477,26 +3143,31 @@ async function generateDrawthingsImage(prompt, negativePrompt) {
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateNovelImage(prompt, negativePrompt) {
+async function generateNovelImage(prompt, negativePrompt, signal) {
     const { steps, width, height, sm, sm_dyn } = getNovelParams();
 
     const result = await fetch('/api/novelai/generate-image', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             model: extension_settings.sd.model,
             sampler: extension_settings.sd.sampler,
+            scheduler: extension_settings.sd.scheduler,
             steps: steps,
             scale: extension_settings.sd.scale,
             width: width,
             height: height,
             negative_prompt: negativePrompt,
-            upscale_ratio: extension_settings.sd.novel_upscale_ratio,
+            upscale_ratio: extension_settings.sd.hr_scale,
+            decrisper: extension_settings.sd.novel_decrisper,
             sm: sm,
             sm_dyn: sm_dyn,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
         }),
     });
 
@@ -2514,13 +3185,19 @@ async function generateNovelImage(prompt, negativePrompt) {
  * @returns {{steps: number, width: number, height: number, sm: boolean, sm_dyn: boolean}} - A tuple of parameters for NovelAI API.
  */
 function getNovelParams() {
-    let steps = extension_settings.sd.steps;
+    let steps = Math.min(extension_settings.sd.steps, 50);
     let width = extension_settings.sd.width;
     let height = extension_settings.sd.height;
     let sm = extension_settings.sd.novel_sm;
     let sm_dyn = extension_settings.sd.novel_sm_dyn;
 
-    if (extension_settings.sd.sampler === 'ddim') {
+    // If a source was never changed after the scheduler setting was added, we need to set it to 'karras' for compatibility.
+    const schedulers = loadNovelSchedulers();
+    if (!schedulers.includes(extension_settings.sd.scheduler)) {
+        extension_settings.sd.scheduler = 'karras';
+    }
+
+    if (extension_settings.sd.sampler === 'ddim' || extension_settings.sd.model === 'nai-diffusion-4-curated-preview') {
         sm = false;
         sm_dyn = false;
     }
@@ -2537,8 +3214,8 @@ function getNovelParams() {
         const ratio = Math.sqrt(MAX_PIXELS / (width * height));
 
         // Calculate new width and height while maintaining aspect ratio.
-        var newWidth = Math.round(width * ratio);
-        var newHeight = Math.round(height * ratio);
+        let newWidth = Math.round(width * ratio);
+        let newHeight = Math.round(height * ratio);
 
         // Ensure new dimensions are multiples of 64. If not, reduce accordingly.
         if (newWidth % 64 !== 0) {
@@ -2571,7 +3248,13 @@ function getNovelParams() {
     return { steps, width, height, sm, sm_dyn };
 }
 
-async function generateOpenAiImage(prompt) {
+/**
+ * Generates an image in OpenAI API using the provided prompt and configuration settings.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateOpenAiImage(prompt, signal) {
     const dalle2PromptLimit = 1000;
     const dalle3PromptLimit = 4000;
 
@@ -2606,6 +3289,7 @@ async function generateOpenAiImage(prompt) {
     const result = await fetch('/api/openai/generate-image', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             prompt: prompt,
             model: extension_settings.sd.model,
@@ -2631,9 +3315,10 @@ async function generateOpenAiImage(prompt) {
  *
  * @param {string} prompt - The main instruction used to guide the image generation.
  * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
  * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
  */
-async function generateComfyImage(prompt, negativePrompt) {
+async function generateComfyImage(prompt, negativePrompt, signal) {
     const placeholders = [
         'model',
         'vae',
@@ -2656,33 +3341,44 @@ async function generateComfyImage(prompt, negativePrompt) {
         const text = await workflowResponse.text();
         toastr.error(`Failed to load workflow.\n\n${text}`);
     }
-    let workflow = (await workflowResponse.json()).replace('"%prompt%"', JSON.stringify(prompt));
-    workflow = workflow.replace('"%negative_prompt%"', JSON.stringify(negativePrompt));
-    workflow = workflow.replaceAll('"%seed%"', JSON.stringify(Math.round(Math.random() * Number.MAX_SAFE_INTEGER)));
+    let workflow = (await workflowResponse.json()).replaceAll('"%prompt%"', JSON.stringify(prompt));
+    workflow = workflow.replaceAll('"%negative_prompt%"', JSON.stringify(negativePrompt));
+
+    const seed = extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : Math.round(Math.random() * Number.MAX_SAFE_INTEGER);
+    workflow = workflow.replaceAll('"%seed%"', JSON.stringify(seed));
+
+    const denoising_strength = extension_settings.sd.denoising_strength === undefined ? 1.0 : extension_settings.sd.denoising_strength;
+    workflow = workflow.replaceAll('"%denoise%"', JSON.stringify(denoising_strength));
+
+    const clip_skip = isNaN(extension_settings.sd.clip_skip) ? -1 : -extension_settings.sd.clip_skip;
+    workflow = workflow.replaceAll('"%clip_skip%"', JSON.stringify(clip_skip));
+
     placeholders.forEach(ph => {
-        workflow = workflow.replace(`"%${ph}%"`, JSON.stringify(extension_settings.sd[ph]));
+        workflow = workflow.replaceAll(`"%${ph}%"`, JSON.stringify(extension_settings.sd[ph]));
     });
     (extension_settings.sd.comfy_placeholders ?? []).forEach(ph => {
-        workflow = workflow.replace(`"%${ph.find}%"`, JSON.stringify(substituteParams(ph.replace)));
+        workflow = workflow.replaceAll(`"%${ph.find}%"`, JSON.stringify(substituteParams(ph.replace)));
     });
     if (/%user_avatar%/gi.test(workflow)) {
         const response = await fetch(getUserAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
-            workflow = workflow.replace('"%user_avatar%"', JSON.stringify(avatarBase64));
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
+            workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(avatarBase64));
         } else {
-            workflow = workflow.replace('"%user_avatar%"', JSON.stringify(PNG_PIXEL));
+            workflow = workflow.replaceAll('"%user_avatar%"', JSON.stringify(PNG_PIXEL));
         }
     }
     if (/%char_avatar%/gi.test(workflow)) {
         const response = await fetch(getCharacterAvatarUrl());
         if (response.ok) {
             const avatarBlob = await response.blob();
-            const avatarBase64 = await getBase64Async(avatarBlob);
-            workflow = workflow.replace('"%char_avatar%"', JSON.stringify(avatarBase64));
+            const avatarBase64DataUrl = await getBase64Async(avatarBlob);
+            const avatarBase64 = avatarBase64DataUrl.split(',')[1];
+            workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(avatarBase64));
         } else {
-            workflow = workflow.replace('"%char_avatar%"', JSON.stringify(PNG_PIXEL));
+            workflow = workflow.replaceAll('"%char_avatar%"', JSON.stringify(PNG_PIXEL));
         }
     }
     console.log(`{
@@ -2691,6 +3387,7 @@ async function generateComfyImage(prompt, negativePrompt) {
     const promptResult = await fetch('/api/sd/comfy/generate', {
         method: 'POST',
         headers: getRequestHeaders(),
+        signal: signal,
         body: JSON.stringify({
             url: extension_settings.sd.comfy_url,
             prompt: `{
@@ -2705,6 +3402,100 @@ async function generateComfyImage(prompt, negativePrompt) {
     return { format: 'png', data: await promptResult.text() };
 }
 
+
+/**
+ * Generates an image in Hugging Face Inference API using the provided prompt and configuration settings (model selected).
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateHuggingFaceImage(prompt, signal) {
+    const result = await fetch('/api/sd/huggingface/generate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        signal: signal,
+        body: JSON.stringify({
+            model: extension_settings.sd.huggingface_model_id,
+            prompt: prompt,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+        return { format: 'jpg', data: data.image };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
+/**
+ * Generates an image using the NanoGPT API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {string} negativePrompt - The instruction used to restrict the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateNanoGPTImage(prompt, negativePrompt, signal) {
+    const result = await fetch('/api/sd/nanogpt/generate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        signal: signal,
+        body: JSON.stringify({
+            model: extension_settings.sd.model,
+            prompt: prompt,
+            negative_prompt: negativePrompt,
+            num_steps: parseInt(extension_settings.sd.steps),
+            scale: parseFloat(extension_settings.sd.scale),
+            width: parseInt(extension_settings.sd.width),
+            height: parseInt(extension_settings.sd.height),
+            resolution: `${extension_settings.sd.width}x${extension_settings.sd.height}`,
+            showExplicitContent: true,
+            nImages: 1,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+        return { format: 'jpg', data: data.image };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
+/**
+ * Generates an image using the BFL API.
+ * @param {string} prompt - The main instruction used to guide the image generation.
+ * @param {AbortSignal} signal - An AbortSignal object that can be used to cancel the request.
+ * @returns {Promise<{format: string, data: string}>} - A promise that resolves when the image generation and processing are complete.
+ */
+async function generateBflImage(prompt, signal) {
+    const result = await fetch('/api/sd/bfl/generate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        signal: signal,
+        body: JSON.stringify({
+            prompt: prompt,
+            model: extension_settings.sd.model,
+            steps: clamp(extension_settings.sd.steps, 1, 50),
+            guidance: clamp(extension_settings.sd.scale, 1.5, 5),
+            width: clamp(extension_settings.sd.width, 256, 1440),
+            height: clamp(extension_settings.sd.height, 256, 1440),
+            prompt_upsampling: !!extension_settings.sd.bfl_upsampling,
+            seed: extension_settings.sd.seed >= 0 ? extension_settings.sd.seed : undefined,
+        }),
+    });
+
+    if (result.ok) {
+        const data = await result.json();
+        return { format: 'jpg', data: data.image };
+    } else {
+        const text = await result.text();
+        throw new Error(text);
+    }
+}
+
 async function onComfyOpenWorkflowEditorClick() {
     let workflow = await (await fetch('/api/sd/comfy/workflow', {
         method: 'POST',
@@ -2714,12 +3505,17 @@ async function onComfyOpenWorkflowEditorClick() {
         }),
     })).json();
     const editorHtml = $(await $.get('scripts/extensions/stable-diffusion/comfyWorkflowEditor.html'));
-    const popupResult = callPopup(editorHtml, 'confirm', undefined, { okButton: 'Save', wide: true, large: true, rows: 1 });
+    const saveValue = (/** @type {Popup} */ _popup) => {
+        workflow = $('#sd_comfy_workflow_editor_workflow').val().toString();
+        return true;
+    };
+    const popup = new Popup(editorHtml, POPUP_TYPE.CONFIRM, '', { okButton: 'Save', cancelButton: 'Cancel', wide: true, large: true, onClosing: saveValue });
+    const popupResult = popup.show();
     const checkPlaceholders = () => {
         workflow = $('#sd_comfy_workflow_editor_workflow').val().toString();
-        $('.sd_comfy_workflow_editor_placeholder_list > li[data-placeholder]').each(function (idx) {
+        $('.sd_comfy_workflow_editor_placeholder_list > li[data-placeholder]').each(function () {
             const key = this.getAttribute('data-placeholder');
-            const found = workflow.search(`"%${key}%"`) != -1;
+            const found = workflow.search(`"%${key}%"`) !== -1;
             this.classList[found ? 'remove' : 'add']('sd_comfy_workflow_editor_not_found');
         });
     };
@@ -2783,7 +3579,7 @@ async function onComfyOpenWorkflowEditorClick() {
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 file_name: extension_settings.sd.comfy_workflow,
-                workflow: $('#sd_comfy_workflow_editor_workflow').val().toString(),
+                workflow: workflow,
             }),
         });
         if (!response.ok) {
@@ -2794,11 +3590,11 @@ async function onComfyOpenWorkflowEditorClick() {
 }
 
 async function onComfyNewWorkflowClick() {
-    let name = await callPopup('<h3>Workflow name:</h3>', 'input');
+    let name = await callGenericPopup('Workflow name:', POPUP_TYPE.INPUT);
     if (!name) {
         return;
     }
-    if (!name.toLowerCase().endsWith('.json')) {
+    if (!String(name).toLowerCase().endsWith('.json')) {
         name += '.json';
     }
     extension_settings.sd.comfy_workflow = name;
@@ -2821,7 +3617,7 @@ async function onComfyNewWorkflowClick() {
 }
 
 async function onComfyDeleteWorkflowClick() {
-    const confirm = await callPopup('Delete the workflow? This action is irreversible.', 'confirm');
+    const confirm = await callGenericPopup('Delete the workflow? This action is irreversible.', POPUP_TYPE.CONFIRM, '', { okButton: 'Delete', cancelButton: 'Cancel' });
     if (!confirm) {
         return;
     }
@@ -2846,66 +3642,68 @@ async function onComfyDeleteWorkflowClick() {
  * @param {string} image Base64 encoded image
  * @param {number} generationType Generation type of the image
  * @param {string} additionalNegativePrefix Additional negative prompt used for the image generation
+ * @param {string} initiator The initiator of the image generation
+ * @param {string} prefixedPrompt Prompt with an attached specific prefix
  */
-async function sendMessage(prompt, image, generationType, additionalNegativePrefix) {
+async function sendMessage(prompt, image, generationType, additionalNegativePrefix, initiator, prefixedPrompt) {
     const context = getContext();
-    const messageText = `[${context.name2} sends a picture that contains: ${prompt}]`;
+    const name = context.groupId ? systemUserName : context.name2;
+    const template = extension_settings.sd.prompts[generationMode.MESSAGE] || '{{prompt}}';
+    const messageText = substituteParamsExtended(template, { char: name, prompt: prompt, prefixedPrompt: prefixedPrompt });
     const message = {
-        name: context.groupId ? systemUserName : context.name2,
+        name: name,
         is_user: false,
-        is_system: true,
+        is_system: !getVisibilityByInitiator(initiator),
         send_date: getMessageTimeStamp(),
-        mes: context.groupId ? p(messageText) : messageText,
+        mes: messageText,
         extra: {
             image: image,
             title: prompt,
             generationType: generationType,
             negative: additionalNegativePrefix,
+            inline_image: false,
+            image_swipes: [image],
         },
     };
     context.chat.push(message);
+    const messageId = context.chat.length - 1;
+    await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId);
     context.addOneMessage(message);
-    context.saveChat();
+    await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, messageId);
+    await context.saveChat();
 }
 
-function addSDGenButtons() {
+/**
+ * Gets the visibility of the resulting message based on the initiator.
+ * @param {string} initiator Generation initiator
+ * @returns {boolean} Is resulting message visible
+ */
+function getVisibilityByInitiator(initiator) {
+    switch (initiator) {
+        case initiators.interactive:
+            return !!extension_settings.sd.interactive_visible;
+        case initiators.wand:
+            return !!extension_settings.sd.wand_visible;
+        case initiators.command:
+            return !!extension_settings.sd.command_visible;
+        case initiators.tool:
+            return !!extension_settings.sd.tool_visible;
+        default:
+            return false;
+    }
+}
 
-    const buttonHtml = `
-    <div id="sd_gen" class="list-group-item flex-container flexGap5">
-        <div class="fa-solid fa-paintbrush extensionsMenuExtensionButton" title="Trigger Stable Diffusion" /></div>
-        Generate Image
-    </div>
-        `;
+async function addSDGenButtons() {
+    const buttonHtml = await renderExtensionTemplateAsync('stable-diffusion', 'button');
+    const dropdownHtml = await renderExtensionTemplateAsync('stable-diffusion', 'dropdown');
 
-    const waitButtonHtml = `
-        <div id="sd_gen_wait" class="fa-solid fa-hourglass-half" /></div>
-    `;
-    const dropdownHtml = `
-    <div id="sd_dropdown">
-        <ul class="list-group">
-        <span>Send me a picture of:</span>
-            <li class="list-group-item" id="sd_you" data-value="you">Yourself</li>
-            <li class="list-group-item" id="sd_face" data-value="face">Your Face</li>
-            <li class="list-group-item" id="sd_me" data-value="me">Me</li>
-            <li class="list-group-item" id="sd_world" data-value="world">The Whole Story</li>
-            <li class="list-group-item" id="sd_last" data-value="last">The Last Message</li>
-            <li class="list-group-item" id="sd_raw_last" data-value="raw_last">Raw Last Message</li>
-            <li class="list-group-item" id="sd_background" data-value="background">Background</li>
-        </ul>
-    </div>`;
-
-    $('#extensionsMenu').prepend(buttonHtml);
-    $('#extensionsMenu').prepend(waitButtonHtml);
+    $('#sd_wand_container').append(buttonHtml);
     $(document.body).append(dropdownHtml);
 
     const messageButton = $('.sd_message_gen');
     const button = $('#sd_gen');
-    const waitButton = $('#sd_gen_wait');
     const dropdown = $('#sd_dropdown');
-    waitButton.hide();
     dropdown.hide();
-    button.hide();
-    messageButton.hide();
 
     let popper = Popper.createPopper(button.get(0), dropdown.get(0), {
         placement: 'top',
@@ -2915,8 +3713,8 @@ function addSDGenButtons() {
 
     $(document).on('click touchend', function (e) {
         const target = $(e.target);
-        if (target.is(dropdown)) return;
-        if (target.is(button) && !dropdown.is(':visible') && $('#send_but').is(':visible')) {
+        if (target.is(dropdown) || target.closest(dropdown).length) return;
+        if ((target.is(button) || target.closest(button).length) && !dropdown.is(':visible')) {
             e.preventDefault();
 
             dropdown.fadeIn(animation_duration);
@@ -2925,6 +3723,31 @@ function addSDGenButtons() {
             dropdown.fadeOut(animation_duration);
         }
     });
+
+    $('#sd_dropdown [id]').on('click', function () {
+        dropdown.fadeOut(animation_duration);
+        const id = $(this).attr('id');
+        const idParamMap = {
+            'sd_you': 'you',
+            'sd_face': 'face',
+            'sd_me': 'me',
+            'sd_world': 'scene',
+            'sd_last': 'last',
+            'sd_raw_last': 'raw_last',
+            'sd_background': 'background',
+        };
+
+        const param = idParamMap[id];
+
+        if (param) {
+            console.log('doing /sd ' + param);
+            generatePicture(initiators.wand, {}, param);
+        }
+    });
+
+    const stopGenButton = $('#sd_stop_gen');
+    stopGenButton.hide();
+    stopGenButton.on('click', () => eventSource.emit(CUSTOM_STOP_EVENT));
 }
 
 function isValidState() {
@@ -2949,22 +3772,20 @@ function isValidState() {
             return secret_state[SECRET_KEYS.TOGETHERAI];
         case sources.pollinations:
             return true;
+        case sources.stability:
+            return secret_state[SECRET_KEYS.STABILITY];
+        case sources.blockentropy:
+            return secret_state[SECRET_KEYS.BLOCKENTROPY];
+        case sources.huggingface:
+            return secret_state[SECRET_KEYS.HUGGINGFACE];
+        case sources.nanogpt:
+            return secret_state[SECRET_KEYS.NANOGPT];
+        case sources.bfl:
+            return secret_state[SECRET_KEYS.BFL];
     }
 }
 
-async function moduleWorker() {
-    if (isValidState()) {
-        $('#sd_gen').show();
-        $('.sd_message_gen').show();
-    }
-    else {
-        $('#sd_gen').hide();
-        $('.sd_message_gen').hide();
-    }
-}
-
-addSDGenButtons();
-setInterval(moduleWorker, UPDATE_INTERVAL);
+let buttonAbortController = null;
 
 async function sdMessageButton(e) {
     function setBusyIcon(isBusy) {
@@ -2978,33 +3799,37 @@ async function sdMessageButton(e) {
     const $mes = $icon.closest('.mes');
     const message_id = $mes.attr('mesid');
     const message = context.chat[message_id];
-    const characterFileName = context.characterId ? context.characters[context.characterId].name : context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString();
+    const characterFileName = context.groupId
+        ? context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString()
+        : context.characters[context.characterId]?.name;
     const messageText = message?.mes;
     const hasSavedImage = message?.extra?.image && message?.extra?.title;
     const hasSavedNegative = message?.extra?.negative;
 
     if ($icon.hasClass(busyClass)) {
+        buttonAbortController?.abort('Aborted by user');
         console.log('Previous image is still being generated...');
         return;
     }
 
     let dimensions = null;
+    buttonAbortController = new AbortController();
 
     try {
         setBusyIcon(true);
         if (hasSavedImage) {
-            const prompt = await refinePrompt(message.extra.title, false, false);
-            const negative = hasSavedNegative ? await refinePrompt(message.extra.negative, false, true) : '';
+            const prompt = await refinePrompt(message.extra.title, false);
+            const negative = hasSavedNegative ? await refinePrompt(message.extra.negative, true) : '';
             message.extra.title = prompt;
 
             const generationType = message?.extra?.generationType ?? generationMode.FREE;
             console.log('Regenerating an image, using existing prompt:', prompt);
             dimensions = setTypeSpecificDimensions(generationType);
-            await sendGenerationRequest(generationType, prompt, negative, characterFileName, saveGeneratedImage);
+            await sendGenerationRequest(generationType, prompt, negative, characterFileName, saveGeneratedImage, initiators.action, buttonAbortController?.signal);
         }
         else {
             console.log('doing /sd raw last');
-            await generatePicture('sd', 'raw_last', messageText, saveGeneratedImage);
+            await generatePicture(initiators.action, {}, 'raw_last', messageText, saveGeneratedImage);
         }
     }
     catch (error) {
@@ -3020,12 +3845,25 @@ async function sdMessageButton(e) {
 
     function saveGeneratedImage(prompt, image, generationType, negative) {
         // Some message sources may not create the extra object
-        if (typeof message.extra !== 'object') {
+        if (typeof message.extra !== 'object' || message.extra === null) {
             message.extra = {};
         }
 
+        // Add image to the swipe list if it's not already there
+        if (!Array.isArray(message.extra.image_swipes)) {
+            message.extra.image_swipes = [];
+        }
+
+        const swipes = message.extra.image_swipes;
+
+        if (message.extra.image && !swipes.includes(message.extra.image)) {
+            swipes.push(message.extra.image);
+        }
+
+        swipes.push(image);
+
         // If already contains an image and it's not inline - leave it as is
-        message.extra.inline_image = message.extra.image && !message.extra.inline_image ? false : true;
+        message.extra.inline_image = !(message.extra.image && !message.extra.inline_image);
         message.extra.image = image;
         message.extra.title = prompt;
         message.extra.generationType = generationType;
@@ -3036,37 +3874,408 @@ async function sdMessageButton(e) {
     }
 }
 
-$('#sd_dropdown [id]').on('click', function () {
-    const id = $(this).attr('id');
-    const idParamMap = {
-        'sd_you': 'you',
-        'sd_face': 'face',
-        'sd_me': 'me',
-        'sd_world': 'scene',
-        'sd_last': 'last',
-        'sd_raw_last': 'raw_last',
-        'sd_background': 'background',
+async function onCharacterPromptShareInput() {
+    // Not a valid state to share character prompt
+    if (this_chid === undefined || selected_group) {
+        return;
+    }
+
+    const shouldShare = !!$('#sd_character_prompt_share').prop('checked');
+
+    if (shouldShare) {
+        await writePromptFields(this_chid);
+    } else {
+        await writeExtensionField(this_chid, 'sd_character_prompt', null);
+    }
+}
+
+async function writePromptFields(characterId) {
+    const key = getCharaFilename(characterId);
+    const promptPrefix = key ? (extension_settings.sd.character_prompts[key] || '') : '';
+    const negativePromptPrefix = key ? (extension_settings.sd.character_negative_prompts[key] || '') : '';
+    const promptObject = {
+        positive: promptPrefix,
+        negative: negativePromptPrefix,
+    };
+    await writeExtensionField(characterId, 'sd_character_prompt', promptObject);
+}
+
+/**
+ * Switches an image to the next or previous one in the swipe list.
+ * @param {object} args Event arguments
+ * @param {any} args.message Message object
+ * @param {JQuery<HTMLElement>} args.element Message element
+ * @param {string} args.direction Swipe direction
+ * @returns {Promise<void>}
+ */
+async function onImageSwiped({ message, element, direction }) {
+    const context = getContext();
+    const animationClass = 'fa-fade';
+    const messageImg = element.find('.mes_img');
+
+    // Current image is already animating
+    if (messageImg.hasClass(animationClass)) {
+        return;
+    }
+
+    const swipes = message?.extra?.image_swipes;
+
+    if (!Array.isArray(swipes)) {
+        console.warn('No image swipes found in the message');
+        return;
+    }
+
+    const currentIndex = swipes.indexOf(message.extra.image);
+
+    if (currentIndex === -1) {
+        console.warn('Current image not found in the swipes');
+        return;
+    }
+
+    // Switch to previous image or wrap around if at the beginning
+    if (direction === 'left') {
+        const newIndex = currentIndex === 0 ? swipes.length - 1 : currentIndex - 1;
+        message.extra.image = swipes[newIndex];
+
+        // Update the image in the message
+        appendMediaToMessage(message, element, false);
+    }
+
+    // Switch to next image or generate a new one if at the end
+    if (direction === 'right') {
+        const newIndex = currentIndex === swipes.length - 1 ? swipes.length : currentIndex + 1;
+
+        if (newIndex === swipes.length) {
+            const abortController = new AbortController();
+            const swipeControls = element.find('.mes_img_swipes');
+            const stopButton = document.getElementById('sd_stop_gen');
+            const stopListener = () => abortController.abort('Aborted by user');
+            const generationType = message?.extra?.generationType ?? generationMode.FREE;
+            const dimensions = setTypeSpecificDimensions(generationType);
+            const originalSeed = extension_settings.sd.seed;
+            extension_settings.sd.seed = extension_settings.sd.seed >= 0 ? Math.round(Math.random() * (Math.pow(2, 32) - 1)) : -1;
+            let imagePath = '';
+
+            try {
+                $(stopButton).show();
+                eventSource.once(CUSTOM_STOP_EVENT, stopListener);
+                const callback = () => { };
+                const hasNegative = message.extra.negative;
+                const prompt = await refinePrompt(message.extra.title, false);
+                const negativePromptPrefix = hasNegative ? await refinePrompt(message.extra.negative, true) : '';
+                const characterName = context.groupId
+                    ? context.groups[Object.keys(context.groups).filter(x => context.groups[x].id === context.groupId)[0]]?.id?.toString()
+                    : context.characters[context.characterId]?.name;
+
+                messageImg.addClass(animationClass);
+                swipeControls.hide();
+                imagePath = await sendGenerationRequest(generationType, prompt, negativePromptPrefix, characterName, callback, initiators.swipe, abortController.signal);
+            } finally {
+                $(stopButton).hide();
+                messageImg.removeClass(animationClass);
+                swipeControls.show();
+                eventSource.removeListener(CUSTOM_STOP_EVENT, stopListener);
+                restoreOriginalDimensions(dimensions);
+                extension_settings.sd.seed = originalSeed;
+            }
+
+            if (!imagePath) {
+                return;
+            }
+
+            swipes.push(imagePath);
+        }
+
+        message.extra.image = swipes[newIndex];
+        appendMediaToMessage(message, element, false);
+    }
+
+    await context.saveChat();
+}
+
+/**
+ * Applies the command arguments to the extension settings.
+ * @typedef {import('../../slash-commands/SlashCommand.js').NamedArguments} NamedArguments
+ * @typedef {import('../../slash-commands/SlashCommand.js').NamedArgumentsCapture} NamedArgumentsCapture
+ * @param {NamedArguments | NamedArgumentsCapture} args - Command arguments
+ * @returns {Record<string, any>} - Current settings before applying the command arguments
+ */
+function applyCommandArguments(args) {
+    const overrideSettings = {};
+    const currentSettings = {};
+    const settingMap = {
+        'edit': 'refine_mode',
+        'extend': 'free_extend',
+        'multimodal': 'multimodal_captioning',
+        'seed': 'seed',
+        'width': 'width',
+        'height': 'height',
+        'steps': 'steps',
+        'cfg': 'scale',
+        'skip': 'clip_skip',
+        'model': 'model',
+        'sampler': 'sampler',
+        'scheduler': 'scheduler',
+        'vae': 'vae',
+        'upscaler': 'hr_upscaler',
+        'scale': 'hr_scale',
+        'hires': 'enable_hr',
+        'denoise': 'denoising_strength',
+        '2ndpass': 'hr_second_pass_steps',
+        'faces': 'restore_faces',
     };
 
-    const param = idParamMap[id];
-
-    if (param) {
-        console.log('doing /sd ' + param);
-        generatePicture('sd', param);
+    for (const [param, setting] of Object.entries(settingMap)) {
+        if (args[param] === undefined || defaultSettings[setting] === undefined) {
+            continue;
+        }
+        currentSettings[setting] = extension_settings.sd[setting];
+        const value = String(args[param]);
+        const type = typeof defaultSettings[setting];
+        switch (type) {
+            case 'boolean':
+                overrideSettings[setting] = isTrueBoolean(value) || !isFalseBoolean(value);
+                break;
+            case 'number':
+                overrideSettings[setting] = Number(value);
+                break;
+            default:
+                overrideSettings[setting] = value;
+                break;
+        }
     }
-});
+
+    Object.assign(extension_settings.sd, overrideSettings);
+    return currentSettings;
+}
+
+function registerFunctionTool() {
+    if (!extension_settings.sd.function_tool) {
+        return ToolManager.unregisterFunctionTool('GenerateImage');
+    }
+
+    ToolManager.registerFunctionTool({
+        name: 'GenerateImage',
+        displayName: 'Generate Image',
+        description: [
+            'Generate an image from a given text prompt.',
+            'Use when a user asks to generate an image, imagine a concept or an item, send a picture of a scene, a selfie, etc.',
+        ].join(' '),
+        parameters: Object.freeze({
+            $schema: 'http://json-schema.org/draft-04/schema#',
+            type: 'object',
+            properties: {
+                prompt: {
+                    type: 'string',
+                    description: extension_settings.sd.prompts[generationMode.TOOL] || promptTemplates[generationMode.TOOL],
+                },
+            },
+            required: [
+                'prompt',
+            ],
+        }),
+        action: async (args) => {
+            if (!isValidState()) throw new Error('Image generation is not configured.');
+            if (!args) throw new Error('Missing arguments');
+            if (!args.prompt) throw new Error('Missing prompt');
+            const url = await generatePicture(initiators.tool, {}, args.prompt);
+            return encodeURI(url);
+        },
+        formatMessage: () => 'Generating an image...',
+    });
+}
 
 jQuery(async () => {
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'imagine',
-        callback: generatePicture,
+    await addSDGenButtons();
+
+    const getSelectEnumProvider = (id, text) => () => Array.from(document.querySelectorAll(`#${id} > [value]`)).map(x => new SlashCommandEnumValue(x.getAttribute('value'), text ? x.textContent : null));
+
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'imagine',
+        returns: 'URL of the generated image, or an empty string if the generation failed',
+        callback: async (args, trigger) => {
+            const currentSettings = applyCommandArguments(args);
+
+            try {
+                return await generatePicture(initiators.command, args, String(trigger));
+            } catch (error) {
+                console.error('Failed to generate image:', error);
+                return '';
+            } finally {
+                if (Object.keys(currentSettings).length) {
+                    Object.assign(extension_settings.sd, currentSettings);
+                    saveSettingsDebounced();
+                }
+            }
+        },
         aliases: ['sd', 'img', 'image'],
         namedArgumentList: [
             new SlashCommandNamedArgument(
-                'quiet', 'whether to post the generated image to chat', [ARGUMENT_TYPE.BOOLEAN], false, false, 'false', ['false', 'true'],
+                'quiet', 'whether to post the generated image to chat', [ARGUMENT_TYPE.BOOLEAN], false, false, 'false',
             ),
-            new SlashCommandNamedArgument(
-                'negative', 'negative prompt prefix', [ARGUMENT_TYPE.STRING], false, false, '',
-            ),
+            SlashCommandNamedArgument.fromProps({
+                name: 'negative',
+                description: 'negative prompt prefix',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'extend',
+                description: 'auto-extend free mode prompts with the LLM',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'edit',
+                description: 'edit the prompt before generation',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'multimodal',
+                description: 'use multimodal captioning (for portraits only)',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'snap',
+                description: 'snap auto-adjusted dimensions to the nearest known resolution (portraits and backgrounds only)',
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+                isRequired: false,
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'seed',
+                description: 'random seed',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'width',
+                description: 'image width',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'height',
+                description: 'image height',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'steps',
+                description: 'number of steps',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'cfg',
+                description: 'CFG scale',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'skip',
+                description: 'CLIP skip layers',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'model',
+                description: 'model override',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.STRING],
+                acceptsMultiple: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_model', true),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'sampler',
+                description: 'sampler override',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.STRING],
+                acceptsMultiple: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_sampler', false),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'scheduler',
+                description: 'scheduler override',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.STRING],
+                acceptsMultiple: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_scheduler', false),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'vae',
+                description: 'VAE name override',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.STRING],
+                acceptsMultiple: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_vae', false),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'upscaler',
+                description: 'upscaler override',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.STRING],
+                acceptsMultiple: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_hr_upscaler', false),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'hires',
+                description: 'enable high-res fix',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                acceptsMultiple: false,
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'scale',
+                description: 'upscale amount',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'denoise',
+                description: 'denoising strength',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: '2ndpass',
+                description: 'second pass steps',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.NUMBER],
+                acceptsMultiple: false,
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'faces',
+                description: 'restore faces',
+                isRequired: false,
+                typeList: [ARGUMENT_TYPE.BOOLEAN],
+                acceptsMultiple: false,
+                enumProvider: commonEnumProviders.boolean('trueFalse'),
+            }),
         ],
         unnamedArgumentList: [
             new SlashCommandArgument(
@@ -3075,7 +4284,10 @@ jQuery(async () => {
         ],
         helpString: `
             <div>
-                Requests to generate an image and posts it to chat (unless quiet=true argument is specified). Supported arguments: <code>${Object.values(triggerWords).flat().join(', ')}</code>.
+                Requests to generate an image and posts it to chat (unless <code>quiet=true</code> argument is specified).
+            </div>
+            <div>
+                Supported arguments: <code>${Object.values(triggerWords).flat().join(', ')}</code>.
             </div>
             <div>
                 Anything else would trigger a "free mode" to make generate whatever you prompted. Example: <code>/imagine apple tree</code> would generate a picture of an apple tree. Returns a link to the generated image.
@@ -3083,20 +4295,84 @@ jQuery(async () => {
         `,
     }));
 
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'imagine-comfy-workflow',
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'imagine-source',
+        aliases: ['sd-source', 'img-source'],
+        returns: 'a name of the current generation source',
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({
+                description: 'source name',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_source', true),
+            }),
+        ],
+        helpString: 'If an argument is provided, change the source of the image generation, e.g. <code>/imagine-source comfy</code>. Returns the current source.',
+        callback: async (_args, name) => {
+            if (!name) {
+                return extension_settings.sd.source;
+            }
+            const isKnownSource = Object.keys(sources).includes(String(name));
+            if (!isKnownSource) {
+                throw new Error('The value provided is not a valid image generation source.');
+            }
+            const option = document.querySelector(`#sd_source [value="${name}"]`);
+            if (!(option instanceof HTMLOptionElement)) {
+                throw new Error('Could not find the source option in the dropdown.');
+            }
+            option.selected = true;
+            await onSourceChange();
+            return extension_settings.sd.source;
+        },
+    }));
+
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'imagine-style',
+        aliases: ['sd-style', 'img-style'],
+        returns: 'a name of the current style',
+        unnamedArgumentList: [
+            SlashCommandArgument.fromProps({
+                description: 'style name',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: false,
+                forceEnum: true,
+                enumProvider: getSelectEnumProvider('sd_style', false),
+            }),
+        ],
+        helpString: 'If an argument is provided, change the style of the image generation, e.g. <code>/imagine-style MyStyle</code>. Returns the current style.',
+        callback: async (_args, name) => {
+            if (!name) {
+                return extension_settings.sd.style;
+            }
+            const option = document.querySelector(`#sd_style [value="${name}"]`);
+            if (!(option instanceof HTMLOptionElement)) {
+                throw new Error('Could not find the style option in the dropdown.');
+            }
+            option.selected = true;
+            onStyleSelect();
+            return extension_settings.sd.style;
+        },
+    }));
+
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'imagine-comfy-workflow',
         callback: changeComfyWorkflow,
         aliases: ['icw'],
         unnamedArgumentList: [
-            new SlashCommandArgument(
-                'workflowName', [ARGUMENT_TYPE.STRING], true,
-            ),
+            SlashCommandArgument.fromProps({
+                description: 'workflow name',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: true,
+                enumProvider: getSelectEnumProvider('sd_comfy_workflow', false),
+            }),
         ],
         helpString: '(workflowName) - change the workflow to be used for image generation with ComfyUI, e.g. <pre><code>/imagine-comfy-workflow MyWorkflow</code></pre>',
     }));
 
 
     const template = await renderExtensionTemplateAsync('stable-diffusion', 'settings', defaultSettings);
-    $('#extensions_settings').append(template);
+    $('#sd_container').append(template);
     $('#sd_source').on('change', onSourceChange);
     $('#sd_scale').on('input', onScaleInput);
     $('#sd_steps').on('input', onStepsInput);
@@ -3114,6 +4390,7 @@ jQuery(async () => {
     $('#sd_horde_sanitize').on('input', onHordeSanitizeInput);
     $('#sd_restore_faces').on('input', onRestoreFacesInput);
     $('#sd_enable_hr').on('input', onHighResFixInput);
+    $('#sd_adetailer_face').on('change', onADetailerFaceChange);
     $('#sd_refine_mode').on('input', onRefineModeInput);
     $('#sd_character_prompt').on('input', onCharacterPromptInput);
     $('#sd_character_negative_prompt').on('input', onCharacterNegativePromptInput);
@@ -3130,35 +4407,51 @@ jQuery(async () => {
     $('#sd_hr_scale').on('input', onHrScaleInput);
     $('#sd_denoising_strength').on('input', onDenoisingStrengthInput);
     $('#sd_hr_second_pass_steps').on('input', onHrSecondPassStepsInput);
-    $('#sd_novel_upscale_ratio').on('input', onNovelUpscaleRatioInput);
     $('#sd_novel_anlas_guard').on('input', onNovelAnlasGuardInput);
     $('#sd_novel_view_anlas').on('click', onViewAnlasClick);
     $('#sd_novel_sm').on('input', onNovelSmInput);
     $('#sd_novel_sm_dyn').on('input', onNovelSmDynInput);
+    $('#sd_novel_decrisper').on('input', onNovelDecrisperInput);
     $('#sd_pollinations_enhance').on('input', onPollinationsEnhanceInput);
-    $('#sd_pollinations_refine').on('input', onPollinationsRefineInput);
     $('#sd_comfy_validate').on('click', validateComfyUrl);
     $('#sd_comfy_url').on('input', onComfyUrlInput);
     $('#sd_comfy_workflow').on('change', onComfyWorkflowChange);
     $('#sd_comfy_open_workflow_editor').on('click', onComfyOpenWorkflowEditorClick);
     $('#sd_comfy_new_workflow').on('click', onComfyNewWorkflowClick);
     $('#sd_comfy_delete_workflow').on('click', onComfyDeleteWorkflowClick);
-    $('#sd_expand').on('input', onExpandInput);
     $('#sd_style').on('change', onStyleSelect);
     $('#sd_save_style').on('click', onSaveStyleClick);
+    $('#sd_delete_style').on('click', onDeleteStyleClick);
     $('#sd_character_prompt_block').hide();
     $('#sd_interactive_mode').on('input', onInteractiveModeInput);
     $('#sd_openai_style').on('change', onOpenAiStyleSelect);
     $('#sd_openai_quality').on('change', onOpenAiQualitySelect);
     $('#sd_multimodal_captioning').on('input', onMultimodalCaptioningInput);
     $('#sd_snap').on('input', onSnapInput);
+    $('#sd_clip_skip').on('input', onClipSkipInput);
+    $('#sd_seed').on('input', onSeedInput);
+    $('#sd_character_prompt_share').on('input', onCharacterPromptShareInput);
+    $('#sd_free_extend').on('input', onFreeExtendInput);
+    $('#sd_wand_visible').on('input', onWandVisibleInput);
+    $('#sd_command_visible').on('input', onCommandVisibleInput);
+    $('#sd_interactive_visible').on('input', onInteractiveVisibleInput);
+    $('#sd_tool_visible').on('input', onToolVisibleInput);
+    $('#sd_swap_dimensions').on('click', onSwapDimensionsClick);
+    $('#sd_stability_key').on('click', onStabilityKeyClick);
+    $('#sd_stability_style_preset').on('change', onStabilityStylePresetChange);
+    $('#sd_huggingface_model_id').on('input', onHFModelInput);
+    $('#sd_function_tool').on('input', onFunctionToolInput);
+    $('#sd_bfl_key').on('click', onBflKeyClick);
+    $('#sd_bfl_upsampling').on('input', onBflUpsamplingInput);
 
-    $('.sd_settings .inline-drawer-toggle').on('click', function () {
-        initScrollHeight($('#sd_prompt_prefix'));
-        initScrollHeight($('#sd_negative_prompt'));
-        initScrollHeight($('#sd_character_prompt'));
-        initScrollHeight($('#sd_character_negative_prompt'));
-    });
+    if (!CSS.supports('field-sizing', 'content')) {
+        $('.sd_settings .inline-drawer-toggle').on('click', function () {
+            initScrollHeight($('#sd_prompt_prefix'));
+            initScrollHeight($('#sd_negative_prompt'));
+            initScrollHeight($('#sd_character_prompt'));
+            initScrollHeight($('#sd_character_negative_prompt'));
+        });
+    }
 
     for (const [key, value] of Object.entries(resolutionOptions)) {
         const option = document.createElement('option');
@@ -3168,8 +4461,12 @@ jQuery(async () => {
     }
 
     eventSource.on(event_types.EXTRAS_CONNECTED, async () => {
-        await loadSettingOptions();
+        if (extension_settings.sd.source === sources.extras) {
+            await loadSettingOptions();
+        }
     });
+
+    eventSource.on(event_types.IMAGE_SWIPED, onImageSwiped);
 
     eventSource.on(event_types.CHAT_CHANGED, onChatChanged);
 

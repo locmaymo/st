@@ -17,6 +17,7 @@
         "world_info_min_activations": 0,
         "world_info_min_activations_depth_max": 0,
         "world_info_budget": 25,
+        "world_info_include_names": true,
         "world_info_recursive": true,
         "world_info_overflow_alert": false,
         "world_info_case_sensitive": false,
@@ -59,7 +60,6 @@
         "preset": "Default",
         "add_bos_token": true,
         "stopping_strings": [],
-        "truncation_length": 2048,
         "ban_eos_token": false,
         "skip_special_tokens": true,
         "streaming": false,
@@ -136,7 +136,6 @@
         "pin_examples": false,
         "strip_examples": false,
         "trim_sentences": false,
-        "include_newline": false,
         "always_force_name2": true,
         "user_prompt_bias": "",
         "show_user_prompt_bias": true,
@@ -221,7 +220,6 @@
         "instruct": {
             "enabled": false,
             "preset": "Alpaca",
-            "system_prompt": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\nWrite {{char}}'s next reply in a fictional roleplay chat between {{user}} and {{char}}.\n",
             "input_sequence": "### Instruction:",
             "output_sequence": "### Response:",
             "last_output_sequence": "",
@@ -229,8 +227,7 @@
             "stop_sequence": "",
             "wrap": true,
             "macro": true,
-            "names": false,
-            "names_force_groups": true,
+            "names_behavior": "force",
             "activation_regex": "",
             "system_sequence_prefix": "",
             "system_sequence_suffix": "",
@@ -243,7 +240,11 @@
             "system_same_as_user": false,
             "last_system_sequence": ""
         },
-        "default_context": "Default",
+        "sysprompt": {
+            "enabled": true,
+            "name": "Neutral - Chat",
+            "content": "Write {{char}}'s next reply in a fictional chat between {{char}} and {{user}}."
+        },
         "context": {
             "preset": "Default",
             "story_string": "{{#if system}}{{system}}\n{{/if}}{{#if wiBefore}}{{wiBefore}}\n{{/if}}{{#if description}}{{description}}\n{{/if}}{{#if personality}}{{char}}'s personality: {{personality}}\n{{/if}}{{#if scenario}}Scenario: {{scenario}}\n{{/if}}{{#if wiAfter}}{{wiAfter}}\n{{/if}}{{#if persona}}{{persona}}\n{{/if}}",
@@ -336,7 +337,7 @@
             "lengthPenaltyStep": 0.1,
             "memoryFrozen": false,
             "source": "extras",
-            "prompt": "[Pause your roleplay. Summarize the most important facts and events that have happened in the chat so far. If a summary already exists in your memory, use that as a base and expand with new facts. Limit the summary to {{words}} words or less. Your response should include nothing but the summary.]",
+            "prompt": "Ignore previous instructions. Summarize the most important facts and events in the story so far. If a summary already exists in your memory, use that as a base and expand with new facts. Limit the summary to {{words}} words or less. Your response should include nothing but the summary.",
             "promptWords": 200,
             "promptMinWords": 25,
             "promptMaxWords": 1000,
@@ -496,9 +497,9 @@
         "objective": {
             "customPrompts": {
                 "default": {
-                    "createTask": "Pause your roleplay and generate a list of tasks to complete an objective. Your next response must be formatted as a numbered list of plain text entries. Do not include anything but the numbered list. The list must be prioritized in the order that tasks must be completed.\n\nThe objective that you must make a numbered task list for is: [{{objective}}].\nThe tasks created should take into account the character traits of {{char}}. These tasks may or may not involve {{user}} directly. Be sure to include the objective as the final task.\n\nGiven an example objective of 'Make me a four course dinner', here is an example output:\n1. Determine what the courses will be\n2. Find recipes for each course\n3. Go shopping for supplies with {{user}}\n4. Cook the food\n5. Get {{user}} to set the table\n6. Serve the food\n7. Enjoy eating the meal with {{user}}\n    ",
-                    "checkTaskCompleted": "Pause your roleplay. Determine if this task is completed: [{{task}}].\nTo do this, examine the most recent messages. Your response must only contain either true or false, nothing other words.\nExample output:\ntrue\n    ",
-                    "currentTask": "Your current task is [{{task}}]. Balance existing roleplay with completing this task."
+                    "createTask": "Ignore previous instructions and generate a list of tasks to complete an objective. Your next response must be formatted as a numbered list of plain text entries. Do not include anything but the numbered list. The list must be prioritized in the order that tasks must be completed.\n\nThe objective that you must make a numbered task list for is: [{{objective}}].\nThe tasks created should take into account the character traits of {{char}}. These tasks may or may not involve {{user}} directly. Be sure to include the objective as the final task.\n\nGiven an example objective of 'Make me a four course dinner', here is an example output:\n1. Determine what the courses will be\n2. Find recipes for each course\n3. Go shopping for supplies with {{user}}\n4. Cook the food\n5. Get {{user}} to set the table\n6. Serve the food\n7. Enjoy eating the meal with {{user}}\n    ",
+                    "checkTaskCompleted": "Ignore previous instructions. Determine if this task is completed: [{{task}}].\nTo do this, examine the most recent messages. Your response must only contain either true or false, nothing other words.\nExample output:\ntrue\n    ",
+                    "currentTask": "Your current task is [{{task}}]. Balance existing story with completing this task."
                 }
             }
         },
@@ -621,7 +622,6 @@
         "preset_settings_novel": "Talker-Chat-Clio",
         "streaming_novel": true,
         "preamble": "[ Style: chat, complex, sensory, visceral ]",
-        "cfg_uc": "",
         "banned_tokens": "",
         "order": [
             1,
@@ -705,7 +705,7 @@
                 "marker": true
             },
             {
-                "name": "Jailbreak Prompt",
+                "name": "Post-History Instructions",
                 "system_prompt": true,
                 "role": "system",
                 "content": "",
@@ -1585,18 +1585,22 @@
             "Default (none)": [],
             "Anti-bond": [
                 {
+                    "id": "22154f79-dd98-41bc-8e34-87015d6a0eaf",
                     "text": " bond",
                     "value": -50
                 },
                 {
+                    "id": "8ad2d5c4-d8ef-49e4-bc5e-13e7f4690e0f",
                     "text": " future",
                     "value": -50
                 },
                 {
+                    "id": "52a4b280-0956-4940-ac52-4111f83e4046",
                     "text": " bonding",
                     "value": -50
                 },
                 {
+                    "id": "e63037c7-c9d1-4724-ab2d-7756008b433b",
                     "text": " connection",
                     "value": -25
                 }
