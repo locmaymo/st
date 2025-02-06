@@ -1,4 +1,4 @@
-import { callPopup, getCropPopup, getRequestHeaders } from '../script.js';
+import { getRequestHeaders } from '../script.js';
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from './popup.js';
 import { renderTemplateAsync } from './templates.js';
 import { ensureImageFormatSupported, getBase64Async, humanFileSize } from './utils.js';
@@ -31,7 +31,11 @@ export async function setUserControls(isEnabled) {
  * Check if the current user is an admin.
  * @returns {boolean} True if the current user is an admin
  */
-function isAdmin() {
+export function isAdmin() {
+    if (!accountsEnabled) {
+        return true;
+    }
+
     if (!currentUser) {
         return false;
     }
@@ -592,7 +596,7 @@ async function viewSettingsSnapshots() {
         }
     }
 
-    callGenericPopup(template, POPUP_TYPE.TEXT, '', { okButton: 'Close', wide: false, large: false });
+    callGenericPopup(template, POPUP_TYPE.TEXT, '', { okButton: 'Close', wide: false, large: false, allowVerticalScrolling: true });
     template.find('.makeSnapshotButton').on('click', () => makeSnapshot(renderSnapshots));
     renderSnapshots();
 }
@@ -778,14 +782,14 @@ async function openUserProfile() {
  */
 async function cropAndUploadAvatar(handle, file) {
     const dataUrl = await getBase64Async(await ensureImageFormatSupported(file));
-    const croppedImage = await callPopup(getCropPopup(dataUrl), 'avatarToCrop', '', { cropAspect: 1 });
+    const croppedImage = await callGenericPopup('Set the crop position of the avatar image', POPUP_TYPE.CROP, '', { cropAspect: 1, cropImage: dataUrl });
     if (!croppedImage) {
         return;
     }
 
     await changeAvatar(handle, String(croppedImage));
 
-    return croppedImage;
+    return String(croppedImage);
 }
 
 /**
@@ -899,7 +903,14 @@ async function logout() {
         headers: getRequestHeaders(),
     });
 
-    window.location.reload();
+    // On an explicit logout stop auto login
+    // to allow user to change username even
+    // when auto auth (such as authelia or basic)
+    // would be valid
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('noauto', 'true');
+
+    window.location.search = urlParams.toString();
 }
 
 /**

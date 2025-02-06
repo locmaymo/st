@@ -1,6 +1,9 @@
 import { getRequestHeaders } from '../script.js';
 import { renderExtensionTemplateAsync } from './extensions.js';
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from './popup.js';
+import { SlashCommand } from './slash-commands/SlashCommand.js';
+import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from './slash-commands/SlashCommandArgument.js';
+import { SlashCommandParser } from './slash-commands/SlashCommandParser.js';
 import { isValidUrl } from './utils.js';
 
 /**
@@ -10,6 +13,7 @@ import { isValidUrl } from './utils.js';
  * @property {string} description
  * @property {string} iconClass
  * @property {boolean} iconAvailable
+ * @property {() => Promise<void>} [init=null]
  * @property {() => Promise<boolean>} isAvailable
  * @property {() => Promise<File[]>} scrape
  */
@@ -33,10 +37,14 @@ export class ScraperManager {
      * Register a scraper to be used by the Data Bank.
      * @param {Scraper} scraper Instance of a scraper to register
      */
-    static registerDataBankScraper(scraper) {
+    static async registerDataBankScraper(scraper) {
         if (ScraperManager.#scrapers.some(s => s.id === scraper.id)) {
             console.warn(`Scraper with ID ${scraper.id} already registered`);
             return;
+        }
+
+        if (scraper.init) {
+            await scraper.init();
         }
 
         ScraperManager.#scrapers.push(scraper);
@@ -182,7 +190,7 @@ class WebScraper {
         const files = [];
 
         for (const link of links) {
-            const result = await fetch('/api/serpapi/visit', {
+            const result = await fetch('/api/search/visit', {
                 method: 'POST',
                 headers: getRequestHeaders(),
                 body: JSON.stringify({ url: link }),
@@ -430,6 +438,24 @@ class FandomScraper {
     }
 }
 
+const iso6391Codes = [
+    'aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az',
+    'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs', 'ca', 'ce',
+    'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy', 'da', 'de', 'dv', 'dz', 'ee',
+    'el', 'en', 'eo', 'es', 'et', 'eu', 'fa', 'ff', 'fi', 'fj', 'fo', 'fr',
+    'fy', 'ga', 'gd', 'gl', 'gn', 'gu', 'gv', 'ha', 'he', 'hi', 'ho', 'hr',
+    'ht', 'hu', 'hy', 'hz', 'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is',
+    'it', 'iu', 'ja', 'jv', 'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn',
+    'ko', 'kr', 'ks', 'ku', 'kv', 'kw', 'ky', 'la', 'lb', 'lg', 'li', 'ln',
+    'lo', 'lt', 'lu', 'lv', 'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms',
+    'mt', 'my', 'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr', 'nv',
+    'ny', 'oc', 'oj', 'om', 'or', 'os', 'pa', 'pi', 'pl', 'ps', 'pt', 'qu',
+    'rm', 'rn', 'ro', 'ru', 'rw', 'sa', 'sc', 'sd', 'se', 'sg', 'si', 'sk',
+    'sl', 'sm', 'sn', 'so', 'sq', 'sr', 'ss', 'st', 'su', 'sv', 'sw', 'ta',
+    'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt', 'tw',
+    'ty', 'ug', 'uk', 'ur', 'uz', 've', 'vi', 'vo', 'wa', 'wo', 'xh', 'yi',
+    'yo', 'za', 'zh', 'zu'];
+
 /**
  * Scrape transcript from a YouTube video.
  * @implements {Scraper}
@@ -441,6 +467,34 @@ class YouTubeScraper {
         this.description = 'Download a transcript from a YouTube video.';
         this.iconClass = 'fa-brands fa-youtube';
         this.iconAvailable = true;
+    }
+
+    async init() {
+        SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+            name: 'yt-script',
+            callback: async (args, url) => {
+                try {
+                    if (!url) {
+                        throw new Error('URL or ID of the YouTube video is required');
+                    }
+
+                    const lang = String(args?.lang || '');
+                    const { transcript } = await this.getScript(String(url).trim(), lang);
+                    return transcript;
+                } catch (error) {
+                    toastr.error(error.message);
+                    return '';
+                }
+            },
+            helpString: 'Scrape a transcript from a YouTube video by ID or URL.',
+            returns: ARGUMENT_TYPE.STRING,
+            namedArgumentList: [
+                new SlashCommandNamedArgument('lang', 'ISO 639-1 language code of the transcript, e.g. "en"', ARGUMENT_TYPE.STRING, false, false, '', iso6391Codes),
+            ],
+            unnamedArgumentList: [
+                new SlashCommandArgument('URL or ID of the YouTube video', ARGUMENT_TYPE.STRING, true, false),
+            ],
+        }));
     }
 
     /**
@@ -456,7 +510,12 @@ class YouTubeScraper {
      * @param {string} url URL of the YouTube video
      * @returns {string} ID of the YouTube video
      */
-    parseId(url){
+    parseId(url) {
+        // If the URL is already an ID, return it
+        if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+            return url;
+        }
+
         const regex = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/)|(?:(?:watch)?\?v(?:i)?=|&v(?:i)?=))([^#&?]*).*/;
         const match = url.match(regex);
         return (match?.length && match[1] ? match[1] : url);
@@ -479,10 +538,24 @@ class YouTubeScraper {
             return;
         }
 
-        const id = this.parseId(String(videoUrl).trim());
         const toast = toastr.info('Working, please wait...');
+        const { transcript, id } = await this.getScript(String(videoUrl), lang);
+        toastr.clear(toast);
 
-        const result = await fetch('/api/serpapi/transcript', {
+        const file = new File([transcript], `YouTube - ${id} - ${Date.now()}.txt`, { type: 'text/plain' });
+        return [file];
+    }
+
+    /**
+     * Fetches the transcript of a YouTube video.
+     * @param {string} videoUrl Video URL or ID
+     * @param {string} lang Video language
+     * @returns {Promise<{ transcript: string, id: string }>} Transcript of the YouTube video with the video ID
+     */
+    async getScript(videoUrl, lang) {
+        const id = this.parseId(String(videoUrl).trim());
+
+        const result = await fetch('/api/search/transcript', {
             method: 'POST',
             headers: getRequestHeaders(),
             body: JSON.stringify({ id, lang }),
@@ -494,16 +567,15 @@ class YouTubeScraper {
         }
 
         const transcript = await result.text();
-        toastr.clear(toast);
-
-        const file = new File([transcript], `YouTube - ${id} - ${Date.now()}.txt`, { type: 'text/plain' });
-        return [file];
+        return { transcript, id };
     }
 }
 
-ScraperManager.registerDataBankScraper(new FileScraper());
-ScraperManager.registerDataBankScraper(new Notepad());
-ScraperManager.registerDataBankScraper(new WebScraper());
-ScraperManager.registerDataBankScraper(new MediaWikiScraper());
-ScraperManager.registerDataBankScraper(new FandomScraper());
-ScraperManager.registerDataBankScraper(new YouTubeScraper());
+export async function initScrapers() {
+    await ScraperManager.registerDataBankScraper(new FileScraper());
+    await ScraperManager.registerDataBankScraper(new Notepad());
+    await ScraperManager.registerDataBankScraper(new WebScraper());
+    await ScraperManager.registerDataBankScraper(new MediaWikiScraper());
+    await ScraperManager.registerDataBankScraper(new FandomScraper());
+    await ScraperManager.registerDataBankScraper(new YouTubeScraper());
+}
