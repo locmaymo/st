@@ -1,11 +1,10 @@
 import { animation_duration } from '../../../../../script.js';
 import { dragElement } from '../../../../RossAscends-mods.js';
 import { loadMovingUIState } from '../../../../power-user.js';
-// eslint-disable-next-line no-unused-vars
 import { QuickReplySettings } from '../QuickReplySettings.js';
 
 export class ButtonUi {
-    /**@type {QuickReplySettings}*/ settings;
+    /** @type {QuickReplySettings} */ settings;
 
     /**@type {HTMLElement}*/ dom;
     /**@type {HTMLElement}*/ popoutDom;
@@ -69,17 +68,20 @@ export class ButtonUi {
                 root.id = 'qr--bar';
                 root.classList.add('flex-container');
                 root.classList.add('flexGap5');
-                const popout = document.createElement('div'); {
-                    popout.id = 'qr--popoutTrigger';
-                    popout.classList.add('menu_button');
-                    popout.classList.add('fa-solid');
-                    popout.classList.add('fa-window-restore');
-                    popout.addEventListener('click', ()=>{
-                        this.settings.isPopout = true;
-                        this.refresh();
-                        this.settings.save();
-                    });
-                    root.append(popout);
+                if (this.settings.showPopoutButton) {
+                    root.classList.add('popoutVisible');
+                    const popout = document.createElement('div'); {
+                        popout.id = 'qr--popoutTrigger';
+                        popout.classList.add('menu_button');
+                        popout.classList.add('fa-solid');
+                        popout.classList.add('fa-window-restore');
+                        popout.addEventListener('click', ()=>{
+                            this.settings.isPopout = true;
+                            this.refresh();
+                            this.settings.save();
+                        });
+                        root.append(popout);
+                    }
                 }
                 if (this.settings.isCombined) {
                     const buttons = document.createElement('div'); {

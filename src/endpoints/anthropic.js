@@ -1,11 +1,11 @@
-const { readSecret, SECRET_KEYS } = require('./secrets');
-const fetch = require('node-fetch').default;
-const express = require('express');
-const { jsonParser } = require('../express-common');
+import fetch from 'node-fetch';
+import express from 'express';
 
-const router = express.Router();
+import { readSecret, SECRET_KEYS } from './secrets.js';
 
-router.post('/caption-image', jsonParser, async (request, response) => {
+export const router = express.Router();
+
+router.post('/caption-image', async (request, response) => {
     try {
         const mimeType = request.body.image.split(';')[0].split(':')[1];
         const base64Data = request.body.image.split(',')[1];
@@ -28,10 +28,10 @@ router.post('/caption-image', jsonParser, async (request, response) => {
                     ],
                 },
             ],
-            max_tokens: 800,
+            max_tokens: 4096,
         };
 
-        console.log('Multimodal captioning request', body);
+        console.debug('Multimodal captioning request', body);
 
         const result = await fetch(url, {
             body: JSON.stringify(body),
@@ -41,17 +41,18 @@ router.post('/caption-image', jsonParser, async (request, response) => {
                 'anthropic-version': '2023-06-01',
                 'x-api-key': request.body.reverse_proxy ? request.body.proxy_password : readSecret(request.user.directories, SECRET_KEYS.CLAUDE),
             },
-            timeout: 0,
         });
 
         if (!result.ok) {
-            console.log(`Claude API returned error: ${result.status} ${result.statusText}`);
+            const text = await result.text();
+            console.warn(`Claude API returned error: ${result.status} ${result.statusText}`, text);
             return response.status(result.status).send({ error: true });
         }
 
+        /** @type {any} */
         const generateResponseJson = await result.json();
         const caption = generateResponseJson.content[0].text;
-        console.log('Claude response:', generateResponseJson);
+        console.debug('Claude response:', generateResponseJson);
 
         if (!caption) {
             return response.status(500).send('No caption found');
@@ -63,5 +64,3 @@ router.post('/caption-image', jsonParser, async (request, response) => {
         response.status(500).send('Internal server error');
     }
 });
-
-module.exports = { router };

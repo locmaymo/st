@@ -1,4 +1,3 @@
-import { eventSource, event_types } from '../script.js';
 import { power_user } from './power-user.js';
 import { delay } from './utils.js';
 
@@ -109,9 +108,21 @@ function getDelay(s) {
  * @returns {AsyncGenerator<{data: object, chunk: string}>} The parsed data and the chunk to be sent.
  */
 async function* parseStreamData(json) {
+    // Cohere
+    if (typeof json.delta === 'object' && typeof json.delta.message === 'object' && ['tool-plan-delta', 'content-delta'].includes(json.type)) {
+        const text = json?.delta?.message?.content?.text ?? '';
+        for (let i = 0; i < text.length; i++) {
+            const str = json.delta.message.content.text[i];
+            yield {
+                data: { ...json, delta: { message: { content: { text: str } } } },
+                chunk: str,
+            };
+        }
+        return;
+    }
     // Claude
-    if (typeof json.delta === 'object') {
-        if (typeof json.delta.text === 'string' && json.delta.text.length > 0) {
+    else if (typeof json.delta === 'object' && typeof json.delta.text === 'string') {
+        if (json.delta.text.length > 0) {
             for (let i = 0; i < json.delta.text.length; i++) {
                 const str = json.delta.text[i];
                 yield {
@@ -126,16 +137,27 @@ async function* parseStreamData(json) {
     else if (Array.isArray(json.candidates)) {
         for (let i = 0; i < json.candidates.length; i++) {
             const isNotPrimary = json.candidates?.[0]?.index > 0;
+            const hasToolCalls = json?.candidates?.[0]?.content?.parts?.some(p => p?.functionCall);
+            const hasInlineData = json?.candidates?.[0]?.content?.parts?.some(p => p?.inlineData);
             if (isNotPrimary || json.candidates.length === 0) {
                 return null;
+            }
+            if (hasToolCalls || hasInlineData) {
+                yield { data: json, chunk: '' };
+                return;
             }
             if (typeof json.candidates[0].content === 'object' && Array.isArray(json.candidates[i].content.parts)) {
                 for (let j = 0; j < json.candidates[i].content.parts.length; j++) {
                     if (typeof json.candidates[i].content.parts[j].text === 'string') {
                         for (let k = 0; k < json.candidates[i].content.parts[j].text.length; k++) {
-                            const str = json.candidates[i].content.parts[j].text[k];
+                            const moreThanOnePart = json.candidates[i].content.parts.length > 1;
+                            const isNotLastPart = j !== json.candidates[i].content.parts.length - 1;
+                            const isLastSymbol = k === json.candidates[i].content.parts[j].text.length - 1;
+                            const addNewline = moreThanOnePart && isNotLastPart && isLastSymbol;
+                            const str = json.candidates[i].content.parts[j].text[k] + (addNewline ? '\n\n' : '');
                             const candidateClone = structuredClone(json.candidates[0]);
                             candidateClone.content.parts[j].text = str;
+                            candidateClone.content.parts = [candidateClone.content.parts[j]];
                             const candidates = [candidateClone];
                             yield {
                                 data: { ...json, candidates },
@@ -160,7 +182,7 @@ async function* parseStreamData(json) {
         return;
     }
     // llama.cpp?
-    else if (typeof json.content === 'string' && json.content.length > 0) {
+    else if (typeof json.content === 'string' && json.content.length > 0 && json.object !== 'chat.completion.chunk') {
         for (let i = 0; i < json.content.length; i++) {
             const str = json.content[i];
             yield {
@@ -196,6 +218,36 @@ async function* parseStreamData(json) {
                     const str = json.choices[0].delta.text[j];
                     const choiceClone = structuredClone(json.choices[0]);
                     choiceClone.delta.text = str;
+                    const choices = [choiceClone];
+                    yield {
+                        data: { ...json, choices },
+                        chunk: str,
+                    };
+                }
+                return;
+            }
+            else if (typeof json.choices[0].delta.reasoning_content === 'string' && json.choices[0].delta.reasoning_content.length > 0) {
+                for (let j = 0; j < json.choices[0].delta.reasoning_content.length; j++) {
+                    const str = json.choices[0].delta.reasoning_content[j];
+                    const isLastSymbol = j === json.choices[0].delta.reasoning_content.length - 1;
+                    const choiceClone = structuredClone(json.choices[0]);
+                    choiceClone.delta.reasoning_content = str;
+                    choiceClone.delta.content = isLastSymbol ? choiceClone.delta.content : '';
+                    const choices = [choiceClone];
+                    yield {
+                        data: { ...json, choices },
+                        chunk: str,
+                    };
+                }
+                return;
+            }
+            else if (typeof json.choices[0].delta.reasoning === 'string' && json.choices[0].delta.reasoning.length > 0) {
+                for (let j = 0; j < json.choices[0].delta.reasoning.length; j++) {
+                    const str = json.choices[0].delta.reasoning[j];
+                    const isLastSymbol = j === json.choices[0].delta.reasoning.length - 1;
+                    const choiceClone = structuredClone(json.choices[0]);
+                    choiceClone.delta.reasoning = str;
+                    choiceClone.delta.content = isLastSymbol ? choiceClone.delta.content : '';
                     const choices = [choiceClone];
                     yield {
                         data: { ...json, choices },
@@ -268,7 +320,6 @@ export class SmoothEventSourceStream extends EventSourceStream {
                         hasFocus && await delay(getDelay(lastStr));
                         controller.enqueue(new MessageEvent(event.type, { data: JSON.stringify(parsed.data) }));
                         lastStr = parsed.chunk;
-                        hasFocus && await eventSource.emit(event_types.SMOOTH_STREAM_TOKEN_RECEIVED, parsed.chunk);
                     }
                 } catch (error) {
                     console.debug('Smooth Streaming parsing error', error);

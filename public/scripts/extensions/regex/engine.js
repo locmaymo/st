@@ -1,4 +1,4 @@
-import { substituteParams } from '../../../script.js';
+import { characters, substituteParams, substituteParamsExtended, this_chid } from '../../../script.js';
 import { extension_settings } from '../../extensions.js';
 import { regexFromString } from '../../utils.js';
 export {
@@ -20,7 +20,52 @@ const regex_placement = {
     SLASH_COMMAND: 3,
     // 4 - sendAs (legacy)
     WORLD_INFO: 5,
+    REASONING: 6,
 };
+
+export const substitute_find_regex = {
+    NONE: 0,
+    RAW: 1,
+    ESCAPED: 2,
+};
+
+function sanitizeRegexMacro(x) {
+    return (x && typeof x === 'string') ?
+        x.replaceAll(/[\n\r\t\v\f\0.^$*+?{}[\]\\/|()]/gs, function (s) {
+            switch (s) {
+                case '\n':
+                    return '\\n';
+                case '\r':
+                    return '\\r';
+                case '\t':
+                    return '\\t';
+                case '\v':
+                    return '\\v';
+                case '\f':
+                    return '\\f';
+                case '\0':
+                    return '\\0';
+                default:
+                    return '\\' + s;
+            }
+        }) : x;
+}
+
+function getScopedRegex() {
+    const isAllowed = extension_settings?.character_allowed_regex?.includes(characters?.[this_chid]?.avatar);
+
+    if (!isAllowed) {
+        return [];
+    }
+
+    const scripts = characters[this_chid]?.data?.extensions?.regex_scripts;
+
+    if (!Array.isArray(scripts)) {
+        return [];
+    }
+
+    return scripts;
+}
 
 /**
  * Parent function to fetch a regexed version of a raw string
@@ -28,9 +73,9 @@ const regex_placement = {
  * @param {regex_placement} placement The placement of the string
  * @param {RegexParams} params The parameters to use for the regex script
  * @returns {string} The regexed string
- * @typedef {{characterOverride?: string, isMarkdown?: boolean, isPrompt?: boolean, depth?: number }} RegexParams The parameters to use for the regex script
+ * @typedef {{characterOverride?: string, isMarkdown?: boolean, isPrompt?: boolean, isEdit?: boolean, depth?: number }} RegexParams The parameters to use for the regex script
  */
-function getRegexedString(rawString, placement, { characterOverride, isMarkdown, isPrompt, depth } = {}) {
+function getRegexedString(rawString, placement, { characterOverride, isMarkdown, isPrompt, isEdit, depth } = {}) {
     // WTF have you passed me?
     if (typeof rawString !== 'string') {
         console.warn('getRegexedString: rawString is not a string. Returning empty string.');
@@ -42,18 +87,24 @@ function getRegexedString(rawString, placement, { characterOverride, isMarkdown,
         return finalString;
     }
 
-    extension_settings.regex.forEach((script) => {
+    const allRegex = [...(extension_settings.regex ?? []), ...(getScopedRegex() ?? [])];
+    allRegex.forEach((script) => {
         if (
             // Script applies to Markdown and input is Markdown
             (script.markdownOnly && isMarkdown) ||
             // Script applies to Generate and input is Generate
             (script.promptOnly && isPrompt) ||
             // Script applies to all cases when neither "only"s are true, but there's no need to do it when `isMarkdown`, the as source (chat history) should already be changed beforehand
-            (!script.markdownOnly && !script.promptOnly && !isMarkdown)
+            (!script.markdownOnly && !script.promptOnly && !isMarkdown && !isPrompt)
         ) {
+            if (isEdit && !script.runOnEdit) {
+                console.debug(`getRegexedString: Skipping script ${script.scriptName} because it does not run on edit`);
+                return;
+            }
+
             // Check if the depth is within the min/max depth
-            if (typeof depth === 'number' && depth >= 0) {
-                if (!isNaN(script.minDepth) && script.minDepth !== null && script.minDepth >= 0 && depth < script.minDepth) {
+            if (typeof depth === 'number') {
+                if (!isNaN(script.minDepth) && script.minDepth !== null && script.minDepth >= -1 && depth < script.minDepth) {
                     console.debug(`getRegexedString: Skipping script ${script.scriptName} because depth ${depth} is less than minDepth ${script.minDepth}`);
                     return;
                 }
@@ -75,7 +126,7 @@ function getRegexedString(rawString, placement, { characterOverride, isMarkdown,
 
 /**
  * Runs the provided regex script on the given string
- * @param {object} regexScript The regex script to run
+ * @param {import('./index.js').RegexScript} regexScript The regex script to run
  * @param {string} rawString The string to run the regex script on
  * @param {RegexScriptParams} params The parameters to use for the regex script
  * @returns {string} The new string
@@ -87,7 +138,21 @@ function runRegexScript(regexScript, rawString, { characterOverride } = {}) {
         return newString;
     }
 
-    const findRegex = regexFromString(regexScript.substituteRegex ? substituteParams(regexScript.findRegex) : regexScript.findRegex);
+    const getRegexString = () => {
+        switch (Number(regexScript.substituteRegex)) {
+            case substitute_find_regex.NONE:
+                return regexScript.findRegex;
+            case substitute_find_regex.RAW:
+                return substituteParamsExtended(regexScript.findRegex);
+            case substitute_find_regex.ESCAPED:
+                return substituteParamsExtended(regexScript.findRegex, {}, sanitizeRegexMacro);
+            default:
+                console.warn(`runRegexScript: Unknown substituteRegex value ${regexScript.substituteRegex}. Using raw regex.`);
+                return regexScript.findRegex;
+        }
+    };
+    const regexString = getRegexString();
+    const findRegex = regexFromString(regexString);
 
     // The user skill issued. Return with nothing.
     if (!findRegex) {
@@ -95,7 +160,7 @@ function runRegexScript(regexScript, rawString, { characterOverride } = {}) {
     }
 
     // Run replacement. Currently does not support the Overlay strategy
-    newString = rawString.replace(findRegex, function(match) {
+    newString = rawString.replace(findRegex, function (match) {
         const args = [...arguments];
         const replaceString = regexScript.replaceString.replace(/{{match}}/gi, '$0');
         const replaceWithGroups = replaceString.replaceAll(/\$(\d+)/g, (_, num) => {

@@ -1,23 +1,24 @@
-const PUBLIC_DIRECTORIES = {
+export const PUBLIC_DIRECTORIES = {
     images: 'public/img/',
     backups: 'backups/',
     sounds: 'public/sounds',
     extensions: 'public/scripts/extensions',
+    globalExtensions: 'public/scripts/extensions/third-party',
 };
 
-const DEFAULT_AVATAR = '/img/ai4.png';
-const SETTINGS_FILE = 'settings.json';
+export const SETTINGS_FILE = 'settings.json';
 
 /**
- * @type {import('./users').UserDirectoryList}
+ * @type {import('./users.js').UserDirectoryList}
  * @readonly
  * @enum {string}
  */
-const USER_DIRECTORY_TEMPLATE = Object.freeze({
+export const USER_DIRECTORY_TEMPLATE = Object.freeze({
     root: '',
     thumbnails: 'thumbnails',
     thumbnailsBg: 'thumbnails/bg',
     thumbnailsAvatar: 'thumbnails/avatar',
+    thumbnailsPersona: 'thumbnails/persona',
     worlds: 'worlds',
     user: 'user',
     avatars: 'User Avatars',
@@ -41,13 +42,16 @@ const USER_DIRECTORY_TEMPLATE = Object.freeze({
     comfyWorkflows: 'user/workflows',
     files: 'user/files',
     vectors: 'vectors',
+    backups: 'backups',
+    sysprompt: 'sysprompt',
+    reasoning: 'reasoning',
 });
 
 /**
- * @type {import('./users').User}
+ * @type {import('./users.js').User}
  * @readonly
  */
-const DEFAULT_USER = Object.freeze({
+export const DEFAULT_USER = Object.freeze({
     handle: 'default-user',
     name: 'User',
     created: Date.now(),
@@ -57,7 +61,7 @@ const DEFAULT_USER = Object.freeze({
     salt: '',
 });
 
-const UNSAFE_EXTENSIONS = [
+export const UNSAFE_EXTENSIONS = [
     '.php',
     '.exe',
     '.com',
@@ -134,71 +138,56 @@ const UNSAFE_EXTENSIONS = [
     '.ws',
 ];
 
-const GEMINI_SAFETY = [
+export const GEMINI_SAFETY = [
     {
         category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_NONE',
+        threshold: 'OFF',
     },
     {
         category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_NONE',
+        threshold: 'OFF',
     },
     {
         category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        threshold: 'BLOCK_NONE',
+        threshold: 'OFF',
     },
     {
         category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_NONE',
+        threshold: 'OFF',
+    },
+    {
+        category: 'HARM_CATEGORY_CIVIC_INTEGRITY',
+        threshold: 'OFF',
     },
 ];
 
-const BISON_SAFETY = [
-    {
-        category: 'HARM_CATEGORY_DEROGATORY',
-        threshold: 'BLOCK_NONE',
-    },
-    {
-        category: 'HARM_CATEGORY_TOXICITY',
-        threshold: 'BLOCK_NONE',
-    },
-    {
-        category: 'HARM_CATEGORY_VIOLENCE',
-        threshold: 'BLOCK_NONE',
-    },
-    {
-        category: 'HARM_CATEGORY_SEXUAL',
-        threshold: 'BLOCK_NONE',
-    },
-    {
-        category: 'HARM_CATEGORY_MEDICAL',
-        threshold: 'BLOCK_NONE',
-    },
-    {
-        category: 'HARM_CATEGORY_DANGEROUS',
-        threshold: 'BLOCK_NONE',
-    },
-];
-
-const CHAT_COMPLETION_SOURCES = {
+export const CHAT_COMPLETION_SOURCES = {
     OPENAI: 'openai',
-    WINDOWAI: 'windowai',
     CLAUDE: 'claude',
-    SCALE: 'scale',
     OPENROUTER: 'openrouter',
     AI21: 'ai21',
     MAKERSUITE: 'makersuite',
+    VERTEXAI: 'vertexai',
     MISTRALAI: 'mistralai',
     CUSTOM: 'custom',
     COHERE: 'cohere',
     PERPLEXITY: 'perplexity',
     GROQ: 'groq',
+    ZEROONEAI: '01ai',
+    NANOGPT: 'nanogpt',
+    DEEPSEEK: 'deepseek',
+    AIMLAPI: 'aimlapi',
+    XAI: 'xai',
+    POLLINATIONS: 'pollinations',
 };
 
-const UPLOADS_PATH = './uploads';
+/**
+ * Path to multer file uploads under the data root.
+ */
+export const UPLOADS_DIRECTORY = '_uploads';
 
 // TODO: this is copied from the client code; there should be a way to de-duplicate it eventually
-const TEXTGEN_TYPES = {
+export const TEXTGEN_TYPES = {
     OOBA: 'ooba',
     MANCER: 'mancer',
     VLLM: 'vllm',
@@ -211,9 +200,12 @@ const TEXTGEN_TYPES = {
     INFERMATICAI: 'infermaticai',
     DREAMGEN: 'dreamgen',
     OPENROUTER: 'openrouter',
+    FEATHERLESS: 'featherless',
+    HUGGINGFACE: 'huggingface',
+    GENERIC: 'generic',
 };
 
-const INFERMATICAI_KEYS = [
+export const INFERMATICAI_KEYS = [
     'model',
     'prompt',
     'max_tokens',
@@ -223,86 +215,20 @@ const INFERMATICAI_KEYS = [
     'repetition_penalty',
     'stream',
     'stop',
-];
-
-// https://dreamgen.com/docs/api#openai-text
-const DREAMGEN_KEYS = [
-    'model',
-    'prompt',
-    'max_tokens',
-    'temperature',
-    'top_p',
-    'top_k',
+    'presence_penalty',
+    'frequency_penalty',
     'min_p',
-    'repetition_penalty',
-    'frequency_penalty',
-    'presence_penalty',
-    'stop',
-    'stream',
-    'minimum_message_content_tokens',
-];
-
-// https://docs.together.ai/reference/completions
-const TOGETHERAI_KEYS = [
-    'model',
-    'prompt',
-    'max_tokens',
-    'temperature',
-    'top_p',
-    'top_k',
-    'repetition_penalty',
-    'stream',
-    'stop',
-];
-
-// https://github.com/jmorganca/ollama/blob/main/docs/api.md#request-with-options
-const OLLAMA_KEYS = [
-    'num_predict',
-    'stop',
-    'temperature',
-    'repeat_penalty',
-    'presence_penalty',
-    'frequency_penalty',
-    'top_k',
-    'top_p',
-    'tfs_z',
-    'typical_p',
     'seed',
-    'repeat_last_n',
-    'mirostat',
-    'mirostat_tau',
-    'mirostat_eta',
+    'ignore_eos',
+    'n',
+    'best_of',
+    'min_tokens',
+    'spaces_between_special_tokens',
+    'skip_special_tokens',
+    'logprobs',
 ];
 
-const AVATAR_WIDTH = 512;
-const AVATAR_HEIGHT = 768;
-
-const OPENROUTER_HEADERS = {
-    'HTTP-Referer': 'https://sillytavern.app',
-    'X-Title': 'SillyTavern',
-};
-
-const OPENROUTER_KEYS = [
-    'max_tokens',
-    'temperature',
-    'top_k',
-    'top_p',
-    'presence_penalty',
-    'frequency_penalty',
-    'repetition_penalty',
-    'min_p',
-    'top_a',
-    'seed',
-    'logit_bias',
-    'model',
-    'stream',
-    'prompt',
-    'stop',
-    'provider',
-];
-
-// https://github.com/vllm-project/vllm/blob/0f8a91401c89ac0a8018def3756829611b57727f/vllm/entrypoints/openai/protocol.py#L220
-const VLLM_KEYS = [
+export const FEATHERLESS_KEYS = [
     'model',
     'prompt',
     'best_of',
@@ -344,25 +270,167 @@ const VLLM_KEYS = [
     'guided_whitespace_pattern',
 ];
 
-module.exports = {
-    DEFAULT_USER,
-    DEFAULT_AVATAR,
-    SETTINGS_FILE,
-    PUBLIC_DIRECTORIES,
-    USER_DIRECTORY_TEMPLATE,
-    UNSAFE_EXTENSIONS,
-    UPLOADS_PATH,
-    GEMINI_SAFETY,
-    BISON_SAFETY,
-    TEXTGEN_TYPES,
-    CHAT_COMPLETION_SOURCES,
-    AVATAR_WIDTH,
-    AVATAR_HEIGHT,
-    TOGETHERAI_KEYS,
-    OLLAMA_KEYS,
-    INFERMATICAI_KEYS,
-    DREAMGEN_KEYS,
-    OPENROUTER_HEADERS,
-    OPENROUTER_KEYS,
-    VLLM_KEYS,
+// https://docs.together.ai/reference/completions
+export const TOGETHERAI_KEYS = [
+    'model',
+    'prompt',
+    'max_tokens',
+    'temperature',
+    'top_p',
+    'top_k',
+    'repetition_penalty',
+    'min_p',
+    'presence_penalty',
+    'frequency_penalty',
+    'stream',
+    'stop',
+];
+
+// https://github.com/ollama/ollama/blob/main/docs/api.md#request-8
+export const OLLAMA_KEYS = [
+    'num_predict',
+    'num_ctx',
+    'num_batch',
+    'stop',
+    'temperature',
+    'repeat_penalty',
+    'presence_penalty',
+    'frequency_penalty',
+    'top_k',
+    'top_p',
+    'tfs_z',
+    'typical_p',
+    'seed',
+    'repeat_last_n',
+    'min_p',
+];
+
+// https://platform.openai.com/docs/api-reference/completions
+export const OPENAI_KEYS = [
+    'model',
+    'prompt',
+    'stream',
+    'temperature',
+    'top_p',
+    'frequency_penalty',
+    'presence_penalty',
+    'stop',
+    'seed',
+    'logit_bias',
+    'logprobs',
+    'max_tokens',
+    'n',
+    'best_of',
+];
+
+export const AVATAR_WIDTH = 512;
+export const AVATAR_HEIGHT = 768;
+export const DEFAULT_AVATAR_PATH = './public/img/ai4.png';
+
+export const OPENROUTER_HEADERS = {
+    'HTTP-Referer': 'https://sillytavern.app',
+    'X-Title': 'SillyTavern',
 };
+
+export const AIMLAPI_HEADERS = {
+    'HTTP-Referer': 'https://sillytavern.app',
+    'X-Title': 'SillyTavern',
+};
+
+export const FEATHERLESS_HEADERS = {
+    'HTTP-Referer': 'https://sillytavern.app',
+    'X-Title': 'SillyTavern',
+};
+
+export const OPENROUTER_KEYS = [
+    'max_tokens',
+    'temperature',
+    'top_k',
+    'top_p',
+    'presence_penalty',
+    'frequency_penalty',
+    'repetition_penalty',
+    'min_p',
+    'top_a',
+    'seed',
+    'logit_bias',
+    'model',
+    'stream',
+    'prompt',
+    'stop',
+    'provider',
+    'include_reasoning',
+];
+
+// https://github.com/vllm-project/vllm/blob/0f8a91401c89ac0a8018def3756829611b57727f/vllm/entrypoints/openai/protocol.py#L220
+export const VLLM_KEYS = [
+    'model',
+    'prompt',
+    'best_of',
+    'echo',
+    'frequency_penalty',
+    'logit_bias',
+    'logprobs',
+    'max_tokens',
+    'n',
+    'presence_penalty',
+    'seed',
+    'stop',
+    'stream',
+    'suffix',
+    'temperature',
+    'top_p',
+    'user',
+
+    'use_beam_search',
+    'top_k',
+    'min_p',
+    'repetition_penalty',
+    'length_penalty',
+    'early_stopping',
+    'stop_token_ids',
+    'ignore_eos',
+    'min_tokens',
+    'skip_special_tokens',
+    'spaces_between_special_tokens',
+    'truncate_prompt_tokens',
+
+    'include_stop_str_in_output',
+    'response_format',
+    'guided_json',
+    'guided_regex',
+    'guided_choice',
+    'guided_grammar',
+    'guided_decoding_backend',
+    'guided_whitespace_pattern',
+];
+
+export const LOG_LEVELS = {
+    DEBUG: 0,
+    INFO: 1,
+    WARN: 2,
+    ERROR: 3,
+};
+
+/**
+ * An array of supported media file extensions.
+ * This is used to validate file uploads and ensure that only supported media types are processed.
+ */
+export const MEDIA_EXTENSIONS = [
+    'bmp',
+    'png',
+    'jpg',
+    'webp',
+    'jpeg',
+    'jfif',
+    'gif',
+    'mp4',
+    'avi',
+    'mov',
+    'wmv',
+    'flv',
+    'webm',
+    '3gp',
+    'mkv',
+    'mpg',
+];

@@ -68,9 +68,9 @@
     margin-top: 0.25rem;
     margin-bottom: 0.5rem;
     border: 1px solid var(--SmartThemeBorderColor);
-    ;
     border-radius: 10px;
     background-color: var(--black30a);
+    padding: 2px;
 }
 
 #rm_group_buttons_expander {
@@ -87,7 +87,7 @@
 }
 
 #rm_group_members:empty::before {
-    content: 'Group is empty';
+    content: attr(group_empty_text);
 
     font-weight: bolder;
     width: 100%;
@@ -115,7 +115,7 @@
 }
 
 #rm_group_add_members:empty::before {
-    content: 'No characters available';
+    content: attr(no_characters_text);
 
     font-weight: bolder;
     width: 100%;
@@ -172,7 +172,7 @@
 #rm_group_members .group_member:not(.disabled) .right_menu_button[data-action="disable"] {
     opacity: 0.4;
     filter: brightness(0.5);
-    transition: all 0.2s ease-in-out;
+    transition: all var(--animation-duration-2x) ease-in-out;
 }
 
 /* #rm_group_members .right_menu_button[data-action="speak"]:hover, */

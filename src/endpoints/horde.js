@@ -1,13 +1,13 @@
-const fetch = require('node-fetch').default;
-const express = require('express');
-const AIHorde = require('@zeldafan0225/ai_horde');
-const { getVersion, delay, Cache } = require('../util');
-const { readSecret, SECRET_KEYS } = require('./secrets');
-const { jsonParser } = require('../express-common');
+import fetch from 'node-fetch';
+import express from 'express';
+import { AIHorde, ModelGenerationInputStableSamplers, ModelInterrogationFormTypes, HordeAsyncRequestStates } from '@zeldafan0225/ai_horde';
+import { getVersion, delay, Cache } from '../util.js';
+import { readSecret, SECRET_KEYS } from './secrets.js';
 
 const ANONYMOUS_KEY = '0000000000';
+const HORDE_TEXT_MODEL_METADATA_URL = 'https://raw.githubusercontent.com/db0/AI-Horde-text-model-reference/main/db.json';
 const cache = new Cache(60 * 1000);
-const router = express.Router();
+export const router = express.Router();
 
 /**
  * Returns the AIHorde client agent.
@@ -23,10 +23,9 @@ async function getClientAgent() {
  * @returns {Promise<AIHorde>} AIHorde client
  */
 async function getHordeClient() {
-    const ai_horde = new AIHorde({
+    return new AIHorde({
         client_agent: await getClientAgent(),
     });
-    return ai_horde;
 }
 
 /**
@@ -56,7 +55,7 @@ function sanitizeHordeImagePrompt(prompt) {
     return prompt;
 }
 
-router.post('/text-workers', jsonParser, async (request, response) => {
+router.post('/text-workers', async (request, response) => {
     try {
         const cachedWorkers = cache.get('workers');
 
@@ -65,7 +64,7 @@ router.post('/text-workers', jsonParser, async (request, response) => {
         }
 
         const agent = await getClientAgent();
-        const fetchResult = await fetch('https://horde.koboldai.net/api/v2/workers?type=text', {
+        const fetchResult = await fetch('https://aihorde.net/api/v2/workers?type=text', {
             headers: {
                 'Client-Agent': agent,
             },
@@ -79,22 +78,46 @@ router.post('/text-workers', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/text-models', jsonParser, async (request, response) => {
+async function getHordeTextModelMetadata() {
+    const response = await fetch(HORDE_TEXT_MODEL_METADATA_URL);
+    return await response.json();
+}
+
+async function mergeModelsAndMetadata(models, metadata) {
+    return models.map(model => {
+        const metadataModel = metadata[model.name];
+        if (!metadataModel) {
+            return  { ...model, is_whitelisted: false };
+        }
+        return { ...model, ...metadataModel, is_whitelisted: true };
+    });
+}
+
+router.post('/text-models', async (request, response) => {
     try {
         const cachedModels = cache.get('models');
-
         if (cachedModels && !request.body.force) {
             return response.send(cachedModels);
         }
 
         const agent = await getClientAgent();
-        const fetchResult = await fetch('https://horde.koboldai.net/api/v2/status/models?type=text', {
+        const fetchResult = await fetch('https://aihorde.net/api/v2/status/models?type=text', {
             headers: {
                 'Client-Agent': agent,
             },
         });
 
-        const data = await fetchResult.json();
+        let data = await fetchResult.json();
+
+        // attempt to fetch and merge models metadata
+        try {
+            const metadata = await getHordeTextModelMetadata();
+            data = await mergeModelsAndMetadata(data, metadata);
+        }
+        catch (error) {
+            console.error('Failed to fetch metadata:', error);
+        }
+
         cache.set('models', data);
         return response.send(data);
     } catch (error) {
@@ -103,10 +126,10 @@ router.post('/text-models', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/status', jsonParser, async (_, response) => {
+router.post('/status', async (_, response) => {
     try {
         const agent = await getClientAgent();
-        const fetchResult = await fetch('https://horde.koboldai.net/api/v2/status/heartbeat', {
+        const fetchResult = await fetch('https://aihorde.net/api/v2/status/heartbeat', {
             headers: {
                 'Client-Agent': agent,
             },
@@ -119,11 +142,11 @@ router.post('/status', jsonParser, async (_, response) => {
     }
 });
 
-router.post('/cancel-task', jsonParser, async (request, response) => {
+router.post('/cancel-task', async (request, response) => {
     try {
         const taskId = request.body.taskId;
         const agent = await getClientAgent();
-        const fetchResult = await fetch(`https://horde.koboldai.net/api/v2/generate/text/status/${taskId}`, {
+        const fetchResult = await fetch(`https://aihorde.net/api/v2/generate/text/status/${taskId}`, {
             method: 'DELETE',
             headers: {
                 'Client-Agent': agent,
@@ -131,7 +154,7 @@ router.post('/cancel-task', jsonParser, async (request, response) => {
         });
 
         const data = await fetchResult.json();
-        console.log(`Cancelled Horde task ${taskId}`);
+        console.info(`Cancelled Horde task ${taskId}`);
         return response.send(data);
     } catch (error) {
         console.error(error);
@@ -139,18 +162,18 @@ router.post('/cancel-task', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/task-status', jsonParser, async (request, response) => {
+router.post('/task-status', async (request, response) => {
     try {
         const taskId = request.body.taskId;
         const agent = await getClientAgent();
-        const fetchResult = await fetch(`https://horde.koboldai.net/api/v2/generate/text/status/${taskId}`, {
+        const fetchResult = await fetch(`https://aihorde.net/api/v2/generate/text/status/${taskId}`, {
             headers: {
                 'Client-Agent': agent,
             },
         });
 
         const data = await fetchResult.json();
-        console.log(`Horde task ${taskId} status:`, data);
+        console.info(`Horde task ${taskId} status:`, data);
         return response.send(data);
     } catch (error) {
         console.error(error);
@@ -158,12 +181,12 @@ router.post('/task-status', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/generate-text', jsonParser, async (request, response) => {
+router.post('/generate-text', async (request, response) => {
     const apiKey = readSecret(request.user.directories, SECRET_KEYS.HORDE) || ANONYMOUS_KEY;
-    const url = 'https://horde.koboldai.net/api/v2/generate/text/async';
+    const url = 'https://aihorde.net/api/v2/generate/text/async';
     const agent = await getClientAgent();
 
-    console.log(request.body);
+    console.debug(request.body);
     try {
         const result = await fetch(url, {
             method: 'POST',
@@ -177,22 +200,21 @@ router.post('/generate-text', jsonParser, async (request, response) => {
 
         if (!result.ok) {
             const message = await result.text();
-            console.log('Horde returned an error:', message);
+            console.error('Horde returned an error:', message);
             return response.send({ error: { message } });
         }
 
         const data = await result.json();
         return response.send(data);
     } catch (error) {
-        console.log(error);
+        console.error(error);
         return response.send({ error: true });
     }
 });
 
-router.post('/sd-samplers', jsonParser, async (_, response) => {
+router.post('/sd-samplers', async (_, response) => {
     try {
-        const ai_horde = await getHordeClient();
-        const samplers = Object.values(ai_horde.ModelGenerationInputStableSamplers);
+        const samplers = Object.values(ModelGenerationInputStableSamplers);
         response.send(samplers);
     } catch (error) {
         console.error(error);
@@ -200,7 +222,7 @@ router.post('/sd-samplers', jsonParser, async (_, response) => {
     }
 });
 
-router.post('/sd-models', jsonParser, async (_, response) => {
+router.post('/sd-models', async (_, response) => {
     try {
         const ai_horde = await getHordeClient();
         const models = await ai_horde.getModels();
@@ -211,13 +233,13 @@ router.post('/sd-models', jsonParser, async (_, response) => {
     }
 });
 
-router.post('/caption-image', jsonParser, async (request, response) => {
+router.post('/caption-image', async (request, response) => {
     try {
         const api_key_horde = readSecret(request.user.directories, SECRET_KEYS.HORDE) || ANONYMOUS_KEY;
         const ai_horde = await getHordeClient();
         const result = await ai_horde.postAsyncInterrogate({
             source_image: request.body.image,
-            forms: [{ name: AIHorde.ModelInterrogationFormTypes.caption }],
+            forms: [{ name: ModelInterrogationFormTypes.caption }],
         }, { token: api_key_horde });
 
         if (!result.id) {
@@ -231,16 +253,16 @@ router.post('/caption-image', jsonParser, async (request, response) => {
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             await delay(CHECK_INTERVAL);
             const status = await ai_horde.getInterrogationStatus(result.id);
-            console.log(status);
+            console.info(status);
 
-            if (status.state === AIHorde.HordeAsyncRequestStates.done) {
+            if (status.state === HordeAsyncRequestStates.done) {
 
                 if (status.forms === undefined) {
                     console.error('Image interrogation request failed: no forms found.');
                     return response.sendStatus(500);
                 }
 
-                console.log('Image interrogation result:', status);
+                console.debug('Image interrogation result:', status);
                 const caption = status?.forms[0]?.result?.caption || '';
 
                 if (!caption) {
@@ -251,8 +273,8 @@ router.post('/caption-image', jsonParser, async (request, response) => {
                 return response.send({ caption });
             }
 
-            if (status.state === AIHorde.HordeAsyncRequestStates.faulted || status.state === AIHorde.HordeAsyncRequestStates.cancelled) {
-                console.log('Image interrogation request is not successful.');
+            if (status.state === HordeAsyncRequestStates.faulted || status.state === HordeAsyncRequestStates.cancelled) {
+                console.error('Image interrogation request is not successful.');
                 return response.sendStatus(503);
             }
         }
@@ -263,7 +285,7 @@ router.post('/caption-image', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/user-info', jsonParser, async (request, response) => {
+router.post('/user-info', async (request, response) => {
     const api_key_horde = readSecret(request.user.directories, SECRET_KEYS.HORDE);
 
     if (!api_key_horde) {
@@ -280,7 +302,7 @@ router.post('/user-info', jsonParser, async (request, response) => {
     }
 });
 
-router.post('/generate-image', jsonParser, async (request, response) => {
+router.post('/generate-image', async (request, response) => {
     if (!request.body.prompt) {
         return response.sendStatus(400);
     }
@@ -292,7 +314,7 @@ router.post('/generate-image', jsonParser, async (request, response) => {
     try {
         const maxLength = PROMPT_THRESHOLD - String(request.body.negative_prompt).length - 5;
         if (String(request.body.prompt).length > maxLength) {
-            console.log('Stable Horde prompt is too long, truncating...');
+            console.warn('Stable Horde prompt is too long, truncating...');
             request.body.prompt = String(request.body.prompt).substring(0, maxLength);
         }
 
@@ -301,16 +323,17 @@ router.post('/generate-image', jsonParser, async (request, response) => {
             const sanitized = sanitizeHordeImagePrompt(request.body.prompt);
 
             if (request.body.prompt !== sanitized) {
-                console.log('Stable Horde prompt was sanitized.');
+                console.info('Stable Horde prompt was sanitized.');
             }
 
             request.body.prompt = sanitized;
         }
 
         const api_key_horde = readSecret(request.user.directories, SECRET_KEYS.HORDE) || ANONYMOUS_KEY;
-        console.log('Stable Horde request:', request.body);
+        console.debug('Stable Horde request:', request.body);
 
         const ai_horde = await getHordeClient();
+        // noinspection JSCheckFunctionSignatures -- see @ts-ignore - use_gfpgan
         const generation = await ai_horde.postAsyncImageGenerate(
             {
                 prompt: `${request.body.prompt} ### ${request.body.negative_prompt}`,
@@ -325,6 +348,8 @@ router.post('/generate-image', jsonParser, async (request, response) => {
                     width: request.body.width,
                     height: request.body.height,
                     karras: Boolean(request.body.karras),
+                    clip_skip: request.body.clip_skip,
+                    seed: request.body.seed >= 0 ? String(request.body.seed) : undefined,
                     n: 1,
                 },
                 r2: false,
@@ -334,14 +359,25 @@ router.post('/generate-image', jsonParser, async (request, response) => {
             { token: api_key_horde });
 
         if (!generation.id) {
-            console.error('Image generation request is not satisfyable:', generation.message || 'unknown error');
+            console.warn('Image generation request is not satisfyable:', generation.message || 'unknown error');
             return response.sendStatus(400);
         }
 
+        console.info('Horde image generation request:', generation);
+
+        const controller = new AbortController();
+        request.socket.removeAllListeners('close');
+        request.socket.on('close', function () {
+            console.warn('Horde image generation request aborted.');
+            controller.abort();
+            if (generation.id) ai_horde.deleteImageGenerationRequest(generation.id);
+        });
+
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            controller.signal.throwIfAborted();
             await delay(CHECK_INTERVAL);
             const check = await ai_horde.getImageGenerationCheck(generation.id);
-            console.log(check);
+            console.info(check);
 
             if (check.done) {
                 const result = await ai_horde.getImageGenerationStatus(generation.id);
@@ -366,5 +402,3 @@ router.post('/generate-image', jsonParser, async (request, response) => {
         return response.sendStatus(500);
     }
 });
-
-module.exports = { router };

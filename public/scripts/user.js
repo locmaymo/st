@@ -1,4 +1,4 @@
-import { callPopup, getCropPopup, getRequestHeaders } from '../script.js';
+import { getRequestHeaders } from '../script.js';
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from './popup.js';
 import { renderTemplateAsync } from './templates.js';
 import { ensureImageFormatSupported, getBase64Async, humanFileSize } from './utils.js';
@@ -8,6 +8,9 @@ import { ensureImageFormatSupported, getBase64Async, humanFileSize } from './uti
  */
 export let currentUser = null;
 export let accountsEnabled = false;
+
+// Extend the session every 10 minutes
+const SESSION_EXTEND_INTERVAL = 10 * 60 * 1000;
 
 /**
  * Enable or disable user account controls in the UI.
@@ -31,12 +34,24 @@ export async function setUserControls(isEnabled) {
  * Check if the current user is an admin.
  * @returns {boolean} True if the current user is an admin
  */
-function isAdmin() {
+export function isAdmin() {
+    if (!accountsEnabled) {
+        return true;
+    }
+
     if (!currentUser) {
         return false;
     }
 
     return Boolean(currentUser.admin);
+}
+
+/**
+ * Gets the handle string of the current user.
+ * @returns {string} User handle
+ */
+export function getCurrentUserHandle() {
+    return currentUser?.handle || 'default-user';
 }
 
 /**
@@ -592,7 +607,7 @@ async function viewSettingsSnapshots() {
         }
     }
 
-    callGenericPopup(template, POPUP_TYPE.TEXT, '', { okButton: 'Close', wide: false, large: false });
+    callGenericPopup(template, POPUP_TYPE.TEXT, '', { okButton: 'Close', wide: false, large: false, allowVerticalScrolling: true });
     template.find('.makeSnapshotButton').on('click', () => makeSnapshot(renderSnapshots));
     renderSnapshots();
 }
@@ -778,14 +793,14 @@ async function openUserProfile() {
  */
 async function cropAndUploadAvatar(handle, file) {
     const dataUrl = await getBase64Async(await ensureImageFormatSupported(file));
-    const croppedImage = await callPopup(getCropPopup(dataUrl), 'avatarToCrop', '', { cropAspect: 1 });
+    const croppedImage = await callGenericPopup('Set the crop position of the avatar image', POPUP_TYPE.CROP, '', { cropAspect: 1, cropImage: dataUrl });
     if (!croppedImage) {
         return;
     }
 
     await changeAvatar(handle, String(croppedImage));
 
-    return croppedImage;
+    return String(croppedImage);
 }
 
 /**
@@ -899,7 +914,14 @@ async function logout() {
         headers: getRequestHeaders(),
     });
 
-    window.location.reload();
+    // On an explicit logout stop auto login
+    // to allow user to change username even
+    // when auto auth (such as authelia or basic)
+    // would be valid
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('noauto', 'true');
+
+    window.location.search = urlParams.toString();
 }
 
 /**
@@ -926,6 +948,24 @@ async function slugify(text) {
     }
 }
 
+/**
+ * Pings the server to extend the user session.
+ */
+async function extendUserSession() {
+    try {
+        const response = await fetch('/api/ping?extend=1', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+        });
+
+        if (!response.ok) {
+            throw new Error('Ping did not succeed', { cause: response.status });
+        }
+    } catch (error) {
+        console.error('Failed to extend user session', error);
+    }
+}
+
 jQuery(() => {
     $('#logout_button').on('click', () => {
         logout();
@@ -936,4 +976,9 @@ jQuery(() => {
     $('#account_button').on('click', () => {
         openUserProfile();
     });
+    setInterval(async () => {
+        if (currentUser) {
+            await extendUserSession();
+        }
+    }, SESSION_EXTEND_INTERVAL);
 });

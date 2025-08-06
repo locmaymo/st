@@ -1,4 +1,5 @@
-import { getRequestHeaders, callPopup } from '../../../script.js';
+import { getRequestHeaders } from '../../../script.js';
+import { POPUP_TYPE, callGenericPopup } from '../../popup.js';
 import { splitRecursive } from '../../utils.js';
 import { getPreviewString, saveTtsProviderSettings } from './index.js';
 import { initVoiceMap } from './index.js';
@@ -56,7 +57,7 @@ class NovelTtsProvider {
 
     // Add a new Novel custom voice to provider
     async addCustomVoice() {
-        const voiceName = await callPopup('<h3>Custom Voice name:</h3>', 'input');
+        const voiceName = await callGenericPopup('Custom Voice name:',  POPUP_TYPE.INPUT);
         this.settings.customVoices.push(voiceName);
         this.populateCustomVoices();
         initVoiceMap(); // Update TTS extension voiceMap
@@ -131,9 +132,14 @@ class NovelTtsProvider {
         return { name: voiceName, voice_id: voiceName, lang: 'en-US', preview_url: false };
     }
 
-    async generateTts(text, voiceId) {
-        const response = await this.fetchTtsGeneration(text, voiceId);
-        return response;
+    /**
+     * Generate TTS audio for the given text using the specified voice.
+     * @param {string} text Text to generate
+     * @param {string} voiceId Voice ID
+     * @returns {AsyncGenerator<Response>} Audio response generator
+     */
+    generateTts(text, voiceId) {
+        return this.fetchTtsGeneration(text, voiceId);
     }
 
     //###########//
@@ -171,15 +177,17 @@ class NovelTtsProvider {
         this.audioElement.currentTime = 0;
 
         const text = getPreviewString('en-US');
-        const response = await this.fetchTtsGeneration(text, id);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        for await (const response of this.generateTts(text, id)) {
+            const audio = await response.blob();
+            const url = URL.createObjectURL(audio);
+            await new Promise(resolve => {
+                const audioElement = new Audio();
+                audioElement.src = url;
+                audioElement.play();
+                audioElement.onended = () => resolve();
+            });
+            URL.revokeObjectURL(url);
         }
-
-        const audio = await response.blob();
-        const url = URL.createObjectURL(audio);
-        this.audioElement.src = url;
-        this.audioElement.play();
     }
 
     async* fetchTtsGeneration(inputText, voiceId) {

@@ -1,6 +1,6 @@
 import { characterGroupOverlay } from '../script.js';
-import { BulkEditOverlay, BulkEditOverlayState } from './BulkEditOverlay.js';
-
+import { BulkEditOverlay, BulkEditOverlayState, CharacterContextMenu } from './BulkEditOverlay.js';
+import { event_types, eventSource } from './events.js';
 
 let is_bulk_edit = false;
 
@@ -29,11 +29,6 @@ const toggleBulkEditMode = (isBulkEdit) => {
         enableBulkEdit();
     }
 };
-
-characterGroupOverlay.addStateChangeCallback((state) => {
-    if (state === BulkEditOverlayState.select) enableBulkEdit();
-    if (state === BulkEditOverlayState.browse) disableBulkEdit();
-});
 
 /**
  * Toggles bulk edit mode on/off when the edit button is clicked.
@@ -94,6 +89,9 @@ function enableBulkSelect() {
         });
         $(el).prepend(checkbox);
     });
+    $('#rm_print_characters_block.group_overlay_mode_select .bogus_folder_select, #rm_print_characters_block.group_overlay_mode_select .group_select')
+        .addClass('disabled');
+
     $('#rm_print_characters_block').addClass('bulk_select');
     // We also need to disable the default click event for the character_select divs
     $(document).on('click', '.bulk_select_checkbox', function (event) {
@@ -106,14 +104,25 @@ function enableBulkSelect() {
  */
 function disableBulkSelect() {
     $('.bulk_select_checkbox').remove();
+    $('#rm_print_characters_block.group_overlay_mode_select .bogus_folder_select, #rm_print_characters_block.group_overlay_mode_select .group_select')
+        .removeClass('disabled');
     $('#rm_print_characters_block').removeClass('bulk_select');
 }
 
 /**
  * Entry point that runs on page load.
  */
-jQuery(() => {
+export function initBulkEdit() {
+    characterGroupOverlay.addStateChangeCallback((state) => {
+        if (state === BulkEditOverlayState.select) enableBulkEdit();
+        if (state === BulkEditOverlayState.browse) disableBulkEdit();
+    });
+
     $('#bulkEditButton').on('click', onEditButtonClick);
     $('#bulkSelectAllButton').on('click', onSelectAllButtonClick);
     $('#bulkDeleteButton').on('click', onDeleteButtonClick);
-});
+
+    const characterContextMenu = new CharacterContextMenu(characterGroupOverlay);
+    eventSource.on(event_types.CHARACTER_PAGE_LOADED, characterGroupOverlay.onPageLoad);
+    console.debug('Character context menu initialized', characterContextMenu);
+}

@@ -2,23 +2,22 @@
 
 import {
     characterGroupOverlay,
-    callPopup,
     characters,
-    deleteCharacter,
     event_types,
     eventSource,
     getCharacters,
-    getPastCharacterChats,
     getRequestHeaders,
     buildAvatarList,
     characterToEntity,
     printCharactersDebounced,
+    deleteCharacter,
 } from '../script.js';
 
 import { favsToHotswap } from './RossAscends-mods.js';
 import { hideLoader, showLoader } from './loader.js';
 import { convertCharacterToPersona } from './personas.js';
-import { createTagInput, getTagKeyForEntity, getTagsList, printTagList, tag_map, compareTagsForSort, removeTagFromMap } from './tags.js';
+import { callGenericPopup, POPUP_TYPE } from './popup.js';
+import { createTagInput, getTagKeyForEntity, getTagsList, printTagList, tag_map, compareTagsForSort, removeTagFromMap, importTags, tag_import_setting } from './tags.js';
 
 /**
  * Static object representing the actions of the
@@ -108,31 +107,12 @@ class CharacterContextMenu {
      * Delete one or more characters,
      * opens a popup.
      *
-     * @param {number} characterId
+     * @param {string|string[]} characterKey
      * @param {boolean} [deleteChats]
      * @returns {Promise<void>}
      */
-    static delete = async (characterId, deleteChats = false) => {
-        const character = CharacterContextMenu.#getCharacter(characterId);
-
-        return fetch('/api/characters/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ avatar_url: character.avatar, delete_chats: deleteChats }),
-            cache: 'no-cache',
-        }).then(response => {
-            if (response.ok) {
-                eventSource.emit(event_types.CHARACTER_DELETED, { id: characterId, character: character });
-                return deleteCharacter(character.name, character.avatar, false).then(() => {
-                    if (deleteChats) getPastCharacterChats(characterId).then(pastChats => {
-                        for (const chat of pastChats) {
-                            const name = chat.file_name.replace('.jsonl', '');
-                            eventSource.emit(event_types.CHAT_DELETED, name);
-                        }
-                    });
-                });
-            }
-        });
+    static delete = async (characterKey, deleteChats = false) => {
+        await deleteCharacter(characterKey, { deleteChats: deleteChats });
     };
 
     static #getCharacter = (characterId) => characters[characterId] ?? null;
@@ -214,10 +194,10 @@ class BulkTagPopupHandler {
     #getHtml = () => {
         const characterData = JSON.stringify({ characterIds: this.characterIds });
         return `<div id="bulk_tag_shadow_popup">
-            <div id="bulk_tag_popup">
+            <div id="bulk_tag_popup" class="wider_dialogue_popup">
                 <div id="bulk_tag_popup_holder">
                     <h3 class="marginBot5">Modify tags of ${this.characterIds.length} characters</h3>
-                    <small class="bulk_tags_desc m-b-1">Add or remove the mutual tags of all selected characters.</small>
+                    <small class="bulk_tags_desc m-b-1">Add or remove the mutual tags of all selected characters. Import all or existing tags for all selected characters.</small>
                     <div id="bulk_tags_avatars_block" class="avatars_inline avatars_inline_small tags tags_inline"></div>
                     <br>
                     <div id="bulk_tags_div" class="marginBot5" data-characters='${characterData}'>
@@ -235,6 +215,12 @@ class BulkTagPopupHandler {
                         <div id="bulk_tag_popup_remove_mutual" class="menu_button" title="Remove all mutual tags from the selected characters" data-i18n="[title]Remove all mutual tags from the selected characters">
                             <i class="fa-solid fa-trash-can margin-right-10px"></i>
                             Mutual
+                        </div>
+                        <div id="bulk_tag_popup_import_all_tags" class="menu_button" title="Import all tags from selected characters" data-i18n="[title]Import all tags from selected characters">
+                            Import All
+                        </div>
+                        <div id="bulk_tag_popup_import_existing_tags" class="menu_button" title="Import existing tags from selected characters" data-i18n="[title]Import existing tags from selected characters">
+                            Import Existing
                         </div>
                         <div id="bulk_tag_popup_cancel" class="menu_button" data-i18n="Cancel">Close</div>
                     </div>
@@ -271,6 +257,30 @@ class BulkTagPopupHandler {
         document.querySelector('#bulk_tag_popup_reset').addEventListener('click', this.resetTags.bind(this));
         document.querySelector('#bulk_tag_popup_remove_mutual').addEventListener('click', this.removeMutual.bind(this));
         document.querySelector('#bulk_tag_popup_cancel').addEventListener('click', this.hide.bind(this));
+        document.querySelector('#bulk_tag_popup_import_all_tags').addEventListener('click', this.importAllTags.bind(this));
+        document.querySelector('#bulk_tag_popup_import_existing_tags').addEventListener('click', this.importExistingTags.bind(this));
+    }
+
+    /**
+     * Import existing tags for all selected characters
+     */
+    async importExistingTags() {
+        for (const characterId of this.characterIds) {
+            await importTags(characters[characterId], { importSetting: tag_import_setting.ONLY_EXISTING });
+        }
+
+        $('#bulkTagList').empty();
+    }
+
+    /**
+     * Import all tags for all selected characters
+     */
+    async importAllTags() {
+        for (const characterId of this.characterIds) {
+            await importTags(characters[characterId], { importSetting: tag_import_setting.ALL });
+        }
+
+        $('#bulkTagList').empty();
     }
 
     /**
@@ -331,7 +341,7 @@ class BulkTagPopupHandler {
         const mutualTags = this.getMutualTags();
 
         for (const characterId of this.characterIds) {
-            for(const tag of mutualTags) {
+            for (const tag of mutualTags) {
                 removeTagFromMap(tag.id, characterId);
             }
         }
@@ -385,7 +395,7 @@ class BulkEditOverlay {
 
     /**
      * @typedef {object} LastSelected - An object noting the last selected character and its state.
-     * @property {string} [characterId] - The character id of the last selected character.
+     * @property {number} [characterId] - The character id of the last selected character.
      * @property {boolean} [select] - The selected state of the last selected character. <c>true</c> if it was selected, <c>false</c> if it was deselected.
      */
 
@@ -586,8 +596,7 @@ class BulkEditOverlay {
 
             this.container.removeEventListener('mouseup', cancelHold);
             this.container.removeEventListener('touchend', cancelHold);
-        },
-        BulkEditOverlay.longPressDelay);
+        }, BulkEditOverlay.longPressDelay);
     };
 
     handleLongPressEnd = (event) => {
@@ -663,10 +672,10 @@ class BulkEditOverlay {
      * @param {HTMLElement} currentCharacter - The html element of the currently toggled character
      */
     handleShiftClick = (currentCharacter) => {
-        const characterId = currentCharacter.getAttribute('chid');
+        const characterId = Number(currentCharacter.getAttribute('data-chid'));
         const select = !this.selectedCharacters.includes(characterId);
 
-        if (this.lastSelected.characterId && this.lastSelected.select !== undefined) {
+        if (this.lastSelected.characterId >= 0 && this.lastSelected.select !== undefined) {
             // Only if select state and the last select state match we execute the range select
             if (select === this.lastSelected.select) {
                 this.toggleCharactersInRange(currentCharacter, select);
@@ -682,7 +691,7 @@ class BulkEditOverlay {
      * @param {boolean} [param1.markState] - Whether the toggle of this character should be remembered as the last done toggle
      */
     toggleSingleCharacter = (character, { markState = true } = {}) => {
-        const characterId = character.getAttribute('chid');
+        const characterId = Number(character.getAttribute('data-chid'));
 
         const select = !this.selectedCharacters.includes(characterId);
         const legacyBulkEditCheckbox = character.querySelector('.' + BulkEditOverlay.legacySelectedClass);
@@ -690,11 +699,11 @@ class BulkEditOverlay {
         if (select) {
             character.classList.add(BulkEditOverlay.selectedClass);
             if (legacyBulkEditCheckbox) legacyBulkEditCheckbox.checked = true;
-            this.#selectedCharacters.push(String(characterId));
+            this.#selectedCharacters.push(characterId);
         } else {
             character.classList.remove(BulkEditOverlay.selectedClass);
             if (legacyBulkEditCheckbox) legacyBulkEditCheckbox.checked = false;
-            this.#selectedCharacters = this.#selectedCharacters.filter(item => String(characterId) !== item);
+            this.#selectedCharacters = this.#selectedCharacters.filter(item => characterId !== item);
         }
 
         this.updateSelectedCount();
@@ -723,15 +732,15 @@ class BulkEditOverlay {
      * @param {boolean} select - <c>true</c> if the characters in the range are to be selected, <c>false</c> if deselected
      */
     toggleCharactersInRange = (currentCharacter, select) => {
-        const currentCharacterId = currentCharacter.getAttribute('chid');
+        const currentCharacterId = Number(currentCharacter.getAttribute('data-chid'));
         const characters = Array.from(document.querySelectorAll('#' + BulkEditOverlay.containerId + ' .' + BulkEditOverlay.characterClass));
 
-        const startIndex = characters.findIndex(c => c.getAttribute('chid') === this.lastSelected.characterId);
-        const endIndex = characters.findIndex(c => c.getAttribute('chid') === currentCharacterId);
+        const startIndex = characters.findIndex(c => Number(c.getAttribute('data-chid')) === Number(this.lastSelected.characterId));
+        const endIndex = characters.findIndex(c => Number(c.getAttribute('data-chid')) === currentCharacterId);
 
         for (let i = Math.min(startIndex, endIndex); i <= Math.max(startIndex, endIndex); i++) {
             const character = characters[i];
-            const characterId = character.getAttribute('chid');
+            const characterId = Number(character.getAttribute('data-chid'));
             const isCharacterSelected = this.selectedCharacters.includes(characterId);
 
             // Only toggle the character if it wasn't on the state we have are toggling towards.
@@ -826,19 +835,23 @@ class BulkEditOverlay {
      */
     handleContextMenuDelete = () => {
         const characterIds = this.selectedCharacters;
-        const popupContent = BulkEditOverlay.#getDeletePopupContentHtml(characterIds);
-        const promise = callPopup(popupContent, null)
+        const popupContent = $(BulkEditOverlay.#getDeletePopupContentHtml(characterIds));
+        const checkbox = popupContent.find('#del_char_checkbox');
+        const promise = callGenericPopup(popupContent, POPUP_TYPE.CONFIRM)
             .then((accept) => {
-                if (true !== accept) return;
+                if (!accept) return;
 
-                const deleteChats = document.getElementById('del_char_checkbox').checked ?? false;
+                const deleteChats = checkbox.prop('checked') ?? false;
 
                 showLoader();
-                toastr.info('We\'re deleting your characters, please wait...', 'Working on it');
-                return Promise.allSettled(characterIds.map(async characterId => CharacterContextMenu.delete(characterId, deleteChats)))
-                    .then(() => getCharacters())
+                const toast = toastr.info('We\'re deleting your characters, please wait...', 'Working on it');
+                const avatarList = characterIds.map(id => characters[id]?.avatar).filter(a => a);
+                return CharacterContextMenu.delete(avatarList, deleteChats)
                     .then(() => this.browseState())
-                    .finally(() => hideLoader());
+                    .finally(() => {
+                        toastr.clear(toast);
+                        hideLoader();
+                    });
             });
 
         // At this moment the popup is already changed in the dom, but not yet closed/resolved. We build the avatar list here

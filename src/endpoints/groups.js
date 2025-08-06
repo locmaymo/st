@@ -1,15 +1,16 @@
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const sanitize = require('sanitize-filename');
-const writeFileAtomicSync = require('write-file-atomic').sync;
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { jsonParser } = require('../express-common');
-const { humanizedISO8601DateTime } = require('../util');
+import express from 'express';
+import sanitize from 'sanitize-filename';
+import { sync as writeFileAtomicSync } from 'write-file-atomic';
 
-const router = express.Router();
+import { humanizedISO8601DateTime } from '../util.js';
+import { getFileNameValidationFunction } from '../middleware/validateFileName.js';
 
-router.post('/all', jsonParser, (request, response) => {
+export const router = express.Router();
+
+router.post('/all', (request, response) => {
     const groups = [];
 
     if (!fs.existsSync(request.user.directories.groups)) {
@@ -53,7 +54,7 @@ router.post('/all', jsonParser, (request, response) => {
     return response.send(groups);
 });
 
-router.post('/create', jsonParser, (request, response) => {
+router.post('/create', (request, response) => {
     if (!request.body) {
         return response.sendStatus(400);
     }
@@ -76,8 +77,8 @@ router.post('/create', jsonParser, (request, response) => {
         generation_mode_join_prefix: request.body.generation_mode_join_prefix ?? '',
         generation_mode_join_suffix: request.body.generation_mode_join_suffix ?? '',
     };
-    const pathToFile = path.join(request.user.directories.groups, `${id}.json`);
-    const fileData = JSON.stringify(groupMetadata);
+    const pathToFile = path.join(request.user.directories.groups, sanitize(`${id}.json`));
+    const fileData = JSON.stringify(groupMetadata, null, 4);
 
     if (!fs.existsSync(request.user.directories.groups)) {
         fs.mkdirSync(request.user.directories.groups);
@@ -87,19 +88,19 @@ router.post('/create', jsonParser, (request, response) => {
     return response.send(groupMetadata);
 });
 
-router.post('/edit', jsonParser, (request, response) => {
+router.post('/edit', getFileNameValidationFunction('id'), (request, response) => {
     if (!request.body || !request.body.id) {
         return response.sendStatus(400);
     }
     const id = request.body.id;
-    const pathToFile = path.join(request.user.directories.groups, `${id}.json`);
-    const fileData = JSON.stringify(request.body);
+    const pathToFile = path.join(request.user.directories.groups, sanitize(`${id}.json`));
+    const fileData = JSON.stringify(request.body, null, 4);
 
     writeFileAtomicSync(pathToFile, fileData);
     return response.send({ ok: true });
 });
 
-router.post('/delete', jsonParser, async (request, response) => {
+router.post('/delete', getFileNameValidationFunction('id'), async (request, response) => {
     if (!request.body || !request.body.id) {
         return response.sendStatus(400);
     }
@@ -113,11 +114,11 @@ router.post('/delete', jsonParser, async (request, response) => {
 
         if (group && Array.isArray(group.chats)) {
             for (const chat of group.chats) {
-                console.log('Deleting group chat', chat);
-                const pathToFile = path.join(request.user.directories.groupChats, `${id}.jsonl`);
+                console.info('Deleting group chat', chat);
+                const pathToFile = path.join(request.user.directories.groupChats, sanitize(`${chat}.jsonl`));
 
                 if (fs.existsSync(pathToFile)) {
-                    fs.rmSync(pathToFile);
+                    fs.unlinkSync(pathToFile);
                 }
             }
         }
@@ -126,10 +127,8 @@ router.post('/delete', jsonParser, async (request, response) => {
     }
 
     if (fs.existsSync(pathToGroup)) {
-        fs.rmSync(pathToGroup);
+        fs.unlinkSync(pathToGroup);
     }
 
     return response.send({ ok: true });
 });
-
-module.exports = { router };

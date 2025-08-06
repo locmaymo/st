@@ -3,11 +3,14 @@ TODO:
 */
 //const DEBUG_TONY_SAMA_FORK_MODE = true
 
-import { getRequestHeaders, callPopup, processDroppedFiles, eventSource, event_types } from '../../../script.js';
+import { DOMPurify } from '../../../lib.js';
+import { getRequestHeaders, processDroppedFiles, eventSource, event_types } from '../../../script.js';
 import { deleteExtension, extensionNames, getContext, installExtension, renderExtensionTemplateAsync } from '../../extensions.js';
-import { POPUP_TYPE, callGenericPopup } from '../../popup.js';
-import { executeSlashCommands } from '../../slash-commands.js';
-import { getStringHash, isValidUrl } from '../../utils.js';
+import { POPUP_TYPE, Popup, callGenericPopup } from '../../popup.js';
+import { executeSlashCommandsWithOptions } from '../../slash-commands.js';
+import { accountStorage } from '../../util/AccountStorage.js';
+import { flashHighlight, getStringHash, isValidUrl } from '../../utils.js';
+import { t } from '../../i18n.js';
 export { MODULE_NAME };
 
 const MODULE_NAME = 'assets';
@@ -50,18 +53,18 @@ function filterAssets() {
 }
 
 const KNOWN_TYPES = {
-    'extension': 'Extensions',
-    'character': 'Characters',
-    'ambient': 'Ambient sounds',
-    'bgm': 'Background music',
-    'blip': 'Blip sounds',
+    'extension': t`Extensions`,
+    'character': t`Characters`,
+    'ambient': t`Ambient sounds`,
+    'bgm': t`Background music`,
+    'blip': t`Blip sounds`,
 };
 
-function downloadAssetsList(url) {
-    updateCurrentAssets().then(function () {
+async function downloadAssetsList(url) {
+    updateCurrentAssets().then(async function () {
         fetch(url, { cache: 'no-cache' })
             .then(response => response.json())
-            .then(json => {
+            .then(async function(json) {
 
                 availableAssets = {};
                 $('#assets_menu').empty();
@@ -82,10 +85,10 @@ function downloadAssetsList(url) {
 
                 $('#assets_type_select').empty();
                 $('#assets_search').val('');
-                $('#assets_type_select').append($('<option />', { value: '', text: 'All' }));
+                $('#assets_type_select').append($('<option />', { value: '', text: t`All` }));
 
                 for (const type of assetTypes) {
-                    const option = $('<option />', { value: type, text: KNOWN_TYPES[type] || type });
+                    const option = $('<option />', { value: type, text: t([KNOWN_TYPES[type] || type]) });
                     $('#assets_type_select').append(option);
                 }
 
@@ -102,11 +105,7 @@ function downloadAssetsList(url) {
                     assetTypeMenu.append(`<h3>${KNOWN_TYPES[assetType] || assetType}</h3>`).hide();
 
                     if (assetType == 'extension') {
-                        assetTypeMenu.append(`
-                        <div class="assets-list-git">
-                            To download extensions from this page, you need to have <a href="https://git-scm.com/downloads" target="_blank">Git</a> installed.<br>
-                            Click the <i class="fa-solid fa-sm fa-arrow-up-right-from-square"></i> icon to visit the Extension's repo for tips on how to use it.
-                        </div>`);
+                        assetTypeMenu.append(await renderExtensionTemplateAsync('assets', 'installation'));
                     }
 
                     for (const i in availableAssets[assetType].sort((a, b) => a?.name && b?.name && a['name'].localeCompare(b['name']))) {
@@ -143,7 +142,7 @@ function downloadAssetsList(url) {
                         const assetDelete = async function () {
                             if (assetType === 'character') {
                                 toastr.error('Go to the characters menu to delete a character.', 'Character deletion not supported');
-                                await executeSlashCommands(`/go ${asset['id']}`);
+                                await executeSlashCommandsWithOptions(`/go ${asset['id']}`);
                                 return;
                             }
                             element.off('click');
@@ -182,8 +181,9 @@ function downloadAssetsList(url) {
                         const displayName = DOMPurify.sanitize(asset['name'] || asset['id']);
                         const description = DOMPurify.sanitize(asset['description'] || '');
                         const url = isValidUrl(asset['url']) ? asset['url'] : '';
-                        const title = assetType === 'extension' ? `Extension repo/guide: ${url}` : 'Preview in browser';
+                        const title = assetType === 'extension' ? t`Extension repo/guide:` + ` ${url}` : t`Preview in browser`;
                         const previewIcon = (assetType === 'extension' || assetType === 'character') ? 'fa-arrow-up-right-from-square' : 'fa-headphones-simple';
+                        const toolTag = assetType === 'extension' && asset['tool'];
 
                         const assetBlock = $('<i></i>')
                             .append(element)
@@ -192,12 +192,21 @@ function downloadAssetsList(url) {
                                             <b>${displayName}</b>
                                             <a class="asset_preview" href="${url}" target="_blank" title="${title}">
                                                 <i class="fa-solid fa-sm ${previewIcon}"></i>
-                                            </a>
-                                        </span>
+                                            </a>` +
+                                            (toolTag ? '<span class="tag" title="' + t`Adds a function tool` + '"><i class="fa-solid fa-sm fa-wrench"></i> ' +
+                                            t`Tool` + '</span>' : '') +
+                                        `</span>
                                         <small class="asset-description">
                                             ${description}
                                         </small>
                                      </div>`);
+
+                        assetBlock.find('.tag').on('click', function (e) {
+                            const a = document.createElement('a');
+                            a.href = 'https://docs.sillytavern.app/for-contributors/function-calling/';
+                            a.target = '_blank';
+                            a.click();
+                        });
 
                         if (assetType === 'character') {
                             if (asset.highlight) {
@@ -219,6 +228,12 @@ function downloadAssetsList(url) {
                 $('#assets_menu').show();
             })
             .catch((error) => {
+                // Info hint if the user maybe... likely accidently was trying to install an extension and we wanna help guide them? uwu :3
+                const installButton = $('#third_party_extension_button');
+                flashHighlight(installButton, 10_000);
+                toastr.info('Click the flashing button at the top right corner of the menu.', 'Trying to install a custom extension?', { timeOut: 10_000 });
+
+                // Error logged after, to appear on top
                 console.error(error);
                 toastr.error('Problem with assets URL', DEBUG_PREFIX + 'Cannot get assets list');
                 $('#assets-connect-button').addClass('fa-plug-circle-exclamation');
@@ -276,7 +291,7 @@ async function installAsset(url, assetType, filename) {
     try {
         if (category === 'extension') {
             console.debug(DEBUG_PREFIX, 'Installing extension ', url);
-            await installExtension(url);
+            await installExtension(url, false);
             console.debug(DEBUG_PREFIX, 'Extension installed.');
             return;
         }
@@ -294,7 +309,7 @@ async function installAsset(url, assetType, filename) {
                 console.debug(DEBUG_PREFIX, 'Importing character ', filename);
                 const blob = await result.blob();
                 const file = new File([blob], filename, { type: blob.type });
-                await processDroppedFiles([file], true);
+                await processDroppedFiles([file]);
                 console.debug(DEBUG_PREFIX, 'Character downloaded.');
             }
         }
@@ -348,7 +363,7 @@ async function openCharacterBrowser(forceDefault) {
     for (const character of characters.sort((a, b) => a.name.localeCompare(b.name))) {
         const listElement = template.find(character.highlight ? '.contestWinnersList' : '.featuredCharactersList');
         const characterElement = $(await renderExtensionTemplateAsync(MODULE_NAME, 'character', character));
-        const downloadButton  = characterElement.find('.characterAssetDownloadButton');
+        const downloadButton = characterElement.find('.characterAssetDownloadButton');
         const checkMark = characterElement.find('.characterAssetCheckMark');
         const isInstalled = isAssetInstalled('character', character.id);
 
@@ -405,22 +420,31 @@ jQuery(async () => {
         openCharacterBrowser(false);
     });
 
+    const installHintButton = windowHtml.find('.assets-install-hint-link');
+    installHintButton.on('click', async function () {
+        const installButton = $('#third_party_extension_button');
+        flashHighlight(installButton, 5000);
+        toastr.info(t`Click the flashing button to install extensions.`, t`How to install extensions?`);
+    });
+
     const connectButton = windowHtml.find('#assets-connect-button');
     connectButton.on('click', async function () {
-        const url = String(assetsJsonUrl.val());
+        const url = DOMPurify.sanitize(String(assetsJsonUrl.val()));
         const rememberKey = `Assets_SkipConfirm_${getStringHash(url)}`;
-        const skipConfirm = localStorage.getItem(rememberKey) === 'true';
+        const skipConfirm = accountStorage.getItem(rememberKey) === 'true';
 
-        const template = await renderExtensionTemplateAsync(MODULE_NAME, 'confirm', { url });
-        const confirmation = skipConfirm || await callPopup(template, 'confirm');
+        const confirmation = skipConfirm || await Popup.show.confirm(t`Loading Asset List`, '<span>' + t`Are you sure you want to connect to the following url?` + `</span><var>${url}</var>`, {
+            customInputs: [{ id: 'assets-remember', label: 'Don\'t ask again for this URL' }],
+            onClose: popup => {
+                if (popup.result) {
+                    const rememberValue = popup.inputResults.get('assets-remember');
+                    accountStorage.setItem(rememberKey, String(rememberValue));
+                }
+            },
+        });
 
         if (confirmation) {
             try {
-                if (!skipConfirm) {
-                    const rememberValue = Boolean($('#assets-remember').prop('checked'));
-                    localStorage.setItem(rememberKey, String(rememberValue));
-                }
-
                 console.debug(DEBUG_PREFIX, 'Confimation, loading assets...');
                 downloadAssetsList(url);
                 connectButton.removeClass('fa-plug-circle-exclamation');
@@ -440,7 +464,7 @@ jQuery(async () => {
     });
 
     windowHtml.find('#assets_filters').hide();
-    $('#extensions_settings').append(windowHtml);
+    $('#assets_container').append(windowHtml);
 
     eventSource.on(event_types.OPEN_CHARACTER_LIBRARY, async (forceDefault) => {
         openCharacterBrowser(forceDefault);

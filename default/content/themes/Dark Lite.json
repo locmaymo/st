@@ -22,7 +22,7 @@
     "timer_enabled": true,
     "timestamps_enabled": true,
     "timestamp_model_icon": true,
-    "mesIDDisplay_enabled": true,
+    "mesIDDisplay_enabled": false,
     "hideChatAvatars_enabled": false,
     "message_token_count_enabled": false,
     "expand_message_actions": true,

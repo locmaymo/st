@@ -180,7 +180,18 @@ function displayError(message) {
  * Preserves the query string.
  */
 function redirectToHome() {
-    window.location.href = '/' + window.location.search;
+    // Create a URL object based on the current location
+    const currentUrl = new URL(window.location.href);
+
+    // After a login there's no need to preserve the
+    // noauto parameter (if present)
+    currentUrl.searchParams.delete('noauto');
+
+    // Set the pathname to root and keep the updated query string
+    currentUrl.pathname = '/';
+
+    // Redirect to the new URL
+    window.location.href = currentUrl.toString();
 }
 
 /**

@@ -1,18 +1,16 @@
 import { warn } from '../index.js';
-// eslint-disable-next-line no-unused-vars
 import { QuickReply } from './QuickReply.js';
-// eslint-disable-next-line no-unused-vars
 import { QuickReplySettings } from './QuickReplySettings.js';
 
 export class AutoExecuteHandler {
-    /**@type {QuickReplySettings}*/ settings;
+    /** @type {QuickReplySettings} */ settings;
 
-    /**@type {Boolean[]}*/ preventAutoExecuteStack = [];
-
-
+    /** @type {Boolean[]}*/ preventAutoExecuteStack = [];
 
 
-    constructor(/**@type {QuickReplySettings}*/settings) {
+
+
+    constructor(/** @type {QuickReplySettings} */settings) {
         this.settings = settings;
     }
 
@@ -24,7 +22,7 @@ export class AutoExecuteHandler {
 
 
 
-    async performAutoExecute(/**@type {QuickReply[]}*/qrList) {
+    async performAutoExecute(/** @type {QuickReply[]} */qrList) {
         for (const qr of qrList) {
             this.preventAutoExecuteStack.push(qr.preventAutoExecute);
             try {
@@ -79,6 +77,15 @@ export class AutoExecuteHandler {
         const qrList = [
             ...this.settings.config.setList.map(link=>link.set.qrList.filter(qr=>qr.executeOnGroupMemberDraft)).flat(),
             ...(this.settings.chatConfig?.setList?.map(link=>link.set.qrList.filter(qr=>qr.executeOnGroupMemberDraft))?.flat() ?? []),
+        ];
+        await this.performAutoExecute(qrList);
+    }
+
+    async handleNewChat() {
+        if (!this.checkExecute()) return;
+        const qrList = [
+            ...this.settings.config.setList.map(link=>link.set.qrList.filter(qr=>qr.executeOnNewChat)).flat(),
+            ...(this.settings.chatConfig?.setList?.map(link=>link.set.qrList.filter(qr=>qr.executeOnNewChat))?.flat() ?? []),
         ];
         await this.performAutoExecute(qrList);
     }

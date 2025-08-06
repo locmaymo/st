@@ -220,7 +220,7 @@
 }
 
 .monospace {
-    font-family: monospace;
+    font-family: var(--monoFontFamily);
 }
 
 .expander {
@@ -292,6 +292,14 @@
     flex-wrap: nowrap;
 }
 
+.inline-flex {
+    display: inline-flex;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
 .alignitemscenter,
 .alignItemsCenter {
     align-items: center;
@@ -324,6 +332,10 @@
     overflow: hidden;
 }
 
+.overflowYScroll {
+    overflow-y: scroll;
+}
+
 .padding0 {
     padding: 0;
 }
@@ -346,6 +358,14 @@
 
 .margin-r5 {
     margin-right: 5px;
+}
+
+.margin-r2 {
+    margin-right: 2px;
+}
+
+.flexAuto {
+    flex: auto;
 }
 
 .flex0 {
@@ -450,26 +470,13 @@
     margin-left: 20px;
 }
 
-/*used to fix smallness of certain FontAwesome glyph which break button squareness*/
-/*currently used on: CharList Import*/
-
-.faSmallFontSquareFix {
-    font-size: calc(var(--mainFontSize) *1.25);
-    width: calc(var(--mainFontSize) *1.95);
-}
-
 .textarea_compact {
     font-size: calc(var(--mainFontSize) * 0.95);
     line-height: 1.2;
 }
 
-.custom-katex-html,
-.katex-html {
-    display: none;
-}
-
 .hoverglow {
-    transition: opacity 200ms;
+    transition: opacity var(--animation-duration-2x);
 }
 
 .hoverglow:hover {
@@ -480,6 +487,10 @@
 input:disabled,
 textarea:disabled {
     cursor: not-allowed;
+    filter: brightness(0.5);
+}
+
+#AdvancedFormatting .disabled {
     filter: brightness(0.5);
 }
 
@@ -541,6 +552,10 @@ textarea:disabled {
     min-width: fit-content;
 }
 
+.flexGap2 {
+    gap: 2px;
+}
+
 .flexGap5 {
     gap: 5px;
 }
@@ -571,4 +586,28 @@ textarea:disabled {
     height: 30px;
     text-align: center;
     padding: 5px;
+}
+
+ul.li-padding-b-1 li {
+    padding-bottom: 1em;
+}
+
+ul.li-padding-b-2 li {
+    padding-bottom: 2em;
+}
+
+ul.li-padding-b-5 li {
+    padding-bottom: 5em;
+}
+
+ul.li-padding-bot5 li {
+    padding-bottom: 5px;
+}
+
+ul.li-padding-bot10 li {
+    padding-bottom: 10px;
+}
+
+.wordBreakAll {
+    word-break: break-all;
 }

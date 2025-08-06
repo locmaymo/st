@@ -33,6 +33,12 @@
  * @property {number} role - The specific function or purpose of the extension.
  * @property {boolean} vectorized - Indicates if the extension is optimized for vectorized processing.
  * @property {number} display_index - The order in which the extension should be displayed for user interfaces.
+ * @property {boolean} match_persona_description - Wether to match against the persona description.
+ * @property {boolean} match_character_description - Wether to match against the persona description.
+ * @property {boolean} match_character_personality - Wether to match against the character personality.
+ * @property {boolean} match_character_depth_prompt - Wether to match against the character depth prompt.
+ * @property {boolean} match_scenario - Wether to match against the character scenario.
+ * @property {boolean} match_creator_notes - Wether to match against the character creator notes.
  */
 
 /**
@@ -68,13 +74,32 @@
  * @property {number} depth_prompt.depth - The level of detail or nuance targeted by the prompt.
  * @property {string} depth_prompt.prompt - The actual prompt text used for deeper character interaction.
  * @property {"system" | "user" | "assistant"} depth_prompt.role - The role the character takes on during the prompted interaction (system, user, or assistant).
+ * @property {RegexScriptData[]} regex_scripts - Custom regex scripts for the character.
  * // Non-standard extensions added by external tools
  * @property {string} [pygmalion_id] - The unique identifier assigned to the character by the Pygmalion.chat.
  * @property {string} [github_repo] - The gitHub repository associated with the character.
  * @property {string} [source_url] - The source URL associated with the character.
  * @property {{full_path: string}} [chub] - The Chub-specific data associated with the character.
  * @property {{source: string[]}} [risuai] - The RisuAI-specific data associated with the character.
+ * @property {{positive: string, negative: string}} [sd_character_prompt] - SD-specific data associated with the character.
  */
+
+/**
+* @typedef {object} RegexScriptData
+* @property {string} id - UUID of the script
+* @property {string} scriptName - The name of the script
+* @property {string} findRegex - The regex to find
+* @property {string} replaceString - The string to replace
+* @property {string[]} trimStrings - The strings to trim
+* @property {number[]} placement - The placement of the script
+* @property {boolean} disabled - Whether the script is disabled
+* @property {boolean} markdownOnly - Whether the script only applies to Markdown
+* @property {boolean} promptOnly - Whether the script only applies to prompts
+* @property {boolean} runOnEdit - Whether the script runs on edit
+* @property {number} substituteRegex - Whether the regex should be substituted
+* @property {number} minDepth - The minimum depth
+* @property {number} maxDepth - The maximum depth
+*/
 
 /**
  * @typedef {object} v1CharData
@@ -94,5 +119,6 @@
  * @property {string} chat - name of the current chat file chat
  * @property {string} avatar - file name of the avatar image (acts as a unique identifier)
  * @property {string} json_data - the full raw JSON data of the character
+ * @property {boolean?} shallow - if the data is shallow (lazy-loaded)
  */
 export default 0;// now this file is a module

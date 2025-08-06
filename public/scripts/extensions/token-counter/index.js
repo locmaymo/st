@@ -1,43 +1,17 @@
-import { callPopup, main_api } from '../../../script.js';
+import { main_api } from '../../../script.js';
 import { getContext } from '../../extensions.js';
 import { SlashCommand } from '../../slash-commands/SlashCommand.js';
 import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';
 import { getFriendlyTokenizerName, getTextTokens, getTokenCountAsync, tokenizers } from '../../tokenizers.js';
 import { resetScrollHeight, debounce } from '../../utils.js';
 import { debounce_timeout } from '../../constants.js';
-
-function rgb2hex(rgb) {
-    rgb = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
-    return (rgb && rgb.length === 4) ? '#' +
-        ('0' + parseInt(rgb[1], 10).toString(16)).slice(-2) +
-        ('0' + parseInt(rgb[2], 10).toString(16)).slice(-2) +
-        ('0' + parseInt(rgb[3], 10).toString(16)).slice(-2) : '';
-}
-
-$('button').click(function () {
-    var hex = rgb2hex($('input').val());
-    $('.result').html(hex);
-});
+import { POPUP_TYPE, callGenericPopup } from '../../popup.js';
+import { renderExtensionTemplateAsync } from '../../extensions.js';
+import { t } from '../../i18n.js';
 
 async function doTokenCounter() {
     const { tokenizerName, tokenizerId } = getFriendlyTokenizerName(main_api);
-    const html = `
-    <div class="wide100p">
-        <h3>Token Counter</h3>
-        <div class="justifyLeft flex-container flexFlowColumn">
-            <h4>Type / paste in the box below to see the number of tokens in the text.</h4>
-            <p>Selected tokenizer: ${tokenizerName}</p>
-            <div>Input:</div>
-            <textarea id="token_counter_textarea" class="wide100p textarea_compact" rows="1"></textarea>
-            <div>Tokens: <span id="token_counter_result">0</span></div>
-            <hr>
-            <div>Tokenized text:</div>
-            <div id="tokenized_chunks_display" class="wide100p">—</div>
-            <hr>
-            <div>Token IDs:</div>
-            <textarea id="token_counter_ids" class="wide100p textarea_compact" readonly rows="1">—</textarea>
-        </div>
-    </div>`;
+    const html = await renderExtensionTemplateAsync('token-counter', 'window', { tokenizerName });
 
     const dialog = $(html);
     const countDebounced = debounce(async () => {
@@ -58,13 +32,14 @@ async function doTokenCounter() {
             $('#tokenized_chunks_display').text('—');
         }
 
-        resetScrollHeight($('#token_counter_textarea'));
-        resetScrollHeight($('#token_counter_ids'));
+        if (!CSS.supports('field-sizing', 'content')) {
+            await resetScrollHeight($('#token_counter_textarea'));
+            await resetScrollHeight($('#token_counter_ids'));
+        }
     }, debounce_timeout.relaxed);
     dialog.find('#token_counter_textarea').on('input', () => countDebounced());
 
-    $('#dialogue_popup').addClass('wide_dialogue_popup');
-    callPopup(dialog, 'text', '', { wide: true, large: true });
+    callGenericPopup(dialog, POPUP_TYPE.TEXT, '', { wide: true, large: true, allowVerticalScrolling: true });
 }
 
 /**
@@ -87,7 +62,7 @@ function drawChunks(chunks, ids) {
     $('#tokenized_chunks_display').empty();
 
     for (let i = 0; i < chunks.length; i++) {
-        let chunk = chunks[i].replace(/▁/g, ' '); // This is a leading space in sentencepiece. More info: Lower one eighth block (U+2581)
+        let chunk = chunks[i].replace(/[▁Ġ]/g, ' '); // This is a leading space in sentencepiece. More info: Lower one eighth block (U+2581)
 
         // If <0xHEX>, decode it
         if (/^<0x[0-9A-F]+>$/i.test(chunk)) {
@@ -123,18 +98,20 @@ async function doCount() {
     //toastr success with the token count of the chat
     const count = await getTokenCountAsync(allMessages);
     toastr.success(`Token count: ${count}`);
+    return count;
 }
 
 jQuery(() => {
     const buttonHtml = `
         <div id="token_counter" class="list-group-item flex-container flexGap5">
-            <div class="fa-solid fa-1 extensionsMenuExtensionButton" /></div>
-            Token Counter
-        </div>`;
-    $('#extensionsMenu').prepend(buttonHtml);
+            <div class="fa-solid fa-1 extensionsMenuExtensionButton" /></div>` +
+            t`Token Counter` +
+        '</div>';
+    $('#token_counter_wand_container').append(buttonHtml);
     $('#token_counter').on('click', doTokenCounter);
-    SlashCommandParser.addCommandObject(SlashCommand.fromProps({ name: 'count',
-        callback: doCount,
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'count',
+        callback: async () => String(await doCount()),
         returns: 'number of tokens',
         helpString: 'Counts the number of tokens in the current chat.',
     }));

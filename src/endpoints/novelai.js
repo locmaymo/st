@@ -1,17 +1,25 @@
-const fetch = require('node-fetch').default;
-const express = require('express');
-const util = require('util');
-const { readSecret, SECRET_KEYS } = require('./secrets');
-const { readAllChunks, extractFileFromZipBuffer, forwardFetchResponse } = require('../util');
-const { jsonParser } = require('../express-common');
+import util from 'node:util';
+import { Buffer } from 'node:buffer';
+
+import fetch from 'node-fetch';
+import express from 'express';
+
+import { readSecret, SECRET_KEYS } from './secrets.js';
+import { readAllChunks, extractFileFromZipBuffer, forwardFetchResponse } from '../util.js';
 
 const API_NOVELAI = 'https://api.novelai.net';
+const TEXT_NOVELAI = 'https://text.novelai.net';
 const IMAGE_NOVELAI = 'https://image.novelai.net';
 
 // Ban bracket generation, plus defaults
 const badWordsList = [
     [3], [49356], [1431], [31715], [34387], [20765], [30702], [10691], [49333], [1266],
     [19438], [43145], [26523], [41471], [2936], [85, 85], [49332], [7286], [1115], [24],
+];
+
+const eratoBadWordsList = [
+    [16067], [933, 11144], [25106, 11144], [58, 106901, 16073, 33710, 25, 109933],
+    [933, 58, 11144], [128030], [58, 30591, 33503, 17663, 100204, 25, 11144],
 ];
 
 const hypeBotBadWordsList = [
@@ -41,10 +49,22 @@ const repPenaltyAllowList = [
         803, 1040, 49209, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 ];
 
+const eratoRepPenWhitelist = [
+    6, 1, 11, 13, 25, 198, 12, 9, 8, 279, 264, 459, 323, 477, 539, 912, 374, 574, 1051, 1550, 1587, 4536, 5828, 15058,
+    3287, 3250, 1461, 1077, 813, 11074, 872, 1202, 1436, 7846, 1288, 13434, 1053, 8434, 617, 9167, 1047, 19117, 706,
+    12775, 649, 4250, 527, 7784, 690, 2834, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 1210, 1359, 608, 220, 596, 956,
+    3077, 44886, 4265, 3358, 2351, 2846, 311, 389, 315, 304, 520, 505, 430,
+];
+
 // Ban the dinkus and asterism
 const logitBiasExp = [
     { 'sequence': [23], 'bias': -0.08, 'ensure_sequence_finish': false, 'generate_once': false },
     { 'sequence': [21], 'bias': -0.08, 'ensure_sequence_finish': false, 'generate_once': false },
+];
+
+const eratoLogitBiasExp = [
+    { 'sequence': [12488], 'bias': -0.08, 'ensure_sequence_finish': false, 'generate_once': false },
+    { 'sequence': [128041], 'bias': -0.08, 'ensure_sequence_finish': false, 'generate_once': false },
 ];
 
 function getBadWordsList(model) {
@@ -58,18 +78,48 @@ function getBadWordsList(model) {
         list = badWordsList;
     }
 
+    if (model.includes('erato')) {
+        list = eratoBadWordsList;
+    }
+
     // Clone the list so we don't modify the original
     return list.slice();
 }
 
-const router = express.Router();
+function getLogitBiasList(model) {
+    let list = [];
 
-router.post('/status', jsonParser, async function (req, res) {
+    if (model.includes('erato')) {
+        list = eratoLogitBiasExp;
+    }
+
+    if (model.includes('clio') || model.includes('kayra')) {
+        list = logitBiasExp;
+    }
+
+    return list.slice();
+}
+
+function getRepPenaltyWhitelist(model) {
+    if (model.includes('clio') || model.includes('kayra')) {
+        return repPenaltyAllowList.flat();
+    }
+
+    if (model.includes('erato')) {
+        return eratoRepPenWhitelist.flat();
+    }
+
+    return null;
+}
+
+export const router = express.Router();
+
+router.post('/status', async function (req, res) {
     if (!req.body) return res.sendStatus(400);
     const api_key_novel = readSecret(req.user.directories, SECRET_KEYS.NOVEL);
 
     if (!api_key_novel) {
-        console.log('NovelAI Access Token is missing.');
+        console.warn('NovelAI Access Token is missing.');
         return res.sendStatus(400);
     }
 
@@ -86,26 +136,26 @@ router.post('/status', jsonParser, async function (req, res) {
             const data = await response.json();
             return res.send(data);
         } else if (response.status == 401) {
-            console.log('NovelAI Access Token is incorrect.');
+            console.error('NovelAI Access Token is incorrect.');
             return res.send({ error: true });
         }
         else {
-            console.log('NovelAI returned an error:', response.statusText);
+            console.warn('NovelAI returned an error:', response.statusText);
             return res.send({ error: true });
         }
     } catch (error) {
-        console.log(error);
+        console.error(error);
         return res.send({ error: true });
     }
 });
 
-router.post('/generate', jsonParser, async function (req, res) {
+router.post('/generate', async function (req, res) {
     if (!req.body) return res.sendStatus(400);
 
     const api_key_novel = readSecret(req.user.directories, SECRET_KEYS.NOVEL);
 
     if (!api_key_novel) {
-        console.log('NovelAI Access Token is missing.');
+        console.warn('NovelAI Access Token is missing.');
         return res.sendStatus(400);
     }
 
@@ -115,11 +165,10 @@ router.post('/generate', jsonParser, async function (req, res) {
         controller.abort();
     });
 
-    const isNewModel = (req.body.model.includes('clio') || req.body.model.includes('kayra'));
+    // Add customized bad words for Clio, Kayra, and Erato
     const badWordsList = getBadWordsList(req.body.model);
 
-    // Add customized bad words for Clio and Kayra
-    if (isNewModel && Array.isArray(req.body.bad_words_ids)) {
+    if (Array.isArray(badWordsList) && Array.isArray(req.body.bad_words_ids)) {
         for (const badWord of req.body.bad_words_ids) {
             if (Array.isArray(badWord) && badWord.every(x => Number.isInteger(x))) {
                 badWordsList.push(badWord);
@@ -135,11 +184,13 @@ router.post('/generate', jsonParser, async function (req, res) {
     }
 
     // Add default biases for dinkus and asterism
-    const logit_bias_exp = isNewModel ? logitBiasExp.slice() : [];
+    const logitBiasList = getLogitBiasList(req.body.model);
 
-    if (Array.isArray(logit_bias_exp) && Array.isArray(req.body.logit_bias_exp)) {
-        logit_bias_exp.push(...req.body.logit_bias_exp);
+    if (Array.isArray(logitBiasList) && Array.isArray(req.body.logit_bias_exp)) {
+        logitBiasList.push(...req.body.logit_bias_exp);
     }
+
+    const repPenWhitelist = getRepPenaltyWhitelist(req.body.model);
 
     const data = {
         'input': req.body.input,
@@ -155,36 +206,41 @@ router.post('/generate', jsonParser, async function (req, res) {
             'repetition_penalty_slope': req.body.repetition_penalty_slope,
             'repetition_penalty_frequency': req.body.repetition_penalty_frequency,
             'repetition_penalty_presence': req.body.repetition_penalty_presence,
-            'repetition_penalty_whitelist': isNewModel ? repPenaltyAllowList : null,
+            'repetition_penalty_whitelist': repPenWhitelist,
             'top_a': req.body.top_a,
             'top_p': req.body.top_p,
             'top_k': req.body.top_k,
             'typical_p': req.body.typical_p,
             'mirostat_lr': req.body.mirostat_lr,
             'mirostat_tau': req.body.mirostat_tau,
-            'cfg_scale': req.body.cfg_scale,
-            'cfg_uc': req.body.cfg_uc,
             'phrase_rep_pen': req.body.phrase_rep_pen,
             'stop_sequences': req.body.stop_sequences,
             'bad_words_ids': badWordsList.length ? badWordsList : null,
-            'logit_bias_exp': logit_bias_exp,
+            'logit_bias_exp': logitBiasList,
             'generate_until_sentence': req.body.generate_until_sentence,
             'use_cache': req.body.use_cache,
             'return_full_text': req.body.return_full_text,
             'prefix': req.body.prefix,
             'order': req.body.order,
             'num_logprobs': req.body.num_logprobs,
+            'min_p': req.body.min_p,
+            'math1_temp': req.body.math1_temp,
+            'math1_quad': req.body.math1_quad,
+            'math1_quad_entropy_scale': req.body.math1_quad_entropy_scale,
         },
     };
 
     // Tells the model to stop generation at '>'
-    if ('theme_textadventure' === req.body.prefix &&
-        (true === req.body.model.includes('clio') ||
-         true === req.body.model.includes('kayra'))) {
-        data.parameters.eos_token_id = 49405;
+    if ('theme_textadventure' === req.body.prefix) {
+        if (req.body.model.includes('clio') || req.body.model.includes('kayra')) {
+            data.parameters.eos_token_id = 49405;
+        }
+        if (req.body.model.includes('erato')) {
+            data.parameters.eos_token_id = 29;
+        }
     }
 
-    console.log(util.inspect(data, { depth: 4 }));
+    console.debug(util.inspect(data, { depth: 4 }));
 
     const args = {
         body: JSON.stringify(data),
@@ -193,8 +249,9 @@ router.post('/generate', jsonParser, async function (req, res) {
     };
 
     try {
-        const url = req.body.streaming ? `${API_NOVELAI}/ai/generate-stream` : `${API_NOVELAI}/ai/generate`;
-        const response = await fetch(url, { method: 'POST', timeout: 0, ...args });
+        const baseURL = (req.body.model.includes('kayra') || req.body.model.includes('erato')) ? TEXT_NOVELAI : API_NOVELAI;
+        const url = req.body.streaming ? `${baseURL}/ai/generate-stream` : `${baseURL}/ai/generate`;
+        const response = await fetch(url, { method: 'POST', ...args });
 
         if (req.body.streaming) {
             // Pipe remote SSE stream to Express response
@@ -203,7 +260,7 @@ router.post('/generate', jsonParser, async function (req, res) {
             if (!response.ok) {
                 const text = await response.text();
                 let message = text;
-                console.log(`Novel API returned error: ${response.status} ${response.statusText} ${text}`);
+                console.warn(`Novel API returned error: ${response.status} ${response.statusText} ${text}`);
 
                 try {
                     const data = JSON.parse(text);
@@ -213,11 +270,12 @@ router.post('/generate', jsonParser, async function (req, res) {
                     // ignore
                 }
 
-                return res.status(response.status).send({ error: { message } });
+                return res.status(500).send({ error: { message } });
             }
 
+            /** @type {any} */
             const data = await response.json();
-            console.log('NovelAI Output', data?.output);
+            console.info('NovelAI Output', data?.output);
             return res.send(data);
         }
     } catch (error) {
@@ -225,7 +283,7 @@ router.post('/generate', jsonParser, async function (req, res) {
     }
 });
 
-router.post('/generate-image', jsonParser, async (request, response) => {
+router.post('/generate-image', async (request, response) => {
     if (!request.body) {
         return response.sendStatus(400);
     }
@@ -233,12 +291,12 @@ router.post('/generate-image', jsonParser, async (request, response) => {
     const key = readSecret(request.user.directories, SECRET_KEYS.NOVEL);
 
     if (!key) {
-        console.log('NovelAI Access Token is missing.');
+        console.warn('NovelAI Access Token is missing.');
         return response.sendStatus(400);
     }
 
     try {
-        console.log('NAI Diffusion request:', request.body);
+        console.debug('NAI Diffusion request:', request.body);
         const generateUrl = `${IMAGE_NOVELAI}/ai/generate-image`;
         const generateResult = await fetch(generateUrl, {
             method: 'POST',
@@ -248,15 +306,18 @@ router.post('/generate-image', jsonParser, async (request, response) => {
             },
             body: JSON.stringify({
                 action: 'generate',
-                input: request.body.prompt,
+                input: request.body.prompt ?? '',
                 model: request.body.model ?? 'nai-diffusion',
                 parameters: {
+                    params_version: 3,
+                    prefer_brownian: true,
                     negative_prompt: request.body.negative_prompt ?? '',
                     height: request.body.height ?? 512,
                     width: request.body.width ?? 512,
                     scale: request.body.scale ?? 9,
-                    seed: Math.floor(Math.random() * 9999999999),
+                    seed: request.body.seed >= 0 ? request.body.seed : Math.floor(Math.random() * 9999999999),
                     sampler: request.body.sampler ?? 'k_dpmpp_2m',
+                    noise_schedule: request.body.scheduler ?? 'karras',
                     steps: request.body.steps ?? 28,
                     n_samples: 1,
                     // NAI handholding for prompts
@@ -264,23 +325,50 @@ router.post('/generate-image', jsonParser, async (request, response) => {
                     qualityToggle: false,
                     add_original_image: false,
                     controlnet_strength: 1,
-                    dynamic_thresholding: false,
+                    deliberate_euler_ancestral_bug: false,
+                    dynamic_thresholding: request.body.decrisper ?? false,
                     legacy: false,
+                    legacy_v3_extend: false,
                     sm: request.body.sm ?? false,
                     sm_dyn: request.body.sm_dyn ?? false,
                     uncond_scale: 1,
+                    use_coords: false,
+                    characterPrompts: [],
+                    reference_image_multiple: [],
+                    reference_information_extracted_multiple: [],
+                    reference_strength_multiple: [],
+                    v4_negative_prompt: {
+                        caption: {
+                            base_caption: request.body.negative_prompt ?? '',
+                            char_captions: [],
+                        },
+                    },
+                    v4_prompt: {
+                        caption: {
+                            base_caption: request.body.prompt ?? '',
+                            char_captions: [],
+                        },
+                        use_coords: false,
+                        use_order: true,
+                    },
                 },
             }),
         });
 
         if (!generateResult.ok) {
             const text = await generateResult.text();
-            console.log('NovelAI returned an error.', generateResult.statusText, text);
+            console.warn('NovelAI returned an error.', generateResult.statusText, text);
             return response.sendStatus(500);
         }
 
         const archiveBuffer = await generateResult.arrayBuffer();
         const imageBuffer = await extractFileFromZipBuffer(archiveBuffer, '.png');
+
+        if (!imageBuffer) {
+            console.error('NovelAI generated an image, but the PNG file was not found.');
+            return response.sendStatus(500);
+        }
+
         const originalBase64 = imageBuffer.toString('base64');
 
         // No upscaling
@@ -289,7 +377,7 @@ router.post('/generate-image', jsonParser, async (request, response) => {
         }
 
         try {
-            console.debug('Upscaling image...');
+            console.info('Upscaling image...');
             const upscaleUrl = `${API_NOVELAI}/ai/upscale`;
             const upscaleResult = await fetch(upscaleUrl, {
                 method: 'POST',
@@ -306,29 +394,35 @@ router.post('/generate-image', jsonParser, async (request, response) => {
             });
 
             if (!upscaleResult.ok) {
-                throw new Error('NovelAI returned an error.');
+                const text = await upscaleResult.text();
+                throw new Error('NovelAI returned an error.', { cause: text });
             }
 
             const upscaledArchiveBuffer = await upscaleResult.arrayBuffer();
             const upscaledImageBuffer = await extractFileFromZipBuffer(upscaledArchiveBuffer, '.png');
+
+            if (!upscaledImageBuffer) {
+                throw new Error('NovelAI upscaled an image, but the PNG file was not found.');
+            }
+
             const upscaledBase64 = upscaledImageBuffer.toString('base64');
 
             return response.send(upscaledBase64);
         } catch (error) {
-            console.warn('NovelAI generated an image, but upscaling failed. Returning original image.');
+            console.warn('NovelAI generated an image, but upscaling failed. Returning original image.', error);
             return response.send(originalBase64);
         }
     } catch (error) {
-        console.log(error);
+        console.error(error);
         return response.sendStatus(500);
     }
 });
 
-router.post('/generate-voice', jsonParser, async (request, response) => {
+router.post('/generate-voice', async (request, response) => {
     const token = readSecret(request.user.directories, SECRET_KEYS.NOVEL);
 
     if (!token) {
-        console.log('NovelAI Access Token is missing.');
+        console.error('NovelAI Access Token is missing.');
         return response.sendStatus(400);
     }
 
@@ -347,17 +441,16 @@ router.post('/generate-voice', jsonParser, async (request, response) => {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'audio/mpeg',
             },
-            timeout: 0,
         });
 
         if (!result.ok) {
             const errorText = await result.text();
-            console.log('NovelAI returned an error.', result.statusText, errorText);
+            console.error('NovelAI returned an error.', result.statusText, errorText);
             return response.sendStatus(500);
         }
 
         const chunks = await readAllChunks(result.body);
-        const buffer = Buffer.concat(chunks);
+        const buffer = Buffer.concat(chunks.map(chunk => new Uint8Array(chunk)));
         response.setHeader('Content-Type', 'audio/mpeg');
         return response.send(buffer);
     }
@@ -366,5 +459,3 @@ router.post('/generate-voice', jsonParser, async (request, response) => {
         return response.sendStatus(500);
     }
 });
-
-module.exports = { router };

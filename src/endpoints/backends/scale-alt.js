@@ -7,7 +7,6 @@ const { readSecret, SECRET_KEYS } = require('../secrets');
 
 const router = express.Router();
 
-
 router.post('/generate', jsonParser, async function (request, response) {
     if (!request.body) return response.sendStatus(400);
 

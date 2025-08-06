@@ -107,7 +107,6 @@
     height: auto;
     margin-top: 0;
     margin-bottom: 0;
-    min-height: calc(var(--mainFontSize) + 14px);
 }
 
 .delete_entry_button {
@@ -118,6 +117,18 @@
     flex-direction: row;
     align-items: center;
     flex-wrap: wrap;
+}
+
+.world_entry .inline-drawer-header {
+    cursor: initial;
+}
+
+.world_entry .inline-drawer-header-pointer {
+    cursor: pointer;
+}
+
+.world_entry .killSwitch {
+    cursor: pointer;
 }
 
 .world_entry_form_control input[type=button] {
@@ -173,6 +184,10 @@
     width: 7em;
 }
 
+.world_entry .killSwitch.fa-toggle-on {
+    color: var(--SmartThemeQuoteColor);
+}
+
 .wi-card-entry {
     border: 1px solid;
     border-color: var(--SmartThemeBorderColor);
@@ -182,7 +197,11 @@
 }
 
 .world_entry {
-    transition: opacity 500ms;
+    transition: opacity var(--animation-duration-3x);
+}
+
+.world_entry_edit {
+    display: contents;
 }
 
 .disabledWIEntry {
@@ -251,9 +270,32 @@ select.keyselect+span.select2-container .select2-selection--multiple {
 
     opacity: 0.5;
     color: var(--SmartThemeBodyColor);
-    transition: opacity 0.3s;
+    transition: opacity var(--animation-duration-2x);
 }
 
 .switch_input_type_icon:hover {
     opacity: 1;
+}
+
+#wiCheckboxes {
+    align-self: center;
+    width: 100%;
+}
+
+.world_entry:has(input[name="delay_until_recursion"]:not(:checked)) .world_entry_form_control:has(input[name="delayUntilRecursionLevel"]) {
+    display: none;
+}
+
+.world_entry label[for="__invisible"] {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+
+#WIMultiSelector .select2-container .select2-selection--multiple {
+    max-height: 25vh;
+    overflow-y: auto;
+    overflow-x: hidden;
 }

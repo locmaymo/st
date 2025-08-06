@@ -1,10 +1,10 @@
-const { TEXTGEN_TYPES, OPENROUTER_HEADERS } = require('./constants');
-const { SECRET_KEYS, readSecret } = require('./endpoints/secrets');
-const { getConfigValue } = require('./util');
+import { TEXTGEN_TYPES, OPENROUTER_HEADERS, FEATHERLESS_HEADERS } from './constants.js';
+import { SECRET_KEYS, readSecret } from './endpoints/secrets.js';
+import { getConfigValue } from './util.js';
 
 /**
  * Gets the headers for the Mancer API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getMancerHeaders(directories) {
@@ -18,7 +18,7 @@ function getMancerHeaders(directories) {
 
 /**
  * Gets the headers for the TogetherAI API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getTogetherAIHeaders(directories) {
@@ -31,7 +31,7 @@ function getTogetherAIHeaders(directories) {
 
 /**
  * Gets the headers for the InfermaticAI API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getInfermaticAIHeaders(directories) {
@@ -44,7 +44,7 @@ function getInfermaticAIHeaders(directories) {
 
 /**
  * Gets the headers for the DreamGen API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getDreamGenHeaders(directories) {
@@ -57,7 +57,7 @@ function getDreamGenHeaders(directories) {
 
 /**
  * Gets the headers for the OpenRouter API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getOpenRouterHeaders(directories) {
@@ -69,7 +69,7 @@ function getOpenRouterHeaders(directories) {
 
 /**
  * Gets the headers for the vLLM API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getVllmHeaders(directories) {
@@ -82,7 +82,7 @@ function getVllmHeaders(directories) {
 
 /**
  * Gets the headers for the Aphrodite API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getAphroditeHeaders(directories) {
@@ -96,7 +96,7 @@ function getAphroditeHeaders(directories) {
 
 /**
  * Gets the headers for the Tabby API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getTabbyHeaders(directories) {
@@ -110,7 +110,7 @@ function getTabbyHeaders(directories) {
 
 /**
  * Gets the headers for the LlamaCPP API.
- * @param {import('./users').UserDirectoryList} directories User directories
+ * @param {import('./users.js').UserDirectoryList} directories User directories
  * @returns {object} Headers for the request
  */
 function getLlamaCppHeaders(directories) {
@@ -123,7 +123,7 @@ function getLlamaCppHeaders(directories) {
 
 /**
  * Gets the headers for the Ooba API.
- * @param {import('./users').UserDirectoryList} directories
+ * @param {import('./users.js').UserDirectoryList} directories
  * @returns {object} Headers for the request
  */
 function getOobaHeaders(directories) {
@@ -136,7 +136,7 @@ function getOobaHeaders(directories) {
 
 /**
  * Gets the headers for the KoboldCpp API.
- * @param {import('./users').UserDirectoryList} directories
+ * @param {import('./users.js').UserDirectoryList} directories
  * @returns {object} Headers for the request
  */
 function getKoboldCppHeaders(directories) {
@@ -147,7 +147,45 @@ function getKoboldCppHeaders(directories) {
     }) : {};
 }
 
-function getOverrideHeaders(urlHost) {
+/**
+ * Gets the headers for the Featherless API.
+ * @param {import('./users.js').UserDirectoryList} directories
+ * @returns {object} Headers for the request
+ */
+function getFeatherlessHeaders(directories) {
+    const apiKey = readSecret(directories, SECRET_KEYS.FEATHERLESS);
+    const baseHeaders = { ...FEATHERLESS_HEADERS };
+
+    return apiKey ? Object.assign(baseHeaders, { 'Authorization': `Bearer ${apiKey}` }) : baseHeaders;
+}
+
+/**
+ * Gets the headers for the HuggingFace API.
+ * @param {import('./users.js').UserDirectoryList} directories
+ * @returns {object} Headers for the request
+ */
+function getHuggingFaceHeaders(directories) {
+    const apiKey = readSecret(directories, SECRET_KEYS.HUGGINGFACE);
+
+    return apiKey ? ({
+        'Authorization': `Bearer ${apiKey}`,
+    }) : {};
+}
+
+/**
+ * Gets the headers for the Generic text completion API.
+ * @param {import('./users.js').UserDirectoryList} directories
+ * @returns {object} Headers for the request
+ */
+function getGenericHeaders(directories) {
+    const apiKey = readSecret(directories, SECRET_KEYS.GENERIC);
+
+    return apiKey ? ({
+        'Authorization': `Bearer ${apiKey}`,
+    }) : {};
+}
+
+export function getOverrideHeaders(urlHost) {
     const requestOverrides = getConfigValue('requestOverrides', []);
     const overrideHeaders = requestOverrides?.find((e) => e.hosts?.includes(urlHost))?.headers;
     if (overrideHeaders && urlHost) {
@@ -163,7 +201,18 @@ function getOverrideHeaders(urlHost) {
  * @param {object} args New request arguments
  * @param {string|null} server API server for new request
  */
-function setAdditionalHeaders(request, args, server) {
+export function setAdditionalHeaders(request, args, server) {
+    setAdditionalHeadersByType(args.headers, request.body.api_type, server, request.user.directories);
+}
+
+/**
+ *
+ * @param {object} requestHeaders Request headers
+ * @param {string} type API type
+ * @param {string|null} server API server for new request
+ * @param {import('./users.js').UserDirectoryList} directories User directories
+ */
+export function setAdditionalHeadersByType(requestHeaders, type, server, directories) {
     const headerGetters = {
         [TEXTGEN_TYPES.MANCER]: getMancerHeaders,
         [TEXTGEN_TYPES.VLLM]: getVllmHeaders,
@@ -176,15 +225,18 @@ function setAdditionalHeaders(request, args, server) {
         [TEXTGEN_TYPES.OPENROUTER]: getOpenRouterHeaders,
         [TEXTGEN_TYPES.KOBOLDCPP]: getKoboldCppHeaders,
         [TEXTGEN_TYPES.LLAMACPP]: getLlamaCppHeaders,
+        [TEXTGEN_TYPES.FEATHERLESS]: getFeatherlessHeaders,
+        [TEXTGEN_TYPES.HUGGINGFACE]: getHuggingFaceHeaders,
+        [TEXTGEN_TYPES.GENERIC]: getGenericHeaders,
     };
 
-    const getHeaders = headerGetters[request.body.api_type];
-    const headers = getHeaders ? getHeaders(request.user.directories) : {};
+    const getHeaders = headerGetters[type];
+    const headers = getHeaders ? getHeaders(directories) : {};
 
     if (typeof server === 'string' && server.length > 0) {
         try {
             const url = new URL(server);
-            const overrideHeaders =  getOverrideHeaders(url.host);
+            const overrideHeaders = getOverrideHeaders(url.host);
 
             if (overrideHeaders && Object.keys(overrideHeaders).length > 0) {
                 Object.assign(headers, overrideHeaders);
@@ -194,10 +246,5 @@ function setAdditionalHeaders(request, args, server) {
         }
     }
 
-    Object.assign(args.headers, headers);
+    Object.assign(requestHeaders, headers);
 }
-
-module.exports = {
-    getOverrideHeaders,
-    setAdditionalHeaders,
-};
