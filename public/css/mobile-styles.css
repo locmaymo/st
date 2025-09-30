@@ -128,6 +128,13 @@
         max-width: unset;
     }
 
+    #select_backup_chat_popup {
+        align-items: start;
+        height: min-content;
+        align-content: start;
+        max-width: unset;
+    }
+
     #wiActivationSettings,
     #wiTopBlock {
         flex-direction: column;

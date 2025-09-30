@@ -126,6 +126,9 @@ export function redirectDeprecatedEndpoints(app) {
     redirect('/api/serpapi/transcript', '/api/search/transcript');
 }
 
+// middleware
+import validate  from './middleware/validator.js';
+
 /**
  * Setup the routers for the endpoints.
  * @param {import('express').Express} app The Express app to use
@@ -166,10 +169,10 @@ export function setupPrivateEndpoints(app) {
     app.use('/api/extra/classify', classifyRouter);
     app.use('/api/extra/caption', captionRouter);
     app.use('/api/search', searchRouter);
-    app.use('/api/backends/text-completions', textCompletionsRouter);
+    app.use('/api/backends/text-completions', validate, textCompletionsRouter);
     app.use('/api/openrouter', openRouterRouter);
     app.use('/api/backends/kobold', koboldRouter);
-    app.use('/api/backends/chat-completions', chatCompletionsRouter);
+    app.use('/api/backends/chat-completions', validate, chatCompletionsRouter);
     app.use('/api/speech', speechRouter);
     app.use('/api/azure', azureRouter);
     app.use('/api/data-maid', dataMaidRouter);

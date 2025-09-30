@@ -5,6 +5,9 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
+import extractArchive from 'extract-zip';
+import AdmZip from 'adm-zip';
+import { execSync } from 'node:child_process';
 
 // Express and other dependencies
 import storage from 'node-persist';
@@ -1014,6 +1017,427 @@ export async function createBackupArchive(handle, response) {
     // Append files from a sub-directory, putting its contents at the root of archive
     archive.directory(directories.root, false);
     archive.finalize();
+}
+
+/**
+ * Upload an archive of the user's data root directory then extract it to restore the user's data.
+ * @param {string} handle User handle
+ * @param {import('express').Request} request Express request object containing the uploaded file
+ * @param {import('express').Response} response Express response object
+ * @returns {Promise<void>} Promise that resolves when the data is restored
+ */
+export async function restoreUserData(handle, request, response) {
+    try {
+        // Check if the uploaded file exists
+        if (!request.file) {
+            throw new Error('No file uploaded');
+        }
+
+        const filePath = request.file.path;
+        const directories = getUserDirectories(handle);
+        const destinationPath = path.resolve(directories.root);
+
+        console.log(`Starting smart restore for user: ${handle}`);
+
+        // Step 1: Extract to temporary directory inside repo (not system temp)
+        const tempDir = path.join(globalThis.DATA_ROOT, '_temp', `${handle}-temp-${Date.now()}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        console.log(`Extracting to temporary directory: ${tempDir}`);
+        execSync(`tar -xf "${filePath}" -C "${tempDir}"`);
+
+        // Step 2: Normalize problematic filenames in temp directory
+        console.log('Normalizing filenames in extracted data...');
+        const nameMapping = normalizeProblematicFilenames(tempDir);
+
+        // Step 3: Smart merge - preserve new structure, overwrite existing files
+        console.log('Performing smart merge...');
+        await smartMergeDirectories(tempDir, destinationPath, nameMapping);
+
+        // Step 4: Clean up
+        console.log('Cleaning up temporary files...');
+
+        // IMPORTANT: Clean all problematic filenames in temp directory before deletion
+        // This ensures Windows can delete all files properly
+        console.log('Pre-cleanup: Normalizing any remaining problematic filenames...');
+        cleanAllProblematicFilenames(tempDir);
+
+        try {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            fs.unlinkSync(filePath); // Remove the uploaded file
+            console.log('Temporary directory cleaned successfully');
+        } catch (cleanupError) {
+            console.warn('Warning: Could not fully clean up temporary directory:', cleanupError.message);
+            console.warn('Temporary files may remain at:', tempDir);
+            // Try alternative cleanup method
+            try {
+                if (process.platform === 'win32') {
+                    execSync(`rmdir /s /q "${tempDir}"`, { stdio: 'ignore' });
+                } else {
+                    execSync(`rm -rf "${tempDir}"`, { stdio: 'ignore' });
+                }
+                fs.unlinkSync(filePath); // Remove the uploaded file
+            } catch (altCleanupError) {
+                console.warn('Alternative cleanup also failed:', altCleanupError.message);
+            }
+        }
+
+        console.log('Restore completed successfully');
+        response.status(200).json({ message: 'User data restored successfully' });
+        console.info(`User data for ${handle} restored successfully.`);
+    } catch (error) {
+        console.error('Error restoring user data:', error);
+        response.status(500).json({ error: error.message });
+    }
+}
+
+/**
+ * Clean ALL problematic filenames in a directory (more aggressive than normalize)
+ * @param {string} rootPath Root path to clean
+ */
+function cleanAllProblematicFilenames(rootPath) {
+    function processDirectory(dirPath) {
+        try {
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const oldName = entry.name;
+                const oldPath = path.join(dirPath, oldName);
+
+                // Clean the name - remove ALL non-ASCII characters
+                const cleanedName = oldName
+                    .replace(/[^\x20-\x7E]/g, '') // Remove non-ASCII characters
+                    // .replace(/\s+/g, '_')         // Replace spaces with underscores
+                    .trim();                      // Remove leading/trailing spaces
+
+                if (cleanedName !== oldName && cleanedName.length > 0) {
+                    // Generate a simple fallback name if cleaned name is empty or conflicts
+                    let finalName = cleanedName || `file_${Date.now()}`;
+                    let counter = 1;
+
+                    while (fs.existsSync(path.join(dirPath, finalName))) {
+                        const ext = path.extname(cleanedName);
+                        const base = path.basename(cleanedName, ext);
+                        finalName = `${base}_${counter}${ext}`;
+                        counter++;
+                    }
+
+                    const finalPath = path.join(dirPath, finalName);
+
+                    try {
+                        fs.renameSync(oldPath, finalPath);
+                        console.log(`Pre-cleanup renamed: "${oldName}" -> "${finalName}"`);
+
+                        // Recursively process if it's a directory
+                        if (entry.isDirectory()) {
+                            processDirectory(finalPath);
+                        }
+                    } catch (err) {
+                        console.warn(`Error pre-cleanup renaming "${oldPath}":`, err.message);
+                        // If rename fails, try to delete the problematic file/directory directly
+                        try {
+                            if (entry.isDirectory()) {
+                                fs.rmSync(oldPath, { recursive: true, force: true });
+                            } else {
+                                fs.unlinkSync(oldPath);
+                            }
+                            console.log(`Force deleted problematic item: "${oldName}"`);
+                        } catch (deleteError) {
+                            console.warn(`Could not delete problematic item "${oldPath}":`, deleteError.message);
+                        }
+                    }
+                } else if (entry.isDirectory()) {
+                    // Process subdirectory even if name didn't change
+                    processDirectory(oldPath);
+                }
+            }
+        } catch (error) {
+            console.warn(`Error processing directory ${dirPath}:`, error.message);
+        }
+    }
+
+    processDirectory(rootPath);
+}
+
+/**
+ * Normalize problematic filenames and return mapping
+ * @param {string} rootPath Root path to normalize
+ * @returns {Map<string, string>} Mapping from old names to new names
+ */
+function normalizeProblematicFilenames(rootPath) {
+    const nameMapping = new Map();
+
+    function cleanName(name) {
+        return name
+            .replace(/[^\x20-\x7E]/g, '') // Remove non-ASCII characters
+            .replace(/\s+/g, ' ')         // Replace multiple spaces with single space
+            .trim();                      // Remove leading/trailing spaces
+    }
+
+    function processDirectory(dirPath, relativePath = '') {
+        try {
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const oldName = entry.name;
+                const cleanedName = cleanName(oldName);
+                const oldPath = path.join(dirPath, oldName);
+                const newPath = path.join(dirPath, cleanedName);
+                const relativeOldPath = path.join(relativePath, oldName);
+                const relativeNewPath = path.join(relativePath, cleanedName);
+
+                if (cleanedName !== oldName && cleanedName.length > 0) {
+                    // Handle name conflicts
+                    let finalName = cleanedName;
+                    let counter = 1;
+                    while (fs.existsSync(path.join(dirPath, finalName))) {
+                        const ext = path.extname(cleanedName);
+                        const base = path.basename(cleanedName, ext);
+                        finalName = `${base}_${counter}${ext}`;
+                        counter++;
+                    }
+
+                    const finalPath = path.join(dirPath, finalName);
+                    const relativeFinalPath = path.join(relativePath, finalName);
+
+                    try {
+                        fs.renameSync(oldPath, finalPath);
+                        nameMapping.set(relativeOldPath, relativeFinalPath);
+                        console.log(`Normalized: "${relativeOldPath}" -> "${relativeFinalPath}"`);
+
+                        // Recursively process if it's a directory
+                        if (entry.isDirectory()) {
+                            processDirectory(finalPath, relativeFinalPath);
+                        }
+                    } catch (err) {
+                        console.warn(`Error renaming "${oldPath}":`, err.message);
+                    }
+                } else if (entry.isDirectory()) {
+                    // Process subdirectory even if name didn't change
+                    processDirectory(oldPath, relativeOldPath);
+                }
+            }
+        } catch (error) {
+            console.warn(`Error processing directory ${dirPath}:`, error.message);
+        }
+    }
+
+    processDirectory(rootPath);
+    return nameMapping;
+}
+
+/**
+ * Smart merge directories - preserve new structure, overwrite existing files
+ * @param {string} sourceDir Source directory
+ * @param {string} targetDir Target directory
+ * @param {Map<string, string>} nameMapping Name mapping for consistency
+ */
+async function smartMergeDirectories(sourceDir, targetDir, nameMapping) {
+    // Ensure target directory exists
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    // IMPORTANT: Handle characters and chats synchronization FIRST
+    // This must be done before general copying to avoid conflicts
+    await synchronizeCharactersAndChats(sourceDir, targetDir, nameMapping);
+
+    // Then copy all OTHER directories (excluding characters and chats)
+    function copyRecursively(srcPath, destPath, relativePath = '') {
+        try {
+            const entries = fs.readdirSync(srcPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                // Skip characters and chats directories as they're already handled
+                if ((relativePath === '' && entry.name === 'characters') ||
+                    (relativePath === '' && entry.name === 'chats')) {
+                    continue;
+                }
+
+                const srcItemPath = path.join(srcPath, entry.name);
+                const destItemPath = path.join(destPath, entry.name);
+                const relativeItemPath = path.join(relativePath, entry.name);
+
+                if (entry.isDirectory()) {
+                    // Create directory if it doesn't exist
+                    if (!fs.existsSync(destItemPath)) {
+                        fs.mkdirSync(destItemPath, { recursive: true });
+                        console.log(`Created new directory: ${relativeItemPath}`);
+                    }
+
+                    // Recursively copy contents
+                    copyRecursively(srcItemPath, destItemPath, relativeItemPath);
+                } else if (entry.isFile()) {
+                    if (fs.existsSync(destItemPath)) {
+                        console.log(`Overwriting existing file: ${relativeItemPath}`);
+                    } else {
+                        console.log(`Adding new file: ${relativeItemPath}`);
+                    }
+
+                    // Copy file (overwrites if exists)
+                    fs.copyFileSync(srcItemPath, destItemPath);
+                }
+            }
+        } catch (error) {
+            console.warn(`Error copying from ${srcPath} to ${destPath}:`, error.message);
+        }
+    }
+
+    copyRecursively(sourceDir, targetDir);
+}
+
+/**
+ * Synchronize characters and chats directories to maintain consistency
+ * @param {string} sourceDir Source directory
+ * @param {string} targetDir Target directory
+ * @param {Map<string, string>} nameMapping Name mapping
+ */
+async function synchronizeCharactersAndChats(sourceDir, targetDir, nameMapping) {
+    const sourceCharsDir = path.join(sourceDir, 'characters');
+    const sourceChatsDir = path.join(sourceDir, 'chats');
+    const targetCharsDir = path.join(targetDir, 'characters');
+    const targetChatsDir = path.join(targetDir, 'chats');
+
+    if (!fs.existsSync(sourceCharsDir) && !fs.existsSync(sourceChatsDir)) {
+        return; // Skip if both directories don't exist
+    }
+
+    // Create target directories if they don't exist
+    if (!fs.existsSync(targetCharsDir)) {
+        fs.mkdirSync(targetCharsDir, { recursive: true });
+    }
+    if (!fs.existsSync(targetChatsDir)) {
+        fs.mkdirSync(targetChatsDir, { recursive: true });
+    }
+
+    try {
+        // Handle characters directory
+        if (fs.existsSync(sourceCharsDir)) {
+            const characterFiles = fs.readdirSync(sourceCharsDir).filter(f =>
+                f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.webp')
+            );
+
+            for (const charFile of characterFiles) {
+                const originalCharName = path.basename(charFile, path.extname(charFile));
+                const normalizedCharName = originalCharName.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+
+                if (normalizedCharName.length === 0) {
+                    console.warn(`Skipping character file with invalid name: ${charFile}`);
+                    continue;
+                }
+
+                const sourceCharPath = path.join(sourceCharsDir, charFile);
+                const normalizedCharFile = normalizedCharName + path.extname(charFile);
+                const targetCharPath = path.join(targetCharsDir, normalizedCharFile);
+
+                try {
+                    // Copy character file
+                    fs.copyFileSync(sourceCharPath, targetCharPath);
+                    console.log(`Synchronized character: ${charFile} -> ${normalizedCharFile}`);
+                } catch (copyError) {
+                    console.warn(`Error copying character file ${charFile}:`, copyError.message);
+                    continue;
+                }
+
+                // Handle corresponding chat directory
+                const sourceChatDir = path.join(sourceChatsDir, originalCharName);
+                const targetChatDir = path.join(targetChatsDir, normalizedCharName);
+
+                if (fs.existsSync(sourceChatDir)) {
+                    if (!fs.existsSync(targetChatDir)) {
+                        fs.mkdirSync(targetChatDir, { recursive: true });
+                    }
+
+                    // Copy all chat files, normalizing their names
+                    try {
+                        const chatFiles = fs.readdirSync(sourceChatDir);
+                        for (const chatFile of chatFiles) {
+                            if (chatFile.endsWith('.jsonl')) {
+                                const sourceChatPath = path.join(sourceChatDir, chatFile);
+
+                                // Normalize chat file name
+                                const normalizedChatFile = chatFile
+                                    .replace(originalCharName, normalizedCharName)
+                                    .replace(/[^\x20-\x7E.@-]/g, '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+
+                                const targetChatPath = path.join(targetChatDir, normalizedChatFile);
+
+                                try {
+                                    fs.copyFileSync(sourceChatPath, targetChatPath);
+                                    console.log(`Synchronized chat: ${chatFile} -> ${normalizedChatFile}`);
+                                } catch (chatCopyError) {
+                                    console.warn(`Error copying chat file ${chatFile}:`, chatCopyError.message);
+                                }
+                            }
+                        }
+                    } catch (chatDirError) {
+                        console.warn(`Error reading chat directory ${sourceChatDir}:`, chatDirError.message);
+                    }
+                }
+            }
+        }
+
+        // Handle remaining chat directories that don't have corresponding characters
+        if (fs.existsSync(sourceChatsDir)) {
+            try {
+                const chatDirs = fs.readdirSync(sourceChatsDir, { withFileTypes: true });
+                for (const chatDir of chatDirs) {
+                    if (chatDir.isDirectory()) {
+                        const originalChatDirName = chatDir.name;
+                        const normalizedChatDirName = originalChatDirName.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+
+                        if (normalizedChatDirName.length === 0) {
+                            console.warn(`Skipping chat directory with invalid name: ${originalChatDirName}`);
+                            continue;
+                        }
+
+                        const sourceChatDirPath = path.join(sourceChatsDir, originalChatDirName);
+                        const targetChatDirPath = path.join(targetChatsDir, normalizedChatDirName);
+
+                        // Check if we already processed this directory
+                        if (fs.existsSync(targetChatDirPath)) {
+                            continue;
+                        }
+
+                        if (!fs.existsSync(targetChatDirPath)) {
+                            fs.mkdirSync(targetChatDirPath, { recursive: true });
+                        }
+
+                        try {
+                            const chatFiles = fs.readdirSync(sourceChatDirPath);
+                            for (const chatFile of chatFiles) {
+                                if (chatFile.endsWith('.jsonl')) {
+                                    const sourceChatPath = path.join(sourceChatDirPath, chatFile);
+                                    const normalizedChatFile = chatFile
+                                        .replace(/[^\x20-\x7E.@-]/g, '')
+                                        .replace(/\s+/g, ' ')
+                                        .trim();
+
+                                    const targetChatPath = path.join(targetChatDirPath, normalizedChatFile);
+
+                                    try {
+                                        fs.copyFileSync(sourceChatPath, targetChatPath);
+                                        console.log(`Synchronized orphaned chat: ${chatFile} -> ${normalizedChatFile}`);
+                                    } catch (orphanChatError) {
+                                        console.warn(`Error copying orphaned chat ${chatFile}:`, orphanChatError.message);
+                                    }
+                                }
+                            }
+                        } catch (orphanDirError) {
+                            console.warn(`Error reading orphaned chat directory ${sourceChatDirPath}:`, orphanDirError.message);
+                        }
+                    }
+                }
+            } catch (chatsDirError) {
+                console.warn(`Error reading chats directory ${sourceChatsDir}:`, chatsDirError.message);
+            }
+        }
+
+    } catch (error) {
+        console.warn('Error synchronizing characters and chats:', error.message);
+    }
 }
 
 /**

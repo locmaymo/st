@@ -962,3 +962,189 @@ router.post('/recent', async function (request, response) {
         return response.sendStatus(500);
     }
 });
+
+// tìm kiếm các file backup chat
+router.post('/search/backup', async function (request, response) {
+    try {
+        const { query } = request.body;
+        const backupDir = request.user.directories.backups;
+
+        if (!fs.existsSync(backupDir)) {
+            return response.send([]);
+        }
+
+        // Lấy tất cả files backup chat
+        const allFiles = await fs.promises.readdir(backupDir, { withFileTypes: true });
+        const chatBackupFiles = allFiles
+            .filter(file => file.isFile() && file.name.startsWith(CHAT_BACKUPS_PREFIX) && file.name.endsWith('.jsonl'))
+            .map(file => file.name);
+
+        const results = [];
+
+        for (const fileName of chatBackupFiles) {
+            const filePath = path.join(backupDir, fileName);
+            const stats = await fs.promises.stat(filePath);
+
+            // Đọc file để lấy thông tin chat
+            const data = await fs.promises.readFile(filePath, 'utf8');
+            if (!data.trim()) continue;
+
+            const lines = data.split('\n').filter(line => line.trim());
+            if (lines.length === 0) continue;
+
+            // Parse first line để lấy metadata
+            let chatMetadata = {};
+            try {
+                const firstLine = JSON.parse(lines[0]);
+                chatMetadata = {
+                    user_name: firstLine.user_name || 'Unknown',
+                    character_name: firstLine.character_name || 'Unknown'
+                };
+            } catch (e) {
+                console.warn(`Could not parse backup file metadata: ${fileName}`);
+                continue;
+            }
+
+            // Parse messages để lấy preview và search content
+            const messages = lines.slice(1).map(line => {
+                try { return JSON.parse(line); } catch { return null; }
+            }).filter(x => x);
+
+            let lastMessage = '';
+            let messageCount = messages.length;
+
+            if (messages.length > 0) {
+                lastMessage = messages[messages.length - 1].mes || '[Empty message]';
+            }
+
+            // **Thêm logic search ở đây**
+            if (query && query.trim()) {
+                const searchText = [
+                    fileName,
+                    chatMetadata.character_name,
+                    chatMetadata.user_name,
+                    lastMessage,
+                    // Thêm tất cả messages vào search content
+                    ...messages.map(msg => msg.mes || '')
+                ].join(' ').toLowerCase();
+
+                const fragments = query.trim().toLowerCase().split(/\s+/).filter(x => x);
+                const hasMatch = fragments.every(fragment => searchText.includes(fragment));
+
+                if (!hasMatch) continue; // Skip nếu không match
+            }
+
+            results.push({
+                file_name: fileName,
+                file_size: formatBytes(stats.size),
+                message_count: messageCount,
+                last_mes: stats.mtimeMs,
+                preview_message: getPreviewMessage(messages),
+                character_name: chatMetadata.character_name,
+                user_name: chatMetadata.user_name,
+                backup_timestamp: extractBackupTimestamp(fileName)
+            });
+        }
+
+        // Sort by last modified time (newest first)
+        results.sort((a, b) => b.last_mes - a.last_mes);
+
+        return response.send(results);
+    } catch (error) {
+        console.error('Backup search error:', error);
+        return response.status(500).json({ error: 'Backup search failed' });
+    }
+});
+
+router.post('/import/backup', validateAvatarUrlMiddleware, async function (request, response) {
+    try {
+        const { backup_file_name, target_character_name } = request.body;
+
+        if (!backup_file_name) {
+            return response.status(400).json({ error: 'Backup file name is required' });
+        }
+
+        const backupDir = request.user.directories.backups;
+        const backupFilePath = path.join(backupDir, backup_file_name);
+
+        // Kiểm tra file backup có tồn tại không
+        if (!fs.existsSync(backupFilePath)) {
+            return response.status(404).json({ error: 'Backup file not found' });
+        }
+
+        // Đọc nội dung backup file
+        const backupData = await fs.promises.readFile(backupFilePath, 'utf8');
+        const lines = backupData.split('\n').filter(line => line.trim());
+
+        if (lines.length === 0) {
+            return response.status(400).json({ error: 'Backup file is empty' });
+        }
+
+        // Parse header để lấy thông tin
+        let chatHeader;
+        try {
+            chatHeader = JSON.parse(lines[0]);
+        } catch (e) {
+            return response.status(400).json({ error: 'Invalid backup file format' });
+        }
+
+        // Xác định character để import vào
+        const avatarUrl = request.body.avatar_url;
+        const characterName = target_character_name || chatHeader.character_name;
+
+        if (!avatarUrl) {
+            return response.status(400).json({ error: 'Character avatar URL is required' });
+        }
+
+        // Tạo tên file chat mới
+        const timestamp = humanizedISO8601DateTime();
+        const fileName = `${characterName} - ${timestamp} (Bản Khôi Phục).jsonl`;
+
+        // Đường dẫn đến thư mục chat của character
+        const characterChatDir = path.join(
+            request.user.directories.chats,
+            avatarUrl.replace('.png', '')
+        );
+
+        // Tạo thư mục nếu chưa có
+        if (!fs.existsSync(characterChatDir)) {
+            await fs.promises.mkdir(characterChatDir, { recursive: true });
+        }
+
+        const targetFilePath = path.join(characterChatDir, sanitize(fileName));
+
+        // Cập nhật header với thông tin character hiện tại
+        const updatedHeader = {
+            ...chatHeader,
+            character_name: characterName,
+            user_name: chatHeader.user_name || 'User',
+            create_date: chatHeader.create_date || timestamp
+        };
+
+        // Tạo nội dung chat mới
+        const updatedLines = [JSON.stringify(updatedHeader), ...lines.slice(1)];
+        const chatContent = updatedLines.join('\n');
+
+        // Ghi file chat mới
+        writeFileAtomicSync(targetFilePath, chatContent, 'utf8');
+
+        console.log(`Imported backup ${backup_file_name} to ${fileName}`);
+
+        return response.json({
+            success: true,
+            file_name: fileName,
+            character_name: characterName
+        });
+
+    } catch (error) {
+        console.error('Backup import error:', error);
+        return response.status(500).json({ error: 'Failed to import backup' });
+    }
+});
+
+// Helper function để extract timestamp từ backup filename
+function extractBackupTimestamp(fileName) {
+    // Backup files có format: chat_[name]_[timestamp].jsonl
+    const match = fileName.match(/chat_.*_(\d{4}-\d{2}-\d{2}@\d{6})\.jsonl$/);
+    return match ? match[1] : '';
+}

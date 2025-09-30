@@ -17,3 +17,11 @@ body.safari #select_chat_div {
 body.safari #select_chat_popup {
     height: max-content;
 }
+
+body.safari #select_backup_chat_div {
+    height: auto;
+}
+
+body.safari #select_backup_chat_popup {
+    height: max-content;
+}

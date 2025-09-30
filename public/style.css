@@ -6296,3 +6296,95 @@ body:not(.movingUI) .drawer-content.maximized {
     border-color: var(--error-color, #e87f7f);
     background-color: rgba(241, 163, 163, 0.2);
 }
+
+/* select backup chat */
+#shadow_select_backup_chat_popup {
+    display: none;
+    opacity: 1.0;
+    position: absolute;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 4100;
+    top: 0;
+    background-color: var(--black70a);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
+}
+
+#select_backup_chat_popup {
+    display: flex;
+    flex-direction: column;
+    max-width: var(--sheldWidth);
+    height: min-content;
+    max-height: calc(100vh - var(--topBarBlockSize));
+    max-height: calc(100dvh - var(--topBarBlockSize));
+    min-height: 100px;
+    position: absolute;
+    z-index: 2066;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin-top: auto;
+    margin-bottom: auto;
+    margin-left: auto;
+    margin-right: auto;
+    box-shadow: 0px 0px 20px black;
+    padding: 10px;
+    background-color: var(--SmartThemeBlurTintColor);
+    border-radius: 10px;
+    overflow-y: hidden;
+    border: 1px solid var(--SmartThemeBorderColor);
+}
+
+#select_backup_chat_div {
+    padding: 0;
+    height: 100%;
+    overflow-y: auto;
+}
+
+#select_backup_chat_div hr {
+    margin: 0;
+}
+
+.select_backup_chat_block_wrapper {
+    cursor: pointer;
+}
+
+.select_backup_chat_block {
+    border-radius: 5px;
+    margin-top: 5px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    padding: 5px 7px;
+}
+
+.select_backup_chat_block:hover {
+    background-color: var(--white30a);
+}
+
+.select_backup_chat_block[highlight] {
+    background-color: var(--cobalt30a);
+}
+
+.select_backup_chat_block .avatar {
+    grid-row: span 2;
+}
+
+.select_backup_chat_block_filename_item {
+    opacity: 0.5;
+    width: fit-content;
+}
+
+.select_backup_chat_block_filename {
+    flex: 1
+}
+
+.select_backup_chat_block_mes {
+    font-size: calc(var(--mainFontSize) - .25rem);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    line-clamp: 3;
+    overflow: hidden;
+}

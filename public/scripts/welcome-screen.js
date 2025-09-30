@@ -83,8 +83,70 @@ export async function openWelcomeScreen({ force = false, expand = false } = {}) 
 
     await sendWelcomePanel(recentChats, expand);
     await unshallowPermanentAssistant();
-    sendAssistantMessage();
     sendWelcomePrompt();
+    sendYoutubeEmbed();
+    sendAssistantMessage();
+}
+
+/**
+ * Sends a YouTube embed for the welcome screen
+ */
+function sendYoutubeEmbed() {
+    const chatElement = document.getElementById('chat');
+    if (!chatElement) {
+        console.error('Chat element not found');
+        return;
+    }
+
+    // Create YouTube embed container
+    const youtubeContainer = document.createElement('div');
+    youtubeContainer.className = 'youtube-embed-container';
+    youtubeContainer.style.cssText = `
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px 0;
+        padding: 20px;
+        background-color: var(--SmartThemeBotMesBlurTintColor);
+        border: 1px solid var(--SmartThemeBorderColor);
+        border-radius: 10px;
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+    `;
+
+    // Create responsive iframe wrapper
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 0;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        overflow: hidden;
+    `;
+
+    // Create iframe element
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://www.youtube.com/embed/dMs0xi27s50';
+    iframe.title = 'Tạo App dev trên Lark Developer để chuẩn bị làm Automation';
+    iframe.frameBorder = '0';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+    iframe.allowFullscreen = true;
+    iframe.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+    `;
+
+    iframeWrapper.appendChild(iframe);
+    youtubeContainer.appendChild(iframeWrapper);
+    chatElement.appendChild(youtubeContainer);
 }
 
 /**

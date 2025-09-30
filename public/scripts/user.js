@@ -283,6 +283,59 @@ async function backupUserData(handle, callback) {
 }
 
 /**
+ * Restore user data from a backup file.
+ * @param {string} handle User handle
+ * @param {File} file Backup file
+ * @param {function} callback Success callback
+ * @returns {Promise<void>}
+ */
+async function restoreUserData(handle, file, callback) {
+    try {
+        // Check if the file is a zip file
+        if (file.type !== 'application/zip' &&
+            file.type !== 'application/x-zip-compressed' &&
+            file.type !== 'multipart/x-zip' &&
+            file.type !== '') {
+            toastr.error('Please select a zip file', 'Invalid File Type');
+            return;
+        }
+
+        const confirm = await callGenericPopup(
+            `Bạn Chắc Chắn Muốn Khôi Phục Dữ Liệu Bằng File Này: ${file.name}?`,
+            POPUP_TYPE.CONFIRM,
+            '',
+            { okButton: 'Chắc_Chắn', cancelButton: 'Cancel', wide: false, large: false }
+        );
+
+        if (confirm !== POPUP_RESULT.AFFIRMATIVE) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+        formData.append('handle', handle);
+
+        const response = await fetch('/api/users/restore', {
+            method: 'POST',
+            headers: getRequestHeaders({ omitContentType: true }),
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            toastr.error(data.error || 'Unknown error', 'Khôi phục dữ liệu thất bại');
+            throw new Error('Failed to restore settings');
+        }
+
+        toastr.success('Dữ liệu đã được khôi phục thành công', 'Khôi phục dữ liệu thành công');
+        callback();
+    } catch (error) {
+        console.error('Error restoring settings:', error);
+        toastr.error('Đã xảy ra lỗi trong quá trình khôi phục dữ liệu', 'Khôi phục dữ liệu thất bại');
+    }
+}
+
+/**
  * Shows a popup to change a user's password.
  * @param {string} handle User handle
  * @param {function} callback Success callback
@@ -718,51 +771,13 @@ async function openUserProfile() {
         if (!(this instanceof HTMLInputElement)) {
             return;
         }
-    
+
         const file = this.files[0];
         if (!file) {
             return;
         }
-    
-        // Check if the file is a zip file
-        if (file.type !== 'application/zip' && file.type !== 'application/x-zip-compressed' && file.type !== 'multipart/x-zip' && file.type !== '') {
-            console.error('Please select a zip file');
-            return;
-        }
-    
-        const confirm = await callGenericPopup(
-            `Bạn Chắc Chắn Muốn Khôi Phục Dữ Liệu Bằng File Này: ${file.name}?`,
-            POPUP_TYPE.CONFIRM,
-            '',
-            { okButton: 'Chắc_Chắn', cancelButton: 'Cancel', wide: false, large: false },
-        );
-    
-        if (confirm !== POPUP_RESULT.AFFIRMATIVE) {
-            return;
-        }
-    
-        const formData = new FormData();
-        formData.append('avatar', file);
-        formData.append('handle', currentUser.handle); // Add handle to the form data
-    
-        try {
-            const response = await fetch('/api/users/restore', {
-                method: 'POST',
-                headers: getRequestHeaders(false),
-                body: formData,
-            });
-    
-            if (!response.ok) {
-                const data = await response.json();
-                toastr.error(data.error || 'Unknown error', 'Failed to restore settings');
-                throw new Error('Failed to restore settings');
-            }
-    
-            toastr.success('Settings restored successfully', 'Settings Restored');
-            location.reload();
-        } catch (error) {
-            console.error('Error restoring settings:', error);
-        }
+
+        await restoreUserData(currentUser.handle, file, () => location.reload());
     });
     template.find('.userAvatarRemove').on('click', async function () {
         await changeAvatar(currentUser.handle, '');
@@ -975,6 +990,61 @@ jQuery(() => {
     });
     $('#account_button').on('click', () => {
         openUserProfile();
+    });
+    // Download backup button
+    $(document).on('click', '#download-backup-button', function() {
+        if ($(this).hasClass('disabled')) {
+            return; // Ngăn click khi đã disabled
+        }
+        $(this).addClass('disabled');
+        backupUserData(getCurrentUserHandle(), () => {
+            $(this).removeClass('disabled');
+        }).catch(() => {
+            // Đảm bảo button được enable lại nếu có lỗi
+            $(this).removeClass('disabled');
+        });
+    });
+    // Upload backup button - sử dụng restoreUserData
+    $(document).on('click', '#upload-backup-button', function(event) {
+        event.preventDefault();
+
+        if ($(this).hasClass('disabled')) {
+            return; // Ngăn click khi đã disabled
+        }
+
+        // Tạo input file ẩn để chọn file
+        const fileInput = $('<input type="file" accept=".zip" style="display: none;">');
+
+        fileInput.on('change', async function() {
+            if (!(this instanceof HTMLInputElement)) {
+                return;
+            }
+
+            const file = this.files[0];
+            if (!file) {
+                return;
+            }
+
+            // Disable button trong khi xử lý
+            $('#upload-backup-button').addClass('disabled');
+
+            try {
+                await restoreUserData(getCurrentUserHandle(), file, () => {
+                    // Reload trang sau khi restore thành công
+                    location.reload();
+                });
+            } catch (error) {
+                console.error('Error during restore:', error);
+            } finally {
+                // Enable lại button
+                $('#upload-backup-button').removeClass('disabled');
+            }
+        });
+
+        // Trigger click để mở file dialog
+        fileInput.trigger('click');
+
+        return false;
     });
     setInterval(async () => {
         if (currentUser) {

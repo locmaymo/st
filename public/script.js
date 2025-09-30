@@ -266,6 +266,7 @@ import { initDataMaid } from './scripts/data-maid.js';
 import { clearItemizedPrompts, deleteItemizedPrompts, findItemizedPromptSet, initItemizedPrompts, itemizedParams, itemizedPrompts, loadItemizedPrompts, promptItemize, replaceItemizedPromptText, saveItemizedPrompts } from './scripts/itemized-prompts.js';
 import { getSystemMessageByType, initSystemMessages, SAFETY_CHAT, sendSystemMessage, system_message_types, system_messages } from './scripts/system-messages.js';
 import { event_types, eventSource } from './scripts/events.js';
+import { initProxyvnPanel } from './scripts/proxyvn.js';
 
 // API OBJECT FOR EXTERNAL WIRING
 globalThis.SillyTavern = {
@@ -684,6 +685,7 @@ async function firstLoadInit() {
     initBulkEdit();
     initReasoning();
     initWelcomeScreen();
+    initProxyvnPanel();
     await initScrapers();
     initCustomSelectedSamplers();
     initDataMaid();
@@ -7373,6 +7375,125 @@ async function displayChats(searchQuery, currentChat, displayName, avatarImg, se
     }
 }
 
+// Displays backup chats from the server, allowing users to search and import them into the current character's chat history.
+async function displayBackupChats(searchQuery = '') {
+    try {
+        console.log('Search query:', searchQuery); // Debug log
+
+        $('#select_backup_chat_div').empty();
+
+        // Chỉ reset search input nếu không có query (lần đầu load)
+        if (!searchQuery) {
+            $('#select_backup_chat_search').val('').off('input');
+        }
+
+        const response = await fetch('/api/chats/search/backup', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ query: searchQuery }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Backup search failed');
+        }
+
+        const backupData = await response.json();
+        console.log('Backup data received:', backupData.length, 'items'); // Debug log
+
+        const container = $('#select_backup_chat_div');
+        container.empty();
+
+        backupData.sort((a, b) => b.last_mes - a.last_mes); // Sort by newest first
+
+        for (const backup of backupData) {
+            const template = $('#backup_chat_template .select_backup_chat_block_wrapper').clone();
+            template.find('.select_backup_chat_block').attr('file_name', backup.file_name);
+            template.find('.select_backup_chat_block_filename').text(backup.file_name);
+            template.find('.backup_chat_character').text(`${backup.character_name} (${backup.user_name})`);
+            template.find('.backup_file_size').text(`(${backup.file_size},`);
+            template.find('.backup_messages_num').text(`${backup.message_count} 💬)`);
+            template.find('.select_backup_chat_block_mes').text(backup.preview_message);
+            template.find('.backup_timestamp').text(backup.backup_timestamp);
+            template.find('.backup_import_button').attr('data-backup-file', backup.file_name);
+            template.find('.backup_messages_date').text(timestampToMoment(backup.last_mes).format('lll'));
+
+            container.append(template);
+        }
+
+        // Add import functionality
+        container.find('.backup_import_button').on('click', function() {
+            const backupFileName = $(this).attr('data-backup-file');
+            importBackupToCurrentCharacter(backupFileName);
+        });
+
+        // Chỉ setup search functionality một lần
+        if (!searchQuery) {
+            setupBackupSearchHandler();
+        }
+
+    } catch (error) {
+        console.error('Error loading backup chats:', error);
+        toastr.error('Không thể tải dữ liệu sao lưu.');
+    }
+}
+
+// Tách riêng search handler để tránh duplicate event listeners
+function setupBackupSearchHandler() {
+    const debouncedSearch = debounce((searchQuery) => {
+        console.log('Debounced search triggered:', searchQuery); // Debug log
+        displayBackupChats(searchQuery);
+    }, 300);
+
+    $('#select_backup_chat_search').on('input', function () {
+        const searchQuery = $(this).val();
+        console.log('Search input changed:', searchQuery); // Debug log
+        debouncedSearch(searchQuery);
+    });
+}
+
+async function importBackupToCurrentCharacter(backupFileName) {
+    if (this_chid === undefined || !characters[this_chid]) {
+        toastr.error('Vui lòng chọn nhân vật.');
+        return;
+    }
+
+    const confirm = await callGenericPopup(
+        `Bạn có muốn nhập file chat: "${backupFileName}" vào lịch sử trò chuyện của ${characters[this_chid].name}?`,
+        POPUP_TYPE.CONFIRM
+    );
+
+    if (!confirm) return;
+
+    try {
+        const response = await fetch('/api/chats/import/backup', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                backup_file_name: backupFileName,
+                avatar_url: characters[this_chid].avatar,
+                target_character_name: characters[this_chid].name
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Import failed');
+        }
+
+        const result = await response.json();
+        toastr.success(`Bản sao lưu đã được nhập với tên "${result.file_name}". Vui lòng mở menu quản lý trò chuyện để kiểm tra`);
+
+        // Refresh chat list if viewing character chats
+        if (menu_type === 'characters') {
+            await displayPastChats();
+        }
+
+    } catch (error) {
+        console.error('Nhập bản sao lưu thất bại:', error);
+        toastr.error(`Nhập bản sao lưu thất bại: ${error.message}`);
+    }
+}
+
 export function selectRightMenuWithAnimation(selectedMenuId) {
     const displayModes = {
         'rm_group_chats_block': 'flex',
@@ -9906,6 +10027,27 @@ jQuery(async function () {
             }
         }
 
+        else if (id == 'option_select_backup_chat') {
+            if (this_chid === undefined && !is_send_press && !selected_group) {
+                await openPermanentAssistantCard();
+            }
+            if ((selected_group && !is_group_generating) || (this_chid !== undefined && !is_send_press) || fromSlashCommand) {
+                await displayBackupChats();
+                //this is just to avoid the shadow for past chat view when using /delchat
+                //however, the dialog popup still gets one..
+                if (!fromSlashCommand) {
+                    console.log('displaying shadow');
+                    $('#shadow_select_backup_chat_popup').css('display', 'block');
+                    $('#shadow_select_backup_chat_popup').css('opacity', 0.0);
+                    $('#shadow_select_backup_chat_popup').transition({
+                        opacity: 1.0,
+                        duration: animation_duration,
+                        easing: animation_easing,
+                    });
+                }
+            }
+        }
+
         else if (id == 'option_start_new_chat') {
             if ((selected_group || this_chid !== undefined) && !is_send_press) {
                 let deleteCurrentChat = false;
@@ -10125,6 +10267,15 @@ jQuery(async function () {
             easing: animation_easing,
         });
         setTimeout(function () { $('#shadow_select_chat_popup').css('display', 'none'); }, animation_duration);
+    });
+
+    $('#select_backup_chat_cross').on('click', function () {
+        $('#shadow_select_backup_chat_popup').transition({
+            opacity: 0,
+            duration: animation_duration,
+            easing: animation_easing,
+        });
+        setTimeout(function () { $('#shadow_select_backup_chat_popup').css('display', 'none'); }, animation_duration);
     });
 
     $(document).on('pointerup', '.mes_copy', async function () {

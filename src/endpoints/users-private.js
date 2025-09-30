@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import storage from 'node-persist';
 import express from 'express';
 
-import { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, ensurePublicDirectoriesExist, toAvatarKey } from '../users.js';
+import { getUserAvatar, toKey, getPasswordHash, getPasswordSalt, createBackupArchive, ensurePublicDirectoriesExist, toAvatarKey, restoreUserData } from '../users.js';
 import { SETTINGS_FILE } from '../constants.js';
 import { checkForNewContent, CONTENT_TYPES } from './content-manager.js';
 import { color, Cache } from '../util.js';
@@ -154,6 +154,66 @@ router.post('/backup', async (request, response) => {
     } catch (error) {
         console.error('Backup failed', error);
         return response.sendStatus(500);
+    }
+});
+
+// restore
+router.post('/restore', async (request, response) => {
+    try {
+        const handle = request.body.handle;
+
+        if (!handle) {
+            console.log('Restore failed: Missing required fields');
+            return response.status(400).json({ error: 'Missing required fields' });
+        }
+
+        if (handle !== request.user.profile.handle && !request.user.profile.admin) {
+            console.log('Restore failed: Unauthorized');
+            return response.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (!request.file) {
+            console.log('Restore failed: Missing archive file');
+            return response.status(400).json({ error: 'Missing archive file' });
+        }
+
+        await restoreUserData(handle, request, response);
+    } catch (error) {
+        console.error('Restore failed:', error);
+        return response.sendStatus(500);
+    }
+});
+
+// Thêm vào server routes
+router.get('/proxyvn-balance', async (req, res) => {
+    try {
+        const apiKey = req.headers.authorization?.replace('Bearer ', '');
+
+        if (!apiKey) {
+            return res.status(400).json({ error: 'Missing API key' });
+        }
+
+        // Gọi API ProxyVN từ server (không bị CORS)
+        const response = await fetch('https://proxyvn.top/get-api-key-info', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        if (!response.ok) {
+            return res.status(response.status).json({
+                error: `ProxyVN API error: ${response.status}`
+            });
+        }
+
+        const data = await response.json();
+        res.json(data);
+
+    } catch (error) {
+        console.error('Error calling ProxyVN API:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

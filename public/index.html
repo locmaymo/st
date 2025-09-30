@@ -43,6 +43,7 @@
     <link rel="stylesheet" type="text/css" href="css/select2-overrides.css">
     <link rel="stylesheet" type="text/css" href="css/mobile-styles.css">
     <link rel="stylesheet" type="text/css" href="css/user.css">
+    <link rel="stylesheet" type="text/css" href="css/proxyvn-panel.css">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- Scripts are loaded at the end of the body to improve page load speed -->
 </head>
@@ -2863,6 +2864,10 @@
                                     </span>
                                     <br>
                                 </div>
+                                <button class="menu_button menu_button_icon drawer-opener inline-flex interactable" data-target="proxyvn-button" tabindex="0">
+                                    <i class="fa-solid fa-key"></i>
+                                    <span>Lấy Mật Khẩu API Key ProxyVN</span>
+                                </button>
                                 <div class="flex-container width100p">
                                     <input id="openai_proxy_password" type="password" class="text_pole flex1" placeholder="" form="openai_form" autocomplete="off" />
                                     <div id="openai_proxy_password_show" title="Peek a password" data-i18n="[title]Peek a password" class="menu_button fa-solid fa-eye-slash fa-fw"></div>
@@ -3011,6 +3016,7 @@
                                     <optgroup label="Versions">
                                         <option value="claude-opus-4-0">claude-opus-4-0</option>
                                         <option value="claude-opus-4-20250514">claude-opus-4-20250514</option>
+                                        <option value="claude-sonnet-4-5-20250929">claude-sonnet-4-5-20250929</option>
                                         <option value="claude-sonnet-4-0">claude-sonnet-4-0</option>
                                         <option value="claude-sonnet-4-20250514">claude-sonnet-4-20250514</option>
                                         <option value="claude-3-7-sonnet-latest">claude-3-7-sonnet-latest</option>
@@ -3683,6 +3689,159 @@
                     <a id="viewSecrets" href="javascript:void(0);" data-i18n="[missing_key_text]Missing key;[key_saved_text]Key saved" missing_key_text="❌ Missing key" key_saved_text="✔️ Key saved">
                         <span data-i18n="View hidden API keys">View hidden API keys</span>
                     </a>
+                </div>
+            </div>
+        </div>
+        <div id="proxyvn-button" class="drawer">
+            <div class="drawer-toggle drawer-header">
+                <div class="drawer-icon proxyvn-custom-icon closedIcon" title="Proxy VN" data-i18n="[title]Proxy VN">
+                    <img src="/img/proxyvn-logo.png" alt="ProxyVN" class="custom-icon-img">
+                </div>
+            </div>
+            <div id="proxyvn-content" class="drawer-content closedDrawer">
+                <div class="flex-container flexFlowColumn">
+                    <div class="flex-container alignItemsBaseline">
+                        <h3 class="margin0 flex1">
+                            <span>ProxyVN Account</span>
+                            <a href="https://proxyvn.top" target="_blank" class="notes-link">
+                                <span class="fa-solid fa-circle-question note-link-span"></span>
+                            </a>
+                        </h3>
+                        <div id="proxyvn_refresh" class="menu_button menu_button_icon" title="Refresh Account Info">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>Refresh</span>
+                        </div>
+                    </div>
+
+                    <!-- Account Status Section -->
+                    <div id="proxyvn-account-status" class="flex-container flexFlowColumn marginBot20">
+                        <div class="standoutHeader">
+                            <span>Thông tin tài khoản</span>
+                        </div>
+
+                        <!-- Balance Display -->
+                        <div id="proxyvn-balance-card" class="proxyvn-card">
+                            <div class="proxyvn-card-header">
+                                <h4><i class="fa-solid fa-coins"></i> Số dư</h4>
+                            </div>
+                            <div class="proxyvn-card-content">
+                                <div class="balance-display">
+                                    <span id="proxyvn-balance-amount" class="balance-amount">Vui lòng nhập API key...</span>
+                                    <span class="balance-currency">Xu</span>
+                                </div>
+                                <div class="balance-info">
+                                    <small>1000 Xu = 1000 VNĐ</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Key Display -->
+                    <div id="proxyvn-apikey-card" class="proxyvn-card">
+                        <div class="proxyvn-card-header">
+                            <h4><i class="fa-solid fa-key"></i> API Key của ProxyVN.top</h4>
+                        </div>
+                        <div class="proxyvn-card-content">
+                            <div class="apikey-display">
+                                <div class="apikey-input-group">
+                                    <input type="text" id="apikey-value" placeholder="Vui lòng nhập API Key">
+                                    <button id="get-apikey-btn" class="get-btn" title="Lấy API Key từ ProxyVN.top">
+                                        <i class="fa-solid fa-key"></i>
+                                    </button>
+                                    <button id="edit-apikey-btn" class="edit-btn" title="Nhập API Key" style="display: none;">
+                                        <i class="fa-solid fa-edit"></i>
+                                    </button>
+                                    <button id="copy-apikey-btn" class="copy-btn" title="Copy API Key" style="display: none;">
+                                        <i class="fa-solid fa-copy"></i>
+                                    </button>
+                                    <button id="toggle-apikey-btn" class="toggle-btn" title="Show/Hide API Key" style="display: none;">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    <button id="clear-apikey-btn" class="clear-btn" title="Xóa API Key" style="display: none;">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="apikey-info">
+                                    <small>
+                                        <strong>Hướng dẫn:</strong>
+                                        1. Bấm nút <i class="fa-solid fa-key"></i> để mở Dashboard ProxyVN.top
+                                        2. Đăng nhập và copy API Key từ trang dashboard
+                                        3. Quay lại đây và dán API Key vào ô trên
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deposit Section -->
+                    <div id="proxyvn-deposit-section" class="flex-container flexFlowColumn marginTop20">
+                        <div class="standoutHeader">
+                            <span>Nạp tiền</span>
+                        </div>
+
+                        <!-- Quick Amount Buttons -->
+                        <div class="deposit-amounts">
+                            <button class="amount-btn" data-amount="10000">10,000đ</button>
+                            <button class="amount-btn" data-amount="20000">20,000đ</button>
+                            <button class="amount-btn" data-amount="30000">30,000đ</button>
+                            <button class="amount-btn" data-amount="90000">90,000đ</button>
+                            <button class="amount-btn" data-amount="100000">100,000đ</button>
+                            <button class="amount-btn" data-amount="200000">200,000đ</button>
+                        </div>
+
+                        <!-- Custom Amount Input -->
+                        <div class="custom-amount">
+                            <label for="custom-amount-input">Hoặc nhập số tiền khác (tối thiểu 2,000đ):</label>
+                            <div class="amount-input-group">
+                                <input type="number" id="custom-amount-input" min="2000" step="1000" placeholder="Nhập số tiền">
+                                <span class="currency">VNĐ</span>
+                            </div>
+                        </div>
+
+                        <!-- QR Code Section -->
+                        <div id="qr-section" class="qr-container" style="display: none;">
+                            <div class="qr-header">
+                                <h4>Quét mã QR để chuyển khoản</h4>
+                                <div class="qr-amount">
+                                    Số tiền: <span id="qr-display-amount">0đ</span>
+                                    <span class="bonus-info">+ Bonus 10%</span>
+                                </div>
+                            </div>
+
+                            <div class="qr-code-wrapper">
+                                <img class="qr-code" id="qrCodeImage" src="" alt="QR Code">
+                                <img class="qr-overlay" src="/img/proxyvn-logo.png" alt="ProxyVN Logo">
+                            </div>
+
+                            <div class="qr-instructions">
+                                <p><strong>Hướng dẫn:</strong></p>
+                                <ol>
+                                    <li>Mở ứng dụng ngân hàng</li>
+                                    <li>Quét mã QR hoặc chuyển khoản thủ công</li>
+                                    <li>Giữ nguyên nội dung chuyển khoản</li>
+                                    <li>Số dư sẽ được cập nhật tự động</li>
+                                </ol>
+                            </div>
+
+                            <div class="payment-info">
+                                <div class="bank-info">
+                                    <strong>Ngân hàng:</strong> VPBank<br>
+                                    <strong>STK:</strong> proxyai<br>
+                                    <strong>Chủ TK:</strong> Pham Quang Loc
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Deposit Note -->
+                        <div class="card-deposit-note">
+                            <div class="note-content">
+                                <i class="fa-solid fa-credit-card"></i>
+                                <span>Chức năng nạp bằng thẻ cào vui lòng truy cập </span>
+                                <a href="https://proxyvn.top" target="_blank">proxyvn.top</a>
+                                <span> để thực hiện</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6135,6 +6294,31 @@
                 <div id="select_chat_div"></div>
             </div>
         </div>
+        <div id="shadow_select_backup_chat_popup">
+            <div id="select_backup_chat_popup">
+                <div name="selectBackupPopupHeader" class="flex-container alignitemscenter justifySpaceBetween flexGap10">
+                    <div id="select_backup_import"> <!-- import backup popup header  -->
+                        <div id="selectBackupPopupHeaderText" class="TxtLrgBoldCenter">
+                            <span>Các đoạn chat lưu trữ</span>
+                        </div>
+                        <input type="search" id="select_backup_chat_search" class="text_pole flex1" data-i18n="[placeholder]Search..." placeholder="Search..." autocomplete="off">
+                        <div id="select_backup_chat_cross" class="opacity50p hoverglow fa-solid fa-circle-xmark fontsize120p" alt="Close Past Chat Popup"></div>
+                    </div>
+                </div>
+                <!-- note cho user cach su dung -->
+                <div class="note">
+                    <span>Đây là danh sách các file chat lưu trữ gần đây</span><br>
+                    <span>Bấm nút icon khôi phục <i class="fa-solid fa-rotate-right"></i></span><br>
+                    <span>File chat sẽ được khôi phục về</span>
+                    <a id="option_select_chat">
+                        <i class="fa-lg fa-solid fa-address-book"></i>
+                        <span data-i18n="Manage chat files">Manage chat files</span>
+                    </a>
+                </div>
+                <hr>
+                <div id="select_backup_chat_div"></div>
+            </div>
+        </div>
         <div id="background_template" class="template_element">
             <div class="bg_example flex-container" bgfile="" class="bg_example_img" title="">
                 <div title="Copy to system backgrounds" data-i18n="[title]Copy to system backgrounds" class="bg_button bg_example_copy fa-solid fa-file-arrow-up"></div>
@@ -6147,6 +6331,31 @@
             </div>
         </div>
         <!-- templates for JS to reuse when needed -->
+        <!-- Thêm template cho backup chat -->
+        <div id="backup_chat_template" class="template_element">
+            <div class="select_backup_chat_block_wrapper flex-container">
+                <div class="select_backup_chat_block wide100p flex-container" file_name="">
+                    <div class="select_backup_chat_block_filename_wrapper flex-container alignitemscenter justifySpaceBetween wide100p">
+                        <div class="flex-container alignItemsCenter">
+                            <small class="select_backup_chat_block_filename"></small>
+                            <small class="backup_chat_character"></small>
+                        </div>
+                        <div class="flex-container gap10px alignItemsCenter">
+                            <div class="backup_chat_info flex-container">
+                                <small class="backup_messages_date"></small>
+                                <small class="backup_file_size"></small>
+                                <small class="backup_messages_num"></small>
+                                <small class="backup_timestamp"></small>
+                            </div>
+                            <div class="flex-container gap10px">
+                                <div title="Khôi phục đoạn chat" class="backup_import_button opacity50p hoverglow fa-solid fa-rotate-right" data-backup-file=""></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="select_backup_chat_block_mes"></div>
+                </div>
+            </div>
+        </div>
         <div id="character_world_template" class="template_element">
             <div class="character_world range-block flexFlowColumn flex-container">
                 <div class="range-block-title">
@@ -7422,9 +7631,6 @@
     <div id="sheld">
         <div id="sheldheader" class="fa-solid fa-grip drag-grabber"></div>
         <div id="chat">
-            <div class="youtube-embed">
-                <iframe width="420" height="315" src="https://www.youtube.com/embed/a8x6wiNSssk" frameborder="0" allowfullscreen=""></iframe>
-              </div>
         </div>
         <div id="form_sheld">
             <div id="dialogue_del_mes">
@@ -7517,6 +7723,10 @@
             <a id="option_select_chat">
                 <i class="fa-lg fa-solid fa-address-book"></i>
                 <span data-i18n="Manage chat files">Manage chat files</span>
+            </a>
+            <a id="option_select_backup_chat">
+                <i class="fa-lg fa-solid fa-rotate-right"></i>
+                <span data-i18n="Manage backup chat">Khôi phục đoạn chat</span>
             </a>
             <hr>
             <a id="option_delete_mes">

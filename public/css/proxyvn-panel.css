@@ -1,0 +1,1092 @@
+/* ProxyVN Account Styles */
+.proxyvn-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    margin-bottom: 15px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.proxyvn-card-header {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.proxyvn-card-header h4 {
+    margin: 0;
+    color: var(--SmartThemeBodyColor);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.proxyvn-card-content {
+    padding: 16px;
+}
+
+/* Balance Display */
+.balance-display {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.balance-amount {
+    font-size: 28px;
+    font-weight: 700;
+    color: #4CAF50;
+}
+
+.balance-currency {
+    font-size: 16px;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.8;
+}
+
+.balance-info {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
+}
+
+/* Current Plan */
+.plan-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.plan-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.plan-badge.free {
+    background: #2196F3;
+    color: white;
+}
+
+.plan-badge.premium {
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #333;
+}
+
+.plan-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plan-detail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.9;
+}
+
+.plan-detail i {
+    width: 16px;
+    text-align: center;
+}
+
+/* Mobile-First Plan Cards */
+.plans-container-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.plan-card-compact {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.plan-card-compact:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.plan-card-compact.premium-plan {
+    border-color: #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.05));
+}
+
+.plan-badge-popular-compact {
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #333;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    z-index: 1;
+}
+
+.plan-compact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.plan-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--SmartThemeBodyColor);
+}
+
+.plan-title i {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.8;
+}
+
+.premium-plan .plan-title i {
+    color: #FFD700;
+    opacity: 1;
+}
+
+.plan-price-compact {
+    text-align: right;
+}
+
+.plan-price-compact .price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--SmartThemeBodyColor);
+    display: block;
+}
+
+.plan-price-compact .period {
+    font-size: 12px;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
+    display: block;
+    margin-top: 2px;
+}
+
+.plan-features-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.feature-item {
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.premium-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.auto-renew-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--SmartThemeBodyColor);
+}
+
+.auto-renew-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #FFD700;
+}
+
+.auto-renew-toggle label {
+    cursor: pointer;
+    user-select: none;
+}
+
+.plan-button-compact {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+}
+
+/* Current plan (disabled state) */
+.plan-button-compact.current {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Premium upgrade button (for free users) */
+.plan-button-compact.premium {
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #333;
+    font-weight: 700;
+    border: 2px solid transparent;
+}
+
+.plan-button-compact.premium:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
+    background: linear-gradient(45deg, #FFA500, #FFD700);
+}
+
+/* Free downgrade button (for premium users) */
+.plan-button-compact.free-downgrade {
+    background: rgba(96, 125, 139, 0.2);
+    color: #B0BEC5;
+    border: 2px solid rgba(96, 125, 139, 0.4);
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.plan-button-compact.free-downgrade:hover:not(:disabled) {
+    background: rgba(96, 125, 139, 0.3);
+    border-color: rgba(96, 125, 139, 0.6);
+    color: #CFD8DC;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(96, 125, 139, 0.2);
+}
+
+.plan-button-compact.free-downgrade:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(96, 125, 139, 0.2);
+}
+
+/* Deposit Section */
+.deposit-amounts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.amount-btn {
+    padding: 12px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--SmartThemeBodyColor);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.amount-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.amount-btn.selected {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: white;
+    font-weight: 600;
+}
+
+.custom-amount {
+    margin-top: 16px;
+}
+
+.custom-amount label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor);
+    font-weight: 500;
+}
+
+.amount-input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+}
+
+.amount-input-group:focus-within {
+    border-color: #4CAF50;
+}
+
+.amount-input-group input {
+    flex: 1;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: var(--SmartThemeBodyColor);
+    font-size: 14px;
+}
+
+.amount-input-group input:focus {
+    outline: none;
+}
+
+.amount-input-group input::placeholder {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.5;
+}
+
+.amount-input-group .currency {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--SmartThemeBodyColor);
+    font-size: 12px;
+    font-weight: 600;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* QR Code Section */
+.qr-container {
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.qr-header h4 {
+    margin: 0 0 8px 0;
+    color: var(--SmartThemeBodyColor);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.qr-amount {
+    font-size: 18px;
+    font-weight: 600;
+    color: #4CAF50;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bonus-info {
+    background: #4CAF50;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.qr-code-wrapper {
+    position: relative;
+    display: inline-block;
+    margin: 16px 0;
+}
+
+.qr-code {
+    width: 200px;
+    height: 200px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    display: block;
+}
+
+.qr-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.qr-instructions {
+    text-align: left;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.9;
+}
+
+.qr-instructions p {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.qr-instructions ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.qr-instructions li {
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.payment-info {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bank-info {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--SmartThemeBodyColor);
+    text-align: left;
+    font-family: monospace;
+}
+
+/* Card Deposit Note */
+.card-deposit-note {
+    margin-top: 16px;
+    background: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.note-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--SmartThemeBodyColor);
+    line-height: 1.4;
+    flex-wrap: wrap;
+}
+
+.note-content i {
+    color: #2196F3;
+    flex-shrink: 0;
+}
+
+.note-content a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.note-content a:hover {
+    text-decoration: underline;
+}
+
+/* Desktop Responsive */
+@media (min-width: 768px) {
+    .deposit-amounts {
+        grid-template-columns: repeat(6, 1fr);
+    }
+
+    .plans-container-mobile {
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .plan-card-compact {
+        flex: 1;
+    }
+
+    .qr-code {
+        width: 250px;
+        height: 250px;
+    }
+
+    .qr-overlay {
+        width: 50px;
+        height: 50px;
+        padding: 6px;
+    }
+
+    .note-content {
+        flex-wrap: nowrap;
+    }
+}
+
+/* Large screen adjustments */
+@media (min-width: 1024px) {
+    .plan-compact-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .plan-price-compact {
+        text-align: left;
+    }
+
+    .premium-controls {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .plan-button-compact {
+        flex: 1;
+        margin-left: 8px;
+    }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+    .qr-overlay {
+        background: #1a1a1a;
+    }
+
+    .bank-info {
+        background: rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* Loading states */
+.balance-amount.loading {
+    color: #666;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Error states */
+.balance-amount.error {
+    color: #f44336;
+}
+
+/* Success animations */
+.plan-button-compact.success {
+    background: #4CAF50;
+    color: white;
+    border: 2px solid #45a049;
+}
+
+/* Processing state */
+.plan-button-compact.processing {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+    position: relative;
+}
+
+.plan-button-compact.processing::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+    .plan-button-compact.free-downgrade {
+        background: rgba(69, 90, 100, 0.3);
+        color: #90A4AE;
+        border-color: rgba(69, 90, 100, 0.5);
+    }
+
+    .plan-button-compact.free-downgrade:hover:not(:disabled) {
+        background: rgba(69, 90, 100, 0.4);
+        border-color: rgba(69, 90, 100, 0.7);
+        color: #B0BEC5;
+    }
+}
+
+/* Free plan card styling when user is premium */
+.plan-card-compact.free-plan.user-premium {
+    border-color: rgba(96, 125, 139, 0.3);
+    background: rgba(96, 125, 139, 0.05);
+}
+
+.plan-card-compact.free-plan.user-premium .plan-title i {
+    color: #90A4AE;
+}
+
+.plan-card-compact.free-plan.user-premium:hover {
+    border-color: rgba(96, 125, 139, 0.5);
+    background: rgba(96, 125, 139, 0.1);
+}
+
+/* Premium plan card styling when user is free */
+.plan-card-compact.premium-plan.user-free {
+    border-color: #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.08));
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.1);
+}
+
+.plan-card-compact.premium-plan.user-free:hover {
+    border-color: #FFA500;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.2);
+}
+
+/* Text contrast improvements */
+.plan-button-compact.free-downgrade {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* Better visibility for light themes */
+@media (prefers-color-scheme: light) {
+    .plan-button-compact.free-downgrade {
+        background: rgba(69, 90, 100, 0.15);
+        color: #37474F;
+        border-color: rgba(69, 90, 100, 0.3);
+        text-shadow: none;
+    }
+
+    .plan-button-compact.free-downgrade:hover:not(:disabled) {
+        background: rgba(69, 90, 100, 0.25);
+        border-color: rgba(69, 90, 100, 0.5);
+        color: #263238;
+    }
+}
+
+/* API Key Display */
+.apikey-display {
+    width: 100%;
+}
+
+.apikey-input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.apikey-input-group input {
+    flex: 1;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: var(--SmartThemeBodyColor);
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+}
+
+.apikey-input-group input:focus {
+    outline: none;
+}
+
+.apikey-input-group input.hidden {
+    letter-spacing: 4px;
+    font-size: 16px;
+}
+
+.copy-btn, .toggle-btn, .edit-btn, .clear-btn, .get-btn {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--SmartThemeBodyColor);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.copy-btn:hover, .toggle-btn:hover, .edit-btn:hover, .clear-btn:hover, .get-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #4CAF50;
+}
+
+.copy-btn.copied {
+    background: #4CAF50;
+    color: white;
+}
+
+.apikey-info {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
+    font-size: 11px;
+}
+
+/* Auto-renew toggle in premium controls */
+.auto-renew-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auto-renew-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #FFD700;
+}
+
+.auto-renew-toggle.enabled {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+.auto-renew-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.auto-renew-label {
+    font-size: 13px;
+    color: var(--SmartThemeBodyColor);
+    min-width: fit-content;
+}
+
+.toggle-switch-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Toggle Switch Styles */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.3s ease;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    border-color: #4CAF50;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toggle-switch input:disabled + .toggle-slider:before {
+    cursor: not-allowed;
+}
+
+/* Auto-renew status text */
+.auto-renew-status {
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 30px;
+    text-align: center;
+}
+
+.auto-renew-status.enabled {
+    color: #4CAF50;
+}
+
+.auto-renew-status.disabled {
+    color: #f44336;
+}
+
+/* Loading state */
+.auto-renew-section.loading {
+    opacity: 0.6;
+}
+
+.auto-renew-section.loading .toggle-switch {
+    pointer-events: none;
+}
+
+.auto-renew-section.loading .toggle-slider:after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .auto-renew-section {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .toggle-switch-container {
+        margin-left: 0;
+        flex: 1;
+        justify-content: flex-end;
+    }
+
+    .auto-renew-label {
+        flex: 1;
+    }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+    .toggle-slider {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* Processing animation for plan buttons */
+.plan-button-compact.processing {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+    position: relative;
+}
+
+.plan-button-compact.processing::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Success state */
+.plan-button-compact.success {
+    background: #4CAF50 !important;
+    color: white !important;
+    border-color: #45a049 !important;
+}
+
+/* Auto-renew toggle in premium plan */
+.auto-renew-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.auto-renew-toggle input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+}
+
+.auto-renew-toggle label {
+    cursor: pointer;
+    user-select: none;
+}
+
+.auto-renew-toggle input:disabled + label {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Custom ProxyVN Icon Styles */
+.proxyvn-custom-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.custom-icon-img {
+    width: 100%;
+    height: 100%;
+    max-width: 30px;
+    max-height: 30px;
+    object-fit: contain;
+    border-radius: 20%; /* Round border */
+
+    /* Desaturate - ít màu sắc */
+    filter: saturate(0.3) brightness(0.8) contrast(0.9);
+
+    transition: all 0.3s ease;
+}
+
+/* Hover state - tăng màu sắc nhẹ */
+.drawer-toggle:hover .custom-icon-img {
+    filter: saturate(0.6) brightness(1) contrast(1);
+    transform: scale(1.05);
+}
+
+/* Active state - khi drawer mở (có màu đầy đủ) */
+.drawer-content:not(.closedDrawer) ~ .drawer-toggle .custom-icon-img {
+    filter: saturate(1) brightness(1.1) contrast(1.1);
+}
+
+/* Focus state */
+.drawer-toggle:focus .custom-icon-img {
+    filter: saturate(1) brightness(1.05) contrast(1.05);
+}
+
+
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+    .custom-icon-img {
+        filter: saturate(0.2) brightness(0.7) contrast(0.8);
+    }
+
+    .drawer-toggle:hover .custom-icon-img {
+        filter: saturate(0.5) brightness(0.9) contrast(0.9);
+    }
+
+    .drawer-content:not(.closedDrawer) ~ .drawer-toggle .custom-icon-img {
+        filter: saturate(1) brightness(1.1) contrast(1.1);
+    }
+}
+
+/* Light theme adjustments */
+@media (prefers-color-scheme: light) {
+    .custom-icon-img {
+        filter: saturate(0.4) brightness(0.85) contrast(0.9);
+    }
+
+    .drawer-toggle:hover .custom-icon-img {
+        filter: saturate(0.7) brightness(1) contrast(1);
+    }
+
+    .drawer-content:not(.closedDrawer) ~ .drawer-toggle .custom-icon-img {
+        filter: saturate(1) brightness(1.1) contrast(1.1);
+    }
+}
+
+/* Animation for state changes */
+@keyframes iconActivate {
+    0% {
+        filter: saturate(0.3) brightness(0.8);
+        transform: scale(1);
+    }
+    50% {
+        filter: saturate(0.7) brightness(1.05);
+        transform: scale(1.1);
+    }
+    100% {
+        filter: saturate(1) brightness(1.1);
+        transform: scale(1);
+    }
+}
+
+.drawer-content:not(.closedDrawer) ~ .drawer-toggle .custom-icon-img {
+    animation: iconActivate 0.4s ease-out;
+}
+
+/* Error/fallback styling nếu ảnh không load được */
+.custom-icon-img[alt]:empty::before {
+    content: attr(alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    font-size: 8px;
+    color: var(--SmartThemeBodyColor);
+    text-align: center;
+}
