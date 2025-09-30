@@ -605,6 +605,41 @@ export class ToolManager {
             }
         }
 
+        if (oai_settings.chat_completion_source === chat_completion_sources.FIREWORKS && Array.isArray(model_list)) {
+            const currentModel = model_list.find(model => model.id === oai_settings.fireworks_model);
+            if (currentModel) {
+                return currentModel.supports_tools;
+            }
+        }
+
+        if (oai_settings.chat_completion_source === chat_completion_sources.OPENROUTER && Array.isArray(model_list)) {
+            const currentModel = model_list.find(model => model.id === oai_settings.openrouter_model);
+            if (Array.isArray(currentModel?.supported_parameters)) {
+                return currentModel.supported_parameters.includes('tools');
+            }
+        }
+
+        if (oai_settings.chat_completion_source === chat_completion_sources.MISTRALAI && Array.isArray(model_list)) {
+            const currentModel = model_list.find(model => model.id === oai_settings.mistralai_model);
+            if (currentModel && currentModel.capabilities) {
+                return currentModel.capabilities.function_calling;
+            }
+        }
+
+        if (oai_settings.chat_completion_source === chat_completion_sources.AIMLAPI && Array.isArray(model_list)) {
+            const currentModel = model_list.find(model => model.id === oai_settings.aimlapi_model);
+            if (Array.isArray(currentModel?.features)) {
+                return currentModel.features.includes('openai/chat-completion.function');
+            }
+        }
+
+        if (oai_settings.chat_completion_source === chat_completion_sources.ELECTRONHUB && Array.isArray(model_list)) {
+            const currentModel = model_list.find(model => model.id === oai_settings.electronhub_model);
+            if (currentModel && currentModel.metadata?.function_call) {
+                return currentModel.metadata.function_call;
+            }
+        }
+
         const supportedSources = [
             chat_completion_sources.OPENAI,
             chat_completion_sources.CUSTOM,
@@ -620,6 +655,11 @@ export class ToolManager {
             chat_completion_sources.AI21,
             chat_completion_sources.XAI,
             chat_completion_sources.POLLINATIONS,
+            chat_completion_sources.MOONSHOT,
+            chat_completion_sources.FIREWORKS,
+            chat_completion_sources.COMETAPI,
+            chat_completion_sources.ELECTRONHUB,
+            chat_completion_sources.AZURE_OPENAI,
         ];
         return supportedSources.includes(oai_settings.chat_completion_source);
     }
@@ -723,7 +763,7 @@ export class ToolManager {
         }
 
         for (const toolCall of toolCalls) {
-            if (typeof toolCall.function !== 'object') {
+            if (!toolCall || !toolCall.function || typeof toolCall.function !== 'object') {
                 continue;
             }
 
