@@ -228,14 +228,27 @@ app.post('/api/remote/toggle', async (req, res) => {
         }, 5000);
 
     } else {
-        // TẮT
+        // --- TẮT (STOP) ---
         if (tunnelProcess) {
-            tunnelProcess.kill();
+            tunnelProcess.kill(); // Kill process chính
             tunnelProcess = null;
             publicUrl = "";
 
-            // Cố gắng kill sạch sẽ hơn (dành cho Linux/Mac/Termux)
-            try { cfSpawn('pkill', ['-f', 'cloudflared']); } catch(e){}
+            // [FIX LỖI CỦA BẠN TẠI ĐÂY]
+            // Kiểm tra hệ điều hành để dùng lệnh Kill phù hợp
+            try {
+                if (process.platform === 'win32') {
+                    // Nếu là Windows -> Dùng taskkill
+                    const cleanup = cfSpawn('taskkill', ['/F', '/IM', 'cloudflared.exe']);
+                    cleanup.on('error', () => {}); // Bỏ qua lỗi nếu không tìm thấy
+                } else {
+                    // Nếu là Linux/Termux -> Dùng pkill
+                    const cleanup = cfSpawn('pkill', ['-f', 'cloudflared']);
+                    cleanup.on('error', () => {});
+                }
+            } catch(e) {
+                // Không làm gì cả, chỉ là dọn dẹp thôi
+            }
         }
         res.json({ status: 'stopped' });
     }
