@@ -6218,3 +6218,156 @@ body:not(.movingUI) .drawer-content.maximized {
     line-clamp: 3;
     overflow: hidden;
 }
+
+/* --- PROXYVN THEME STYLES --- */
+:root {
+    --pvn-green: #1CC88A;
+    --pvn-blue: #4E73DF;
+    --pvn-red: #e74c3c;
+}
+
+/* Status Badge (Offline/Online) */
+.status-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: bold; text-transform: uppercase;
+    background: rgba(0,0,0,0.3); border: 1px solid #555;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #777; }
+.ping-ring { display: none; }
+
+/* Trạng thái Offline */
+.status-badge.offline .status-dot { background: var(--pvn-red); box-shadow: 0 0 5px var(--pvn-red); }
+.status-badge.offline { color: #ff7675; border-color: rgba(231, 76, 60, 0.3); }
+
+/* Trạng thái Online */
+.status-badge.online { color: var(--pvn-green); border-color: rgba(28, 200, 138, 0.3); position: relative; }
+.status-badge.online .status-dot { background: var(--pvn-green); z-index: 2; }
+.status-badge.online .ping-ring {
+    display: block; position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    width: 8px; height: 8px; border-radius: 50%; background: var(--pvn-green);
+    animation: ping-ripple 1.5s infinite; z-index: 1;
+}
+
+@keyframes ping-ripple {
+    0% { transform: translateY(-50%) scale(1); opacity: 0.8; }
+    100% { transform: translateY(-50%) scale(3.5); opacity: 0; }
+}
+
+/* Input Fix (Icon không bị chồng) */
+.pvn-input-wrapper { position: relative; margin-bottom: 10px; }
+.pvn-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #888; font-size: 14px; pointer-events: none; z-index: 5;
+}
+.pvn-input {
+    width: 100%; padding: 10px 10px 10px 35px !important; /* Padding trái 35px để né icon */
+    background: #2b2b30; border: 1px solid #444; border-radius: 6px;
+    color: white; box-sizing: border-box; height: 40px;
+}
+.pvn-input:focus { border-color: var(--pvn-blue); background: #333; }
+
+/* Link Group (Input + 2 Buttons) */
+.pvn-link-group { display: flex; gap: 5px; }
+.pvn-link-group input {
+    flex: 1; background: #151515; border: 1px solid #444; color: var(--pvn-blue);
+    font-weight: bold; padding: 0 10px; border-radius: 6px; cursor: pointer;
+}
+.action-btn {
+    width: 40px; height: 40px; border: none; border-radius: 6px;
+    background: #333; color: #eee; cursor: pointer; transition: 0.2s;
+}
+.action-btn:hover { background: var(--pvn-blue); color: white; }
+
+/* Big Button */
+.pvn-big-btn {
+    width: 100%; padding: 14px; font-size: 14px; font-weight: bold;
+    background: linear-gradient(90deg, var(--pvn-blue), var(--pvn-green));
+    color: white; border: none; border-radius: 8px; cursor: pointer;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.pvn-big-btn:hover { box-shadow: 0 5px 15px rgba(78, 115, 223, 0.4); transform: translateY(-1px); }
+.pvn-big-btn:active { transform: translateY(0); }
+.pvn-big-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.online-success-box {
+    background: rgba(28, 200, 138, 0.1); color: var(--pvn-green);
+    padding: 10px; border-radius: 6px; text-align: center;
+    margin-bottom: 10px; font-size: 14px; border: 1px solid rgba(28, 200, 138, 0.3);
+}
+
+/* Hiệu ứng cho fa-key: đổi màu và phát sáng mượt mà hơn */
+.custom-icon-key-attention {
+    animation: key-glow 1.5s infinite ease-in-out;
+}
+
+@keyframes key-glow {
+    0%, 100%{
+        color: #5f81e6;
+        filter: brightness(1.4);
+        text-shadow: 0 0 5px rgba(78, 115, 223, 0.5);
+    }
+    25% {
+        color: #1cbfc8;
+        filter: brightness(1);
+        text-shadow: none;
+    }
+    50% {
+        color: #1CC88A;
+        filter: brightness(1.4);
+        text-shadow: 0 0 12px rgba(28, 200, 138, 0.8);
+    }
+    75% {
+        color: #8fdf4e;
+        filter: brightness(1);
+        text-shadow: none;
+    }
+}
+
+/* Hiệu ứng cho fa-upload: nảy lên và sáng lên */
+.custom-icon-upload-attention {
+    animation: upload-bounce 2s infinite ease-in-out;
+}
+
+@keyframes upload-bounce {
+    0%, 100% {
+        transform: translateY(0) scale(1);
+        filter: brightness(1);
+    }
+    50% {
+        transform: translateY(-8px) scale(1.1);
+        filter: brightness(1.4);
+    }
+}
+
+/* Hiệu ứng cho fa-rocket: rung lắc nhẹ nhàng hơn */
+.custom-icon-rocket-attention {
+    animation: rocket-shake 2.5s infinite ease-in-out;
+}
+
+@keyframes rocket-shake {
+    0%   { transform: translate(0, 0) rotate(0deg); filter: brightness(1); }
+    35%  { transform: translate(0, 0) rotate(0deg); filter: brightness(1); }
+    38%  { transform: translate(0.5px, -0.5px) rotate(0.5deg); filter: brightness(1.05); }
+    41%  { transform: translate(-0.5px, 0.5px) rotate(-0.5deg); filter: brightness(1.08); }
+    44%  { transform: translate(0.6px, 0px) rotate(0.6deg); filter: brightness(1.10); }
+    47%  { transform: translate(-0.6px, -0.3px) rotate(-0.8deg); filter: brightness(1.12); }
+    50%  { transform: translate(1px, -1px) rotate(1deg); filter: brightness(1.2); }
+    53%  { transform: translate(-0.8px, 0.8px) rotate(-0.9deg); filter: brightness(1.18); }
+    56%  { transform: translate(0.9px, 0.2px) rotate(0.8deg); filter: brightness(1.22); }
+    59%  { transform: translate(-1px, -0.6px) rotate(-1deg); filter: brightness(1.26); }
+    62%  { transform: translate(0.6px, 1px) rotate(0.7deg); filter: brightness(1.20); }
+    65%  { transform: translate(-0.4px, -0.9px) rotate(-0.6deg); filter: brightness(1.18); }
+    68%  { transform: translate(0.7px, 0.7px) rotate(0.9deg); filter: brightness(1.22); }
+    71%  { transform: translate(-0.9px, 0.4px) rotate(-0.8deg); filter: brightness(1.30); }
+    75%  { transform: translate(-1px, 1px) rotate(-1deg); filter: brightness(1.4); }
+    78%  { transform: translate(0.8px, -0.8px) rotate(0.9deg); filter: brightness(1.25); }
+    81%  { transform: translate(-0.6px, 0.6px) rotate(-0.7deg); filter: brightness(1.20); }
+    84%  { transform: translate(0.5px, 0.5px) rotate(0.6deg); filter: brightness(1.15); }
+    85%  { transform: translate(1px, 1px) rotate(1deg); filter: brightness(1.2); }
+    88%  { transform: translate(-0.3px, -0.3px) rotate(-0.3deg); filter: brightness(1.1); }
+    92%  { transform: translate(0.2px, 0.2px) rotate(0.2deg); filter: brightness(1.05); }
+    96%  { transform: translate(-0.1px, 0px) rotate(-0.1deg); filter: brightness(1.02); }
+    100% { transform: translate(0, 0) rotate(0deg); filter: brightness(1); }
+}

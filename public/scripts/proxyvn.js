@@ -1,3 +1,6 @@
+// public/scripts/proxyvn.js
+
+// --- BIẾN TOÀN CỤC ---
 let proxyvnAccountData = null;
 let apiKeyVisible = false;
 let selectedAmount = 0;
@@ -11,29 +14,23 @@ const PROXYVN_API_KEY = 'proxyvn_api_key';
 const PROXYVN_API_BASE = 'https://proxyvn.top';
 const PROXYVN_DASHBOARD_URL = 'https://proxyvn.top/dashboard';
 
+// --- PHẦN KHỞI TẠO ---
+export function initProxyvnPanel() {
+    initializeEventListeners();
+    setupAutoRefresh();
+    setupRemoteTunnel(); // <--- [MỚI] Khởi tạo Remote Tunnel
+    console.log('ProxyVN panel initialized');
+}
+
 function initializeEventListeners() {
-    // Refresh account info button
     const refreshBtn = document.getElementById('proxyvn_refresh');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            refreshProxyvnAccount();
-        });
-    }
+    if (refreshBtn) refreshBtn.addEventListener('click', refreshProxyvnAccount);
 
-    // API Key controls
     setupApiKeyControls();
-
-    // Deposit amount buttons
     setupDepositButtons();
-
-    // Load saved API key on init
     loadSavedApiKey();
 }
 
-/**
- * Checks if the ProxyVN panel is currently open
- * @returns {boolean}
- */
 export function isProxyVNPanelOpen() {
     return document.querySelector('#proxyvn-button .drawer-content')?.classList.contains('openDrawer') ?? false;
 }
@@ -47,9 +44,8 @@ function setupAutoRefresh() {
                 setTimeout(() => {
                     const content = document.getElementById('proxyvn-content');
                     if (content && !content.classList.contains('closedDrawer')) {
-                        if (currentApiKey) {
-                            refreshProxyvnAccount();
-                        }
+                        if (currentApiKey) refreshProxyvnAccount();
+                        checkRemoteStatus(); // <--- [MỚI] Check trạng thái Tunnel mỗi khi mở panel
                     }
                 }, 300);
             });
@@ -57,72 +53,243 @@ function setupAutoRefresh() {
     }
 }
 
-function setupApiKeyControls() {
-    // Get API Key button - mở dashboard
-    const getBtn = document.getElementById('get-apikey-btn');
-    if (getBtn) {
-        getBtn.addEventListener('click', () => {
-            openProxyVNDashboard();
+// =============================================================================
+// [MỚI] LOGIC XỬ LÝ REMOTE TUNNEL (CLOUDFLARE)
+// =============================================================================
+
+const pvnUi = {
+    user: () => document.getElementById('pvn-r-user'),
+    pass: () => document.getElementById('pvn-r-pass'),
+    link: () => document.getElementById('pvn-r-link'),
+    configArea: () => document.getElementById('pvn-remote-config'),
+    statusArea: () => document.getElementById('pvn-remote-status'),
+    btn: () => document.getElementById('pvn-btn-toggle'),
+    indicator: () => document.getElementById('pvn-online-indicator')
+};
+
+function setupRemoteTunnel() {
+    // 1. Nút Bật/Tắt
+    const btn = document.getElementById('pvn-btn-toggle');
+    if (btn) btn.addEventListener('click', pvnToggleRemote);
+
+    // 2. Nút Copy (Icon)
+    const copyBtn = document.getElementById('pvn-copy-link-btn');
+    if(copyBtn) copyBtn.addEventListener('click', pvnCopyLink);
+
+    // 3. Nút Mở Link Tab Mới
+    const openBtn = document.getElementById('pvn-open-link-btn');
+    if(openBtn) openBtn.addEventListener('click', pvnOpenLink);
+
+    // 4. [FIX] Click trực tiếp vào ô Link cũng tự Copy luôn
+    const linkInput = document.getElementById('pvn-r-link');
+    if (linkInput) {
+        // Xóa hành động mặc định cũ nếu có và gán hàm copy
+        linkInput.addEventListener('click', () => {
+            pvnCopyLink();
         });
     }
 
-    // Edit API Key button
-    const editBtn = document.getElementById('edit-apikey-btn');
-    if (editBtn) {
-        editBtn.addEventListener('click', () => {
-            editApiKey();
-        });
-    }
+    checkRemoteStatus();
+}
 
-    // Copy API Key button
-    const copyBtn = document.getElementById('copy-apikey-btn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-            copyApiKey();
-        });
-    }
+async function checkRemoteStatus() {
+    try {
+        const res = await fetch('/api/remote/status', { method: 'POST' });
+        const data = await res.json();
 
-    // Toggle API Key visibility
-    const toggleBtn = document.getElementById('toggle-apikey-btn');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            toggleApiKeyVisibility();
-        });
-    }
+        const userEl = pvnUi.user();
+        const passEl = pvnUi.pass();
 
-    // Clear API Key button
-    const clearBtn = document.getElementById('clear-apikey-btn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            if (confirm('Bạn có chắc muốn xóa API Key?')) {
-                clearApiKey();
+        // Điền user/pass đã lưu (nếu có)
+        if(data.savedUser && userEl) userEl.value = data.savedUser;
+        if(data.savedPass && passEl) passEl.value = data.savedPass;
+
+        if(data.running) {
+            pvnShowRunning(data.url);
+        } else {
+            pvnShowStopped();
+        }
+    } catch(e) {
+        console.error("ProxyVN Remote Error:", e);
+    }
+}
+
+async function pvnToggleRemote() {
+    const statusArea = pvnUi.statusArea();
+    const isRunning = statusArea && statusArea.style.display !== 'none';
+
+    const userEl = pvnUi.user();
+    const passEl = pvnUi.pass();
+    const btn = pvnUi.btn();
+
+    const user = userEl ? userEl.value.trim() : '';
+    const pass = passEl ? passEl.value.trim() : '';
+
+    if (!isRunning) {
+        // BẬT ONLINE
+        if(!user || !pass) {
+            showNotification("Vui lòng nhập Tên đăng nhập và Mật khẩu để bảo mật!", "warning");
+            if(userEl && !user) userEl.focus();
+            else if(passEl) passEl.focus();
+            return;
+        }
+
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang khởi động...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/remote/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'start', user, pass })
+            });
+            const data = await res.json();
+
+            if (data.url) {
+                pvnShowRunning(data.url);
+                showNotification("Đã bật Online thành công! Hãy copy link và truy cập từ các thiết bị mà bạn muốn.", "success");
+            } else {
+                // Retry sau 2s
+                setTimeout(checkRemoteStatus, 2000);
             }
+        } catch(e) {
+            showNotification("Lỗi kết nối: " + e.message, "error");
+            pvnShowStopped();
+        }
+    } else {
+        // TẮT ONLINE
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tắt...';
+        btn.disabled = true;
+        try {
+            await fetch('/api/remote/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'stop' })
+            });
+            pvnShowStopped();
+            showNotification("Đã tắt truy cập từ xa.", "info");
+        } catch(e) { pvnShowStopped(); }
+    }
+}
+
+function pvnShowRunning(url) {
+    const config = pvnUi.configArea();
+    const status = pvnUi.statusArea();
+    const link = pvnUi.link();
+    const btn = pvnUi.btn();
+
+    // 1. Cập nhật Badge Status
+    const badge = document.getElementById('pvn-status-badge');
+    if(badge) {
+        badge.className = 'status-badge online';
+        badge.querySelector('.status-text').innerText = 'ONLINE';
+    }
+
+    // 2. Ẩn config, Hiện status
+    if(config) config.style.display = 'none';
+    if(status) status.style.display = 'block';
+
+    // 3. Xử lý Link
+    if(link) link.value = url || "Đang lấy link...";
+
+    // 4. TẠO QR CODE (Sử dụng API public nhanh gọn)
+    const qrImg = document.getElementById('pvn-qr-img');
+    if(qrImg && url) {
+        // Tạo QR code trỏ về link Cloudflare
+        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(url)}`;
+    }
+
+    // 5. Cập nhật nút TẮT
+    if(btn) {
+        btn.innerHTML = '<i class="fa-solid fa-power-off"></i> TẮT KẾT NỐI';
+        btn.style.background = '#e74c3c'; // Màu đỏ
+        btn.disabled = false;
+    }
+}
+
+function pvnShowStopped() {
+    const config = pvnUi.configArea();
+    const status = pvnUi.statusArea();
+    const btn = pvnUi.btn();
+
+    // 1. Cập nhật Badge Status
+    const badge = document.getElementById('pvn-status-badge');
+    if(badge) {
+        badge.className = 'status-badge offline';
+        badge.querySelector('.status-text').innerText = 'OFFLINE';
+    }
+
+    // 2. Hiện config, Ẩn status
+    if(config) config.style.display = 'block';
+    if(status) status.style.display = 'none';
+
+    // 3. Reset nút BẬT
+    if(btn) {
+        btn.innerHTML = '<i class="fa-solid fa-rocket"></i> BẬT ONLINE';
+        // Gradient Xanh Dương -> Xanh Lá
+        btn.style.background = 'linear-gradient(90deg, #4E73DF, #1CC88A)';
+        btn.disabled = false;
+    }
+}
+
+function pvnCopyLink() {
+    const copyText = pvnUi.link();
+    if(copyText && copyText.value) {
+        // 1. Bôi đen text (Hiệu ứng thị giác)
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // Hỗ trợ mobile
+
+        // 2. Thực hiện Copy
+        navigator.clipboard.writeText(copyText.value).then(() => {
+            showNotification("Đã copy link vào bộ nhớ tạm!", "success");
+        }).catch(err => {
+            // Fallback nếu trình duyệt chặn
+            console.error('Copy failed', err);
+            document.execCommand('copy'); // Cách cũ
+            showNotification("Đã copy link!", "success");
         });
     }
 }
 
-/**
- * Mở trang dashboard ProxyVN.top để user tự lấy API key
- *
- * Cách hoạt động:
- * 1. Mở tab mới vào trang dashboard của ProxyVN.top
- * 2. User đăng nhập (nếu chưa) và copy API key từ dashboard
- * 3. User quay lại tab này và paste API key vào ô input
- * 4. Bấm nút "Edit" để lưu API key
- */
+function pvnOpenLink() {
+    const linkEl = pvnUi.link();
+    if(linkEl && linkEl.value && linkEl.value.startsWith('http')) {
+        window.open(linkEl.value, '_blank');
+    } else {
+        showNotification("Chưa có link để mở", "warning");
+    }
+}
+
+// =============================================================================
+// CÁC HÀM CŨ (API Key, Nạp tiền...) - GIỮ NGUYÊN LOGIC, CHỈ CẦN FORMAT LẠI
+// =============================================================================
+
+function setupApiKeyControls() {
+    const getBtn = document.getElementById('get-apikey-btn');
+    if (getBtn) getBtn.addEventListener('click', openProxyVNDashboard);
+
+    const editBtn = document.getElementById('edit-apikey-btn');
+    if (editBtn) editBtn.addEventListener('click', editApiKey);
+
+    const copyBtn = document.getElementById('copy-apikey-btn');
+    if (copyBtn) copyBtn.addEventListener('click', copyApiKey);
+
+    const toggleBtn = document.getElementById('toggle-apikey-btn');
+    if (toggleBtn) toggleBtn.addEventListener('click', toggleApiKeyVisibility);
+
+    const clearBtn = document.getElementById('clear-apikey-btn');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        if (confirm('Bạn có chắc muốn xóa API Key?')) clearApiKey();
+    });
+}
+
 function openProxyVNDashboard() {
-    // Mở dashboard ProxyVN.top trong tab mới
     window.open(PROXYVN_DASHBOARD_URL, '_blank');
-
-    // Hiển thị hướng dẫn cho user
-    showNotification('Đã mở trang Dashboard ProxyVN.top. Vui lòng copy API Key và dán vào ô bên dưới.', 'info');
-
-    // Tự động focus vào ô API key để user có thể paste ngay
+    showNotification('Đã mở Dashboard. Copy API Key và dán vào đây.', 'info');
     setTimeout(() => {
         const apiKeyInput = document.getElementById('apikey-value');
         if (apiKeyInput) {
             apiKeyInput.focus();
-            // Tự động bật chế độ edit
             editApiKey();
         }
     }, 1000);
@@ -134,15 +301,13 @@ function editApiKey() {
 
     if (apiKeyInput && editBtn) {
         if (apiKeyInput.readOnly) {
-            // Bật chế độ chỉnh sửa
             apiKeyInput.readOnly = false;
-            apiKeyInput.placeholder = 'Dán API Key từ ProxyVN.top vào đây...';
+            apiKeyInput.placeholder = 'Dán API Key vào đây...';
             apiKeyInput.focus();
             apiKeyInput.select();
             editBtn.innerHTML = '<i class="fa-solid fa-save"></i>';
             editBtn.title = 'Lưu API Key';
 
-            // Lưu khi nhấn Enter
             const handleEnter = (e) => {
                 if (e.key === 'Enter') {
                     saveManualApiKey();
@@ -151,17 +316,8 @@ function editApiKey() {
             };
             apiKeyInput.addEventListener('keypress', handleEnter);
 
-            // Lưu khi mất focus (user click ra ngoài)
-            const handleBlur = () => {
-                if (!apiKeyInput.readOnly) {
-                    saveManualApiKey();
-                    apiKeyInput.removeEventListener('blur', handleBlur);
-                }
-            };
-            apiKeyInput.addEventListener('blur', handleBlur);
-
+            // Không auto-save on blur để tránh phiền phức
         } else {
-            // Lưu thay đổi
             saveManualApiKey();
         }
     }
@@ -173,21 +329,13 @@ function saveManualApiKey() {
 
     if (apiKeyInput && editBtn) {
         const newApiKey = apiKeyInput.value.trim();
-
         if (newApiKey && newApiKey !== '●●●●●●●●●●●●●●●●●●●●●●●●●●●●') {
-            try {
-                saveApiKeyToStorage(newApiKey);
-                showNotification('API Key đã được lưu thành công!', 'success');
-            } catch (error) {
-                console.error('Error saving API key:', error);
-                showNotification('Lỗi khi lưu API Key', 'error');
-            }
+            saveApiKeyToStorage(newApiKey);
+            showNotification('API Key đã được lưu!', 'success');
         } else {
-            showNotification('Vui lòng nhập API Key hợp lệ', 'warning');
-            return; // Không tắt chế độ edit nếu API key không hợp lệ
+            showNotification('API Key không hợp lệ', 'warning');
+            return;
         }
-
-        // Tắt chế độ chỉnh sửa
         apiKeyInput.readOnly = true;
         apiKeyInput.placeholder = '';
         editBtn.innerHTML = '<i class="fa-solid fa-edit"></i>';
@@ -195,126 +343,69 @@ function saveManualApiKey() {
     }
 }
 
-/**
- * Lưu API key vào localStorage
- */
 function saveApiKeyToStorage(apiKey) {
-    try {
-        localStorage.setItem(PROXYVN_API_KEY, apiKey);
-        currentApiKey = apiKey;
+    localStorage.setItem(PROXYVN_API_KEY, apiKey);
+    currentApiKey = apiKey;
+    updateApiKeyDisplay();
+    showApiKeyControls();
+    refreshProxyvnAccount();
+}
+
+function loadSavedApiKey() {
+    const savedApiKey = localStorage.getItem(PROXYVN_API_KEY);
+    if (savedApiKey) {
+        currentApiKey = savedApiKey;
         updateApiKeyDisplay();
         showApiKeyControls();
-
-        // Tự động refresh thông tin tài khoản
-        refreshProxyvnAccount();
-
-        console.log('API Key saved to localStorage');
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-        throw new Error('Không thể lưu API Key vào localStorage');
-    }
-}
-
-/**
- * Tải API key đã lưu từ localStorage
- */
-function loadSavedApiKey() {
-    try {
-        const savedApiKey = localStorage.getItem(PROXYVN_API_KEY);
-
-        if (savedApiKey) {
-            currentApiKey = savedApiKey;
-            updateApiKeyDisplay();
-            showApiKeyControls();
-
-            console.log('API Key loaded from localStorage');
-
-            // Tự động refresh nếu panel đang mở
-            if (isProxyVNPanelOpen()) {
-                refreshProxyvnAccount();
-            }
-        } else {
-            console.log('No saved API Key found');
-            hideApiKeyControls();
-        }
-    } catch (error) {
-        console.error('Error loading from localStorage:', error);
-    }
-}
-
-/**
- * Xóa API key khỏi localStorage
- */
-function clearApiKey() {
-    try {
-        localStorage.removeItem(PROXYVN_API_KEY);
-        currentApiKey = null;
-        proxyvnAccountData = null;
-
-        // Reset UI
-        const apiKeyInput = document.getElementById('apikey-value');
-        if (apiKeyInput) {
-            apiKeyInput.value = '';
-            apiKeyInput.placeholder = 'Vui lòng nhập API Key';
-            apiKeyInput.readOnly = true;
-        }
-
+        if (isProxyVNPanelOpen()) refreshProxyvnAccount();
+    } else {
         hideApiKeyControls();
-        showNoApiKeyState();
-
-        showNotification('API Key đã được xóa', 'info');
-    } catch (error) {
-        console.error('Error clearing API key:', error);
     }
+}
+
+function clearApiKey() {
+    localStorage.removeItem(PROXYVN_API_KEY);
+    currentApiKey = null;
+    proxyvnAccountData = null;
+    const apiKeyInput = document.getElementById('apikey-value');
+    if (apiKeyInput) {
+        apiKeyInput.value = '';
+        apiKeyInput.placeholder = 'Vui lòng nhập API Key';
+        apiKeyInput.readOnly = true;
+    }
+    hideApiKeyControls();
+    showNoApiKeyState();
+    showNotification('Đã xóa API Key', 'info');
 }
 
 function showApiKeyControls() {
-    const buttons = ['edit-apikey-btn', 'copy-apikey-btn', 'toggle-apikey-btn', 'clear-apikey-btn'];
-    buttons.forEach(id => {
+    ['edit-apikey-btn', 'copy-apikey-btn', 'toggle-apikey-btn', 'clear-apikey-btn'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = 'inline-block';
     });
-
-    // Thay đổi text và icon của nút Get API Key
     const getBtn = document.getElementById('get-apikey-btn');
     if (getBtn) {
         getBtn.innerHTML = '<i class="fa-solid fa-external-link-alt"></i>';
-        getBtn.title = 'Mở Dashboard ProxyVN.top';
+        getBtn.title = 'Mở Dashboard';
     }
 }
 
 function hideApiKeyControls() {
-    const buttons = ['edit-apikey-btn', 'copy-apikey-btn', 'toggle-apikey-btn', 'clear-apikey-btn'];
-    buttons.forEach(id => {
+    ['edit-apikey-btn', 'copy-apikey-btn', 'toggle-apikey-btn', 'clear-apikey-btn'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.style.display = 'none';
     });
-
-    // Khôi phục text và icon ban đầu của nút Get API Key
     const getBtn = document.getElementById('get-apikey-btn');
     if (getBtn) {
         getBtn.innerHTML = '<i class="fa-solid fa-key"></i>';
-        getBtn.title = 'Lấy API Key từ ProxyVN.top';
+        getBtn.title = 'Lấy API Key';
     }
 }
 
 function copyApiKey() {
     if (currentApiKey) {
         navigator.clipboard.writeText(currentApiKey).then(() => {
-            const copyBtn = document.getElementById('copy-apikey-btn');
-            if (copyBtn) {
-                const originalIcon = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
-                copyBtn.classList.add('copied');
-
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalIcon;
-                    copyBtn.classList.remove('copied');
-                }, 2000);
-            }
             showNotification('API Key đã được copy', 'success');
-        }).catch(() => {
-            showNotification('Lỗi copy API Key', 'error');
         });
     }
 }
@@ -322,282 +413,124 @@ function copyApiKey() {
 function toggleApiKeyVisibility() {
     const apiKeyInput = document.getElementById('apikey-value');
     const toggleBtn = document.getElementById('toggle-apikey-btn');
-
     if (apiKeyInput && toggleBtn && currentApiKey) {
         apiKeyVisible = !apiKeyVisible;
-
-        if (apiKeyVisible) {
-            apiKeyInput.value = currentApiKey;
-            toggleBtn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
-            toggleBtn.title = 'Ẩn API Key';
-        } else {
-            apiKeyInput.value = '●●●●●●●●●●●●●●●●●●●●●●●●●●●●';
-            toggleBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
-            toggleBtn.title = 'Hiện API Key';
-        }
+        apiKeyInput.value = apiKeyVisible ? currentApiKey : '●●●●●●●●●●●●●●●●●●●●●●●●●●●●';
+        toggleBtn.innerHTML = apiKeyVisible ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
     }
 }
 
 function setupDepositButtons() {
-    // Quick amount buttons
     document.addEventListener('click', (e) => {
-        if (e.target.matches('.amount-btn')) {
-            const amount = parseInt(e.target.getAttribute('data-amount'));
-            selectAmount(amount);
-        }
+        if (e.target.matches('.amount-btn')) selectAmount(parseInt(e.target.getAttribute('data-amount')));
     });
-
-    // Custom amount input
     const customInput = document.getElementById('custom-amount-input');
     if (customInput) {
         customInput.addEventListener('input', (e) => {
             const amount = parseInt(e.target.value);
-            if (amount >= 2000) {
-                selectAmount(amount);
-            } else {
-                hideQRCode();
-            }
+            amount >= 2000 ? selectAmount(amount) : hideQRCode();
         });
     }
 }
 
-/**
- * Refresh thông tin tài khoản từ ProxyVN API
- * Sử dụng API: https://dev.proxyvn.top/get-api-key-info
- * Authorization: Bearer <API_KEY>
- * Response: {"balance": 21312}
- */
 async function refreshProxyvnAccount() {
-    if (!currentApiKey) {
-        showNoApiKeyState();
-        return;
-    }
-
+    if (!currentApiKey) { showNoApiKeyState(); return; }
     try {
         showLoadingState();
-
-        // Gọi qua proxy server thay vì trực tiếp
         const response = await fetch('/api/users/proxyvn-balance', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentApiKey}`
-            }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentApiKey}` }
         });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('API Key không hợp lệ hoặc đã hết hạn');
-            } else if (response.status === 403) {
-                throw new Error('API Key không có quyền truy cập');
-            } else if (response.status === 404) {
-                throw new Error('API endpoint không tồn tại');
-            } else {
-                throw new Error(`HTTP ${response.status}: Lỗi từ server ProxyVN`);
-            }
-        }
-
+        if (!response.ok) throw new Error(response.status === 401 ? 'API Key hết hạn' : 'Lỗi kết nối');
         const data = await response.json();
-
-        // API trả về format: {id: 3, "balance": 21312}
         if (data && typeof data.balance !== 'undefined') {
-            proxyvnAccountData = {
-                balance: data.balance,
-                apiKey: currentApiKey,
-                lastUpdated: new Date().toISOString()
-            };
-
+            proxyvnAccountData = { balance: data.balance, apiKey: currentApiKey };
             currentUserId = data.id;
-
             updateProxyvnDisplay();
-            console.log('ProxyVN account refreshed:', proxyvnAccountData);
-
-        } else {
-            throw new Error('Dữ liệu trả về không đúng format');
         }
-
     } catch (error) {
-        console.error('Error refreshing ProxyVN account:', error);
-
-        if (error.message.includes('API Key không hợp lệ')) {
-            // API key không hợp lệ, có thể xóa khỏi storage hoặc để user tự xử lý
-            showErrorState('API Key không hợp lệ');
-            showNotification('API Key không hợp lệ. Vui lòng kiểm tra lại hoặc lấy API Key mới.', 'error');
-        } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-            showErrorState('Lỗi kết nối');
-            showNotification('Không thể kết nối đến server ProxyVN. Vui lòng kiểm tra kết nối mạng.', 'error');
-        } else {
-            showErrorState(error.message);
-            showNotification(`Lỗi: ${error.message}`, 'error');
-        }
+        showErrorState(error.message);
     }
 }
 
 function showNoApiKeyState() {
-    const balanceAmount = document.getElementById('proxyvn-balance-amount');
-    if (balanceAmount) {
-        balanceAmount.textContent = 'Vui lòng nhập API Key';
-        balanceAmount.style.color = '#ff9800';
-    }
+    const el = document.getElementById('proxyvn-balance-amount');
+    if (el) { el.textContent = 'Vui lòng nhập API Key'; el.style.color = '#ff9800'; }
 }
-
 function showLoadingState() {
-    const balanceAmount = document.getElementById('proxyvn-balance-amount');
-    if (balanceAmount) {
-        balanceAmount.textContent = 'Đang tải...';
-        balanceAmount.style.color = '#666';
-    }
+    const el = document.getElementById('proxyvn-balance-amount');
+    if (el) { el.textContent = 'Đang tải...'; el.style.color = '#666'; }
 }
-
-function showErrorState(message = 'Lỗi') {
-    const balanceAmount = document.getElementById('proxyvn-balance-amount');
-    if (balanceAmount) {
-        balanceAmount.textContent = message;
-        balanceAmount.style.color = '#f44336';
-    }
+function showErrorState(msg) {
+    const el = document.getElementById('proxyvn-balance-amount');
+    if (el) { el.textContent = msg; el.style.color = '#f44336'; }
 }
-
 function updateProxyvnDisplay() {
-    if (!proxyvnAccountData) return;
-
-    updateBalanceDisplay();
-    updateApiKeyDisplay();
-}
-
-function updateApiKeyDisplay() {
-    const apiKeyInput = document.getElementById('apikey-value');
-
-    if (apiKeyInput && currentApiKey) {
-        apiKeyInput.readOnly = true;
-        if (apiKeyVisible) {
-            apiKeyInput.value = currentApiKey;
-        } else {
-            apiKeyInput.value = '●●●●●●●●●●●●●●●●●●●●●●●●●●●●';
+    if (proxyvnAccountData) {
+        const el = document.getElementById('proxyvn-balance-amount');
+        if (el) {
+            el.textContent = parseFloat(proxyvnAccountData.balance).toLocaleString('vi-VN');
+            el.style.color = '#4CAF50';
         }
-        apiKeyInput.placeholder = '';
+        updateApiKeyDisplay();
     }
 }
-
-function updateBalanceDisplay() {
-    const balanceAmount = document.getElementById('proxyvn-balance-amount');
-    if (balanceAmount && proxyvnAccountData.balance !== undefined) {
-        const balance = parseFloat(proxyvnAccountData.balance);
-        balanceAmount.textContent = balance.toLocaleString('vi-VN', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-        balanceAmount.style.color = '#4CAF50';
+function updateApiKeyDisplay() {
+    const el = document.getElementById('apikey-value');
+    if (el && currentApiKey) {
+        el.readOnly = true;
+        el.value = apiKeyVisible ? currentApiKey : '●●●●●●●●●●●●●●●●●●●●●●●●●●●●';
     }
 }
 
 function selectAmount(amount) {
     selectedAmount = amount;
-
     document.querySelectorAll('.amount-btn').forEach(btn => {
-        btn.classList.remove('selected');
-        if (parseInt(btn.getAttribute('data-amount')) === amount) {
-            btn.classList.add('selected');
-        }
+        btn.classList.toggle('selected', parseInt(btn.getAttribute('data-amount')) === amount);
     });
-
     const customInput = document.getElementById('custom-amount-input');
-    if (customInput) {
-        customInput.value = amount;
-    }
-
+    if (customInput) customInput.value = amount;
     showQRCode(amount);
 }
 
 function showQRCode(amount) {
-
     const qrSection = document.getElementById('qr-section');
     const qrImage = document.getElementById('qrCodeImage');
     const displayAmount = document.getElementById('qr-display-amount');
-
     if (qrSection && qrImage && displayAmount && currentUserId) {
-        // Generate QR URL với API key làm identifier để ProxyVN biết nạp cho ai
         const baseQRUrl = 'https://img.vietqr.io/image/VPB-proxyai-qr_only.png';
         const addInfo = `proxyai ${currentUserId}`;
-        const accountName = 'Pham%20Quang%20Loc';
-
-        const qrUrl = `${baseQRUrl}?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${accountName}`;
-
-        qrImage.src = qrUrl;
+        qrImage.src = `${baseQRUrl}?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=Pham%20Quang%20Loc`;
         displayAmount.textContent = `${amount.toLocaleString('vi-VN')}đ`;
         qrSection.style.display = 'block';
-
         qrSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
-
 function hideQRCode() {
     const qrSection = document.getElementById('qr-section');
-    if (qrSection) {
-        qrSection.style.display = 'none';
-    }
+    if (qrSection) qrSection.style.display = 'none';
     selectedAmount = 0;
-
-    document.querySelectorAll('.amount-btn').forEach(btn => {
-        btn.classList.remove('selected');
-    });
+    document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
 }
 
-// Export functions cho external use
 export async function getProxyvnBalance() {
     if (!currentApiKey) return 0;
-
     try {
-        const response = await fetch(`${PROXYVN_API_BASE}/get-api-key-info`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentApiKey}`
-            }
+        const res = await fetch(`${PROXYVN_API_BASE}/get-api-key-info`, {
+            headers: { 'Authorization': `Bearer ${currentApiKey}` }
         });
-
-        if (response.ok) {
-            const data = await response.json();
-            return data && typeof data.balance !== 'undefined' ? parseFloat(data.balance || 0) : 0;
+        if (res.ok) {
+            const data = await res.json();
+            return data.balance ? parseFloat(data.balance) : 0;
         }
-    } catch (error) {
-        console.error('Error fetching ProxyVN balance:', error);
-    }
+    } catch (e) {}
     return 0;
 }
 
 function showNotification(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-
     if (typeof toastr !== 'undefined') {
         toastr[type](message);
     } else {
-        // Fallback notification nếu không có toastr
-        const notification = document.createElement('div');
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#2196f3'};
-            color: white;
-            padding: 12px 20px;
-            border-radius: 4px;
-            z-index: 10000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-        `;
-
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            notification.remove();
-        }, 5000);
+        console.log(`[${type}] ${message}`);
     }
-}
-
-export function initProxyvnPanel() {
-    initializeEventListeners();
-    setupAutoRefresh();
-    console.log('ProxyVN panel initialized');
 }

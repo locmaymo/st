@@ -87,69 +87,203 @@ export async function openWelcomeScreen({ force = false, expand = false } = {}) 
     await sendWelcomePanel(recentChats, expand);
     await unshallowPermanentAssistant();
     sendWelcomePrompt();
-    sendYoutubeEmbed();
+    await checkAndDisplayUpdate();
+    await fetchAndRenderRemoteContent();
     sendAssistantMessage();
 }
 
 /**
- * Sends a YouTube embed for the welcome screen
+ * Kiểm tra phiên bản mới trên GitHub và hiện thông báo nhỏ
  */
-function sendYoutubeEmbed() {
+async function checkAndDisplayUpdate() {
     const chatElement = document.getElementById('chat');
-    if (!chatElement) {
-        console.error('Chat element not found');
-        return;
+    if (!chatElement) return;
+
+    try {
+        const ghRes = await fetch(`https://api.github.com/repos/locmaymo/st/releases/latest`);
+        if (!ghRes.ok) return;
+
+        const ghData = await ghRes.json();
+
+        // 1. Xử lý Version GitHub (Xóa chữ 'v' ở đầu nếu có) -> 1.13.4
+        const remoteVer = ghData.tag_name.replace(/^v/, '').trim();
+
+        // 2. Xử lý Version Local (Dùng Regex gắp cụm số X.Y.Z ra)
+        // Tìm chuỗi dạng: số.số.số (Ví dụ: 1.13.4)
+        const versionRegex = /(\d+\.\d+\.\d+)/;
+        const match = displayVersion.match(versionRegex);
+
+        // Nếu tìm thấy số thì lấy, không thì để nguyên
+        const localVer = match ? match[0] : displayVersion.replace(/^v/, '');
+
+        // Debug để kiểm tra (Bạn có thể F12 để xem nó gắp đúng chưa)
+        console.log(`[Update Check] Remote: ${remoteVer} | Local: ${localVer}`);
+
+        // 3. So sánh
+        if (remoteVer !== localVer) {
+            // Tạo thanh thông báo (Banner)
+            const updateBanner = document.createElement('div');
+            updateBanner.className = 'update-notification-banner';
+
+            updateBanner.style.cssText = `
+                width: 100%;
+                max-width: 800px;
+                margin: 10px auto 0 auto;
+                padding: 10px 15px;
+                background: linear-gradient(90deg, rgba(78, 115, 223, 0.15), rgba(28, 200, 138, 0.15));
+                border: 1px solid #1CC88A;
+                border-radius: 8px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                color: #eee;
+                font-size: 0.9rem;
+                box-sizing: border-box;
+            `;
+
+            updateBanner.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: #1CC88A; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px;">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </div>
+                    <div>
+                        <span style="font-weight: bold; color: #1CC88A;">Cập nhật mới: v${remoteVer}</span>
+                        <span style="color: #888; font-size: 12px; margin-left: 5px;">(Hiện tại: v${localVer})</span>
+                    </div>
+                </div>
+                <a href="${ghData.html_url}" target="_blank" style="
+                    background: #4E73DF; color: white; padding: 5px 12px;
+                    text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: bold;
+                    transition: 0.2s;
+                ">
+                    Xem & Tải
+                </a>
+            `;
+
+            chatElement.appendChild(updateBanner);
+        }
+    } catch (e) {
+        console.warn("GitHub Update Check Error:", e);
     }
+}
 
-    // Create YouTube embed container
-    const youtubeContainer = document.createElement('div');
-    youtubeContainer.className = 'youtube-embed-container';
-    youtubeContainer.style.cssText = `
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 20px 0;
-        padding: 20px;
-        background-color: var(--SmartThemeBotMesBlurTintColor);
-        border: 1px solid var(--SmartThemeBorderColor);
-        border-radius: 10px;
-        position: relative;
-        width: 100%;
-        max-width: 800px;
-        margin-left: auto;
-        margin-right: auto;
-    `;
+// Helper: Tự động tách ID Youtube dù người dùng nhập Link hay ID
+function getYoutubeId(urlOrId) {
+    if (!urlOrId) return null;
+    // Nếu chuỗi ngắn (dưới 15 ký tự) thì coi như là ID luôn
+    if (urlOrId.length < 15) return urlOrId;
 
-    // Create responsive iframe wrapper
-    const iframeWrapper = document.createElement('div');
-    iframeWrapper.style.cssText = `
-        position: relative;
-        width: 100%;
-        height: 0;
-        padding-bottom: 56.25%; /* 16:9 aspect ratio */
-        overflow: hidden;
-    `;
+    // Nếu là link, dùng Regex để tách ID
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = urlOrId.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
 
-    // Create iframe element
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://www.youtube.com/embed/dMs0xi27s50';
-    iframe.title = 'Tạo App dev trên Lark Developer để chuẩn bị làm Automation';
-    iframe.frameBorder = '0';
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-    iframe.allowFullscreen = true;
-    iframe.style.cssText = `
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        border-radius: 8px;
-    `;
+/**
+ * Tải nội dung từ xa và hiển thị đúng style cũ
+ */
+async function fetchAndRenderRemoteContent() {
+    const chatElement = document.getElementById('chat');
+    if (!chatElement) return;
 
-    iframeWrapper.appendChild(iframe);
-    youtubeContainer.appendChild(iframeWrapper);
-    chatElement.appendChild(youtubeContainer);
+    try {
+        const REMOTE_NEWS_URL = 'https://raw.githubusercontent.com/locmaymo/json/main/stRemoteContent.json';
+        // 1. Tải config (Nhớ thay REMOTE_NEWS_URL bằng link raw json của bạn)
+        const response = await fetch(REMOTE_NEWS_URL, { cache: "no-store" });
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const data = await response.json();
+
+        // Nếu không muốn hiện hoặc không có dữ liệu thì thôi
+        if (!data.show && !data.youtubeId && !data.messageHTML) return;
+
+        // 2. Tạo Container (Style Y HỆT code cũ của bạn)
+        const youtubeContainer = document.createElement('div');
+        youtubeContainer.className = 'youtube-embed-container';
+        youtubeContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: var(--SmartThemeBotMesBlurTintColor);
+            border: 1px solid var(--SmartThemeBorderColor);
+            border-radius: 10px;
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        `;
+
+        // 3. Nếu có thông báo chữ (HTML) thì hiện lên trên video
+        if (data.messageHTML) {
+            const msgDiv = document.createElement('div');
+            msgDiv.innerHTML = data.messageHTML;
+            msgDiv.style.cssText = `
+                width: 100%;
+                margin-bottom: 15px;
+                color: var(--SmartThemeBodyColor);
+                font-size: 1rem;
+                line-height: 1.5;
+                text-align: left;
+            `;
+            // Style cho link trong thông báo
+            const links = msgDiv.getElementsByTagName('a');
+            for (let link of links) {
+                link.style.color = '#4E73DF';
+                link.style.fontWeight = 'bold';
+                link.target = '_blank';
+            }
+            youtubeContainer.appendChild(msgDiv);
+        }
+
+        // 4. Xử lý Video Youtube
+        const videoId = getYoutubeId(data.youtubeId);
+
+        if (videoId) {
+            // Wrapper giữ tỉ lệ 16:9
+            const iframeWrapper = document.createElement('div');
+            iframeWrapper.style.cssText = `
+                position: relative;
+                width: 100%;
+                height: 0;
+                padding-bottom: 56.25%; /* 16:9 */
+                overflow: hidden;
+                border-radius: 8px;
+            `;
+
+            const iframe = document.createElement('iframe');
+            // Tạo link embed chuẩn
+            iframe.src = `https://www.youtube.com/embed/${videoId}`;
+            iframe.title = 'Remote Content';
+            iframe.frameBorder = '0';
+
+            // Các thuộc tính quan trọng để tránh lỗi 153
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+            iframe.referrerPolicy = 'strict-origin-when-cross-origin'; // Quan trọng
+            iframe.allowFullscreen = true;
+
+            iframe.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border-radius: 8px;
+            `;
+
+            iframeWrapper.appendChild(iframe);
+            youtubeContainer.appendChild(iframeWrapper);
+        }
+
+        // Chèn vào giao diện
+        chatElement.appendChild(youtubeContainer);
+
+    } catch (error) {
+        console.warn('Could not fetch remote content:', error);
+    }
 }
 
 /**

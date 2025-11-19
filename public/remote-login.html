@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProxyVN Security</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background: #0f0f13;
+            /* Gradient nền theo màu brand */
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(78, 115, 223, 0.15) 0%, transparent 30%),
+                radial-gradient(circle at 90% 80%, rgba(28, 200, 138, 0.15) 0%, transparent 30%);
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh;
+        }
+
+        .login-container {
+            background: rgba(30, 30, 35, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 40px 30px;
+            border-radius: 16px;
+            width: 320px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Line màu trên đầu container */
+        .login-container::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, #4E73DF, #1CC88A);
+        }
+
+        .logos { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .logo-img { height: 50px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); transition: transform 0.3s; }
+        .logo-img:hover { transform: scale(1.1); }
+        .divider { width: 1px; height: 40px; background: #444; }
+
+        h2 { margin: 0 0 5px 0; font-size: 20px; color: #fff; letter-spacing: 0.5px; }
+        p { margin: 0 0 25px 0; font-size: 13px; color: #888; }
+
+        .input-group { position: relative; margin-bottom: 15px; text-align: left; }
+        .input-group i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #666; transition: 0.3s; }
+
+        input {
+            width: 100%; padding: 12px 12px 12px 40px;
+            background: #2b2b30; border: 1px solid #444;
+            color: white; border-radius: 8px; box-sizing: border-box;
+            outline: none; transition: 0.3s; font-size: 14px;
+        }
+        input:focus { border-color: #4E73DF; background: #333; } /* Focus màu xanh dương */
+        input:focus + i { color: #4E73DF; }
+
+        button {
+            width: 100%; padding: 14px;
+            /* Gradient Button */
+            background: linear-gradient(90deg, #4E73DF, #1CC88A);
+            color: white; border: none; border-radius: 8px;
+            font-weight: 700; cursor: pointer; font-size: 15px;
+            transition: 0.3s; box-shadow: 0 4px 10px rgba(78, 115, 223, 0.3);
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(28, 200, 138, 0.4); }
+        button:active { transform: translateY(0); }
+
+        .error-msg {
+            background: rgba(231, 76, 60, 0.1); color: #e74c3c;
+            padding: 10px; border-radius: 6px; font-size: 13px;
+            margin-bottom: 15px; display: none; border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .footer { margin-top: 20px; font-size: 11px; color: #555; }
+        .footer a { color: #1CC88A; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logos">
+            <img src="img/proxyvn-logo-transparent.png" alt="ProxyVN" class="logo-img">
+            <div class="divider"></div>
+            <img src="img/stvn-logo-transparent.png" alt="SillyTavern" class="logo-img">
+        </div>
+
+        <h2>Truy cập từ xa</h2>
+        <p>Đăng nhập để truy cập SillyTavern của bạn</p>
+
+        <div id="msg" class="error-msg"><i class="fa-solid fa-triangle-exclamation"></i> Sai tài khoản hoặc mật khẩu!</div>
+
+        <div class="input-group">
+            <input type="text" id="u" placeholder="Tên đăng nhập">
+            <i class="fa-solid fa-user"></i>
+        </div>
+        <div class="input-group">
+            <input type="password" id="p" placeholder="Mật khẩu">
+            <i class="fa-solid fa-lock"></i>
+        </div>
+
+        <button onclick="login()">
+            <span id="btn-text">ĐĂNG NHẬP</span>
+            <i id="btn-icon" class="fa-solid fa-arrow-right" style="margin-left: 5px;"></i>
+        </button>
+
+        <div class="footer">
+            Powered by <a href="https://proxyvn.top" target="_blank">ProxyVN.top</a>
+        </div>
+    </div>
+
+    <script>
+        async function login() {
+            const u = document.getElementById('u').value;
+            const p = document.getElementById('p').value;
+            const btnText = document.getElementById('btn-text');
+            const btnIcon = document.getElementById('btn-icon');
+            const msg = document.getElementById('msg');
+
+            if(!u || !p) return;
+
+            btnText.innerText = "ĐANG XỬ LÝ...";
+            btnIcon.className = "fa-solid fa-spinner fa-spin";
+            msg.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/remote/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user: u, pass: p })
+                });
+                const data = await res.json();
+
+                if(data.ok) {
+                    window.location.href = "/";
+                } else {
+                    msg.style.display = 'block';
+                    btnText.innerText = "ĐĂNG NHẬP";
+                    btnIcon.className = "fa-solid fa-arrow-right";
+                }
+            } catch(e) {
+                alert("Lỗi kết nối server");
+                btnText.innerText = "ĐĂNG NHẬP";
+                btnIcon.className = "fa-solid fa-arrow-right";
+            }
+        }
+
+        // Cho phép ấn Enter để login
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>

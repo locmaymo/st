@@ -100,6 +100,148 @@ app.use(responseTime());
 app.use(bodyParser.json({ limit: '500mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '500mb' }));
 
+
+// ================= [MOD START] TÍNH NĂNG REMOTE TUNNEL ProxyVN.top =================
+
+import cookieParser from 'cookie-parser';
+import { bin as cfBin } from 'cloudflared';
+import { spawn as cfSpawn } from 'node:child_process';
+import fs from 'node:fs';
+
+// --- Cấu hình ---
+// Lưu file auth ngay tại thư mục chạy tool (thường là root) thay vì __dirname
+const AUTH_FILE = path.join(process.cwd(), 'remote-auth.json');
+let tunnelProcess = null;
+let publicUrl = "";
+
+app.use(cookieParser());
+app.use(express.json());
+
+// Hàm đọc/ghi file auth
+function getAuth() {
+    try {
+        if (fs.existsSync(AUTH_FILE)) return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
+    } catch (e) {}
+    return null;
+}
+function saveAuth(user, pass) {
+    fs.writeFileSync(AUTH_FILE, JSON.stringify({ user, pass }));
+}
+
+// --- MIDDLEWARE BẢO VỆ ---
+app.use((req, res, next) => {
+    // 1. Nếu là Localhost -> Cho qua
+    const isRemote = req.headers['cf-ray'] || req.headers['cf-visitor'];
+    if (!isRemote) return next();
+
+    // 2. Cho phép file login và API login
+    // Lưu ý: SillyTavern serve static file sau middleware này, nên ta cần check path kỹ
+    if (req.path === '/remote-login.html' || req.path.startsWith('/api/remote/login') || req.path.startsWith('/img/') ) return next();
+
+    // 3. Kiểm tra Cookie
+    const creds = getAuth();
+    if (!creds) return res.redirect('/remote-login.html');
+
+    const clientCookie = req.cookies['st_remote_token'];
+    // Mã hóa token đơn giản
+    const serverToken = Buffer.from(`${creds.user}:${creds.pass}`).toString('base64');
+
+    if (clientCookie === serverToken) {
+        return next(); // Hợp lệ
+    }
+
+    // 4. Không hợp lệ -> Đá về login
+    res.redirect('/remote-login.html');
+});
+
+// --- API ĐIỀU KHIỂN ---
+app.post('/api/remote/login', (req, res) => {
+    const { user, pass } = req.body;
+    const saved = getAuth();
+    if (saved && user === saved.user && pass === saved.pass) {
+        const token = Buffer.from(`${user}:${pass}`).toString('base64');
+        res.cookie('st_remote_token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        res.json({ ok: true });
+    } else {
+        res.json({ ok: false });
+    }
+});
+
+app.post('/api/remote/status', (req, res) => {
+    const creds = getAuth();
+    res.json({
+        running: !!tunnelProcess,
+        url: publicUrl,
+        savedUser: creds ? creds.user : "",
+        savedPass: creds ? creds.pass : ""
+    });
+});
+
+app.post('/api/remote/toggle', async (req, res) => {
+    const { action, user, pass } = req.body;
+
+    if (action === 'start') {
+        // Nếu đang chạy thì trả về luôn
+        if (tunnelProcess) return res.json({ status: 'running', url: publicUrl });
+
+        saveAuth(user, pass);
+        const port = cliArgs.port || 8000;
+
+        console.log('[Remote] Đang khởi động Tunnel (HTTP2 Mode)...');
+
+        // --- KHỞI ĐỘNG CLOUDFLARED VỚI HTTP2 ---
+        tunnelProcess = cfSpawn(cfBin, [
+            'tunnel',
+            '--url', `http://localhost:${port}`,
+            '--no-autoupdate',
+            '--protocol', 'http2' // <--- FIX LỖI QUAN TRỌNG
+        ]);
+
+        tunnelProcess.stderr.on('data', (data) => {
+            const str = data.toString();
+            // console.log(str); // Bỏ comment để debug nếu cần
+
+            // Tìm URL trong log
+            const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+            if (match) {
+                publicUrl = match[0];
+                console.log('[Remote] Link tìm thấy:', publicUrl);
+            }
+        });
+
+        tunnelProcess.on('close', (code) => {
+            console.log(`[Remote] Tunnel đã đóng (Code: ${code})`);
+            tunnelProcess = null;
+            publicUrl = "";
+        });
+
+        // Đợi 5 giây để đảm bảo tunnel đã ổn định
+        setTimeout(() => {
+            if(publicUrl) {
+                res.json({ status: 'started', url: publicUrl });
+            } else {
+                // Nếu sau 5s vẫn chưa có link -> Kill process để thử lại
+                if(tunnelProcess) tunnelProcess.kill();
+                tunnelProcess = null;
+                res.json({ status: 'error', message: "Mạng chậm hoặc bị chặn. Hãy thử bấm BẬT lại lần nữa!" });
+            }
+        }, 5000);
+
+    } else {
+        // TẮT
+        if (tunnelProcess) {
+            tunnelProcess.kill();
+            tunnelProcess = null;
+            publicUrl = "";
+
+            // Cố gắng kill sạch sẽ hơn (dành cho Linux/Mac/Termux)
+            try { cfSpawn('pkill', ['-f', 'cloudflared']); } catch(e){}
+        }
+        res.json({ status: 'stopped' });
+    }
+});
+// ================= [MOD END] =================
+
 // CORS Settings //
 const CORS = cors({
     origin: 'null',

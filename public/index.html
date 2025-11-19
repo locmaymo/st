@@ -3913,6 +3913,72 @@
                         </div>
                     </div>
 
+                    <!-- ============================================================ -->
+                    <!-- [NEW] SECTION REMOTE TUNNEL CHO PROXYVN -->
+                    <!-- ============================================================ -->
+                    <div id="proxyvn-remote-card" class="proxyvn-card">
+                        <div class="proxyvn-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4><i class="fa-solid fa-globe"></i> Truy cập từ xa (iPhone, iPad, Android, Laptop)</h4>
+
+                            <!-- Status Badge -->
+                            <div id="pvn-status-badge" class="status-badge offline">
+                                <span class="status-dot"></span>
+                                <span class="status-text">OFFLINE</span>
+                                <span class="ping-ring"></span>
+                            </div>
+                        </div>
+
+                        <div class="proxyvn-card-content">
+                            <!-- MÔ TẢ -->
+                            <p style="font-size: 13px; color: #aaa; margin-top: 0; margin-bottom: 15px; line-height: 1.5;">
+                                <i class="fa-solid fa-mobile-screen-button"></i> <i class="fa-solid fa-tablet-screen-button"></i> <i class="fa-solid fa-laptop"></i>
+                                Truy cập SillyTavern từ mọi thiết bị iPhone, iPad và hơn thế nữa. Quét QR để vào nhanh trên điện thoại.
+                            </p>
+
+                            <!-- FORM NHẬP LIỆU (Chỉ hiện khi Offline) -->
+                            <div id="pvn-remote-config">
+                                <div class="pvn-input-wrapper">
+                                    <i class="fa-solid fa-user pvn-icon"></i>
+                                    <input type="text" id="pvn-r-user" placeholder="Đặt tên đăng nhập (vd: admin)" class="pvn-input">
+                                </div>
+                                <div class="pvn-input-wrapper">
+                                    <i class="fa-solid fa-lock pvn-icon"></i>
+                                    <input type="text" id="pvn-r-pass" placeholder="Đặt mật khẩu bảo mật" class="pvn-input">
+                                </div>
+                            </div>
+
+                            <!-- TRẠNG THÁI ONLINE (Chỉ hiện khi Online) -->
+                            <div id="pvn-remote-status" style="display: none; margin-bottom: 15px;">
+
+                                <!-- Khu vực QR Code -->
+                                <div id="pvn-qr-area" style="text-align: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 8px; width: fit-content; margin-left: auto; margin-right: auto;">
+                                    <img id="pvn-qr-img" src="" alt="QR Code" style="width: 150px; height: 150px; display: block;">
+                                    <div style="color: #333; font-size: 11px; font-weight: bold; margin-top: 5px;">QUÉT ĐỂ TRUY CẬP</div>
+                                </div>
+
+                                <!-- Ô Link & Nút Copy -->
+                                <div class="pvn-link-group" style="margin-bottom: 10px;">
+                                    <input type="text" id="pvn-r-link" readonly onclick="this.select()" title="Click để chọn link"
+                                        style="color: #1CC88A; background: #2b2b30; border: 1px solid #4E73DF; font-weight: bold;">
+                                    <button id="pvn-copy-link-btn" class="action-btn" title="Copy Link" style="background: #2b2b30; border: 1px solid #444;">
+                                        <i class="fa-solid fa-copy"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Nút Mở Link (To) -->
+                                <button id="pvn-open-link-btn" class="pvn-big-btn" style="background: #4E73DF">
+                                    <i class="fa-solid fa-external-link-alt"></i> MỞ TRANG WEB
+                                </button>
+                            </div>
+
+                            <!-- Nút Bật/Tắt (To) -->
+                            <button id="pvn-btn-toggle" class="pvn-big-btn">
+                                <i class="fa-solid fa-rocket"></i> BẬT ONLINE
+                            </button>
+                        </div>
+                    </div>
+                    <!-- ============================================================ -->
+
                     <!-- Deposit Section -->
                     <div id="proxyvn-deposit-section" class="flex-container flexFlowColumn marginTop20">
                         <div class="standoutHeader">
@@ -6477,23 +6543,30 @@
         <div id="shadow_select_backup_chat_popup">
             <div id="select_backup_chat_popup">
                 <div name="selectBackupPopupHeader" class="flex-container alignitemscenter justifySpaceBetween flexGap10">
-                    <div id="select_backup_import"> <!-- import backup popup header  -->
-                        <div id="selectBackupPopupHeaderText" class="TxtLrgBoldCenter">
-                            <span>Các đoạn chat lưu trữ</span>
-                        </div>
-                        <input type="search" id="select_backup_chat_search" class="text_pole flex1" data-i18n="[placeholder]Search..." placeholder="Search..." autocomplete="off">
-                        <div id="select_backup_chat_cross" class="opacity50p hoverglow fa-solid fa-circle-xmark fontsize120p" alt="Close Past Chat Popup"></div>
+                    <div id="select_backup_import"></div> <!-- import backup popup header  -->
+                    <div id="selectBackupPopupHeaderText" class="TxtLrgBoldCenter">
+                        <span>Các đoạn chat lưu trữ</span>
                     </div>
+                    <input type="search" id="select_backup_chat_search" class="text_pole flex1" data-i18n="[placeholder]Search..." placeholder="Search..." autocomplete="off">
+                    <div id="select_backup_chat_cross" class="opacity50p hoverglow fa-solid fa-circle-xmark fontsize120p" alt="Close Past Chat Popup"></div>
                 </div>
-                <!-- note cho user cach su dung -->
-                <div class="note">
-                    <span>Đây là danh sách các file chat lưu trữ gần đây</span><br>
-                    <span>Bấm nút icon khôi phục <i class="fa-solid fa-rotate-right"></i></span><br>
-                    <span>File chat sẽ được khôi phục về</span>
-                    <a id="option_select_chat">
-                        <i class="fa-lg fa-solid fa-address-book"></i>
-                        <span data-i18n="Manage chat files">Manage chat files</span>
-                    </a>
+                <!-- Hướng dẫn sử dụng -->
+                <div class="note" style="background-color: rgba(0,0,0,0.1); padding: 12px; border-radius: 8px; margin-top: 10px; border-left: 3px solid #4a90e2;">
+                    <p style="margin-top: 0; margin-bottom: 8px;">Đây là danh sách các cuộc trò chuyện đã được lưu trữ.</p>
+                    <ul style="margin: 0; padding-left: 5px; list-style: none;">
+                        <li style="margin-bottom: 5px;">
+                            <i class="fa-solid fa-rotate-right fa-fw" style="color: #6ebeff;"></i>
+                            <span>Nhấn vào biểu tượng này để <strong>khôi phục</strong> một cuộc trò chuyện.</span>
+                        </li>
+                        <li>
+                            <i class="fa-solid fa-folder-open fa-fw" style="color: #ffc107;"></i>
+                            <span>Chat đã khôi phục sẽ nằm trong mục </span>
+                            <a id="option_select_chat">
+                                <i class="fa-lg fa-solid fa-address-book"></i>
+                                <span data-i18n="Manage chat files">Manage chat files</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
                 <hr>
                 <div id="select_backup_chat_div"></div>
@@ -7927,6 +8000,14 @@
             <a id="option_select_backup_chat">
                 <i class="fa-lg fa-solid fa-rotate-right"></i>
                 <span data-i18n="Manage backup chat">Khôi phục đoạn chat</span>
+                <span class="new-feature-tag" style="
+                    background: rgb(217 171 3);
+                    color: #333;
+                    font-size: 11px;
+                    padding: 2px 6px;
+                    border-radius: 25px;
+                    font-weight: bold;"
+                >NEW</span>
             </a>
             <hr>
             <a id="option_delete_mes">
@@ -7952,6 +8033,118 @@
     <div id="secrets_datalists" class="displayNone"></div>
 
     <!-- Script includes -->
+     <!-- <script>
+    // --- SCRIPT TÍCH HỢP PROXYVN REMOTE ---
+    const pvnUi = {
+        user: document.getElementById('pvn-r-user'),
+        pass: document.getElementById('pvn-r-pass'),
+        link: document.getElementById('pvn-r-link'),
+        configArea: document.getElementById('pvn-remote-config'),
+        statusArea: document.getElementById('pvn-remote-status'),
+        btn: document.getElementById('pvn-btn-toggle')
+    };
+
+    // Hàm chạy khi mở trang để check xem có đang bật tunnel ko
+    async function pvnLoadStatus() {
+        try {
+            const res = await fetch('/api/remote/status', { method: 'POST' });
+            const data = await res.json();
+
+            // Điền user/pass đã lưu (nếu có)
+            if(data.savedUser) pvnUi.user.value = data.savedUser;
+            if(data.savedPass) pvnUi.pass.value = data.savedPass;
+
+            if(data.running) {
+                pvnShowRunning(data.url);
+            } else {
+                pvnShowStopped();
+            }
+        } catch(e) { console.error("ProxyVN Remote Error:", e); }
+    }
+
+    // Hàm xử lý nút bấm Bật/Tắt
+    async function pvnToggleRemote() {
+        const isRunning = pvnUi.statusArea.style.display !== 'none';
+        const user = pvnUi.user.value.trim();
+        const pass = pvnUi.pass.value.trim();
+
+        if (!isRunning) {
+            // BẬT
+            if(!user || !pass) {
+                toastr.warning("Vui lòng nhập User và Pass để bảo mật link!", "ProxyVN Remote");
+                return;
+            }
+
+            pvnUi.btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang khởi động...';
+            pvnUi.btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/remote/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'start', user, pass })
+                });
+                const data = await res.json();
+
+                if (data.url) {
+                    pvnShowRunning(data.url);
+                    toastr.success("Đã bật Online thành công!", "ProxyVN Remote");
+                } else {
+                    // Nếu chưa có link ngay, thử reload lại sau 2s
+                    setTimeout(pvnLoadStatus, 2000);
+                }
+            } catch(e) {
+                toastr.error("Lỗi kết nối: " + e.message);
+                pvnShowStopped();
+            }
+        } else {
+            // TẮT
+            pvnUi.btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tắt...';
+            try {
+                await fetch('/api/remote/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ action: 'stop' })
+                });
+                pvnShowStopped();
+                toastr.info("Đã tắt Online.", "ProxyVN Remote");
+            } catch(e) { pvnShowStopped(); }
+        }
+    }
+
+    // Helper: Hiển thị giao diện đang chạy
+    function pvnShowRunning(url) {
+        pvnUi.configArea.style.display = 'none'; // Ẩn chỗ nhập pass
+        pvnUi.statusArea.style.display = 'block'; // Hiện link
+        pvnUi.link.value = url || "Đang lấy link...";
+
+        pvnUi.btn.innerHTML = '<i class="fa-solid fa-power-off"></i> TẮT ONLINE';
+        pvnUi.btn.style.backgroundColor = '#d63031';
+        pvnUi.btn.disabled = false;
+    }
+
+    // Helper: Hiển thị giao diện đã tắt
+    function pvnShowStopped() {
+        pvnUi.configArea.style.display = 'block';
+        pvnUi.statusArea.style.display = 'none';
+
+        pvnUi.btn.innerHTML = '<i class="fa-solid fa-rocket"></i> BẬT ONLINE';
+        pvnUi.btn.style.backgroundColor = '#6c5ce7';
+        pvnUi.btn.disabled = false;
+    }
+
+    // Helper: Copy link
+    function pvnCopyLink() {
+        const copyText = document.getElementById("pvn-r-link");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        toastr.success("Đã copy link Cloudflare!");
+    }
+
+    // Khởi chạy check trạng thái ngay khi load trang
+    document.addEventListener("DOMContentLoaded", pvnLoadStatus);
+</script> -->
     <script src="lib/polyfill.js"></script>
     <script src="lib/jquery-3.5.1.min.js"></script>
     <script src="lib/jquery-ui.min.js"></script>
