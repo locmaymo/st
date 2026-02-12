@@ -186,6 +186,10 @@ app.post('/api/remote/toggle', async (req, res) => {
 
     // --- BẬT (START) ---
     if (action === 'start') {
+        if (user && pass) {
+            saveAuth(user, pass);
+        }
+
         // 1. Nếu đang chạy và đã có URL -> Trả về ngay lập tức
         if (tunnelProcess && publicUrl) {
             return res.json({ status: 'running', url: publicUrl });
