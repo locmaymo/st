@@ -205,6 +205,7 @@ app.post('/api/remote/toggle', async (req, res) => {
         try {
             tunnelProcess = cfSpawn(cfBin, [
                 'tunnel',
+                '--edge-ip-version', '4',
                 '--url', `http://127.0.0.1:${port}`,
                 '--no-autoupdate',
                 '--protocol', 'http2',
@@ -222,7 +223,7 @@ app.post('/api/remote/toggle', async (req, res) => {
         tunnelProcess.stderr.on('data', (data) => {
             const str = data.toString();
             console.log('[Cloudflared Log]:', str);
-            
+
             // Regex bắt link trycloudflare
             const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
             if (match) {
