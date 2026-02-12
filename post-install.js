@@ -67,6 +67,27 @@ function downloadFile(url, dest) {
  */
 async function setupCloudflared() {
     const binDir = path.join(process.cwd(), 'bin');
+    const platform = process.platform; // 'win32', 'linux', 'darwin', 'android'
+    const arch = process.arch;
+
+    // --- MỚI: TỰ ĐỘNG CÀI PROOT NẾU LÀ ANDROID ---
+    if (platform === 'android') {
+        console.log(color.blue('Phát hiện môi trường Termux. Đang kiểm tra dependencies...'));
+        try {
+            // Kiểm tra xem termux-chroot đã được cài chưa
+            execSync('termux-chroot --help', { stdio: 'ignore' });
+            console.log(color.green('Đã cài đặt sẵn proot (termux-chroot).'));
+        } catch (e) {
+            console.log(color.yellow('Chưa có proot. Đang tiến hành cài đặt tự động...'));
+            try {
+                // Tự động cài đặt proot
+                execSync('pkg install proot -y', { stdio: 'inherit' });
+                console.log(color.green('Cài đặt proot thành công!'));
+            } catch (err) {
+                console.error(color.red('LỖI: Không thể tự động cài proot. Người dùng cần gõ thủ công: pkg install proot -y'));
+            }
+        }
+    }
 
     // 1. Xác định tên file dựa trên hệ điều hành
     const isWindows = process.platform === 'win32';
@@ -80,9 +101,6 @@ async function setupCloudflared() {
     }
 
     // 2. Xác định link tải phù hợp với Chip và OS
-    const platform = process.platform;
-    const arch = process.arch;
-
     let downloadUrl = '';
     const baseUrl = 'https://github.com/cloudflare/cloudflared/releases/latest/download/';
 

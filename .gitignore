@@ -57,3 +57,4 @@ public/scripts/extensions/third-party
 src/middleware/validator.txt
 yarn.lock
 remote-auth.json
+/bin

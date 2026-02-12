@@ -191,29 +191,48 @@ app.post('/api/remote/toggle', async (req, res) => {
             return res.json({ status: 'running', url: publicUrl });
         }
 
-        // 2. Nếu đang chạy mà chưa có URL (đang khởi động dở) -> Kill để chạy lại cho chắc
+        // 2. Nếu đang chạy mà chưa có URL (đang khởi dở) -> Kill chạy lại
         if (tunnelProcess) {
             try { tunnelProcess.kill(); } catch(e) {}
             tunnelProcess = null;
         }
 
-        const termuxCert = '/data/data/com.termux/files/usr/etc/tls/cert.pem';
-
-        const port =  String(getConfigValue('port'));
+        const port = String(getConfigValue('port') || 8000);
         console.log(`[Remote] Đang khởi động Tunnel trên port ${port}...`);
 
+        // --- BẮT ĐẦU MAGIC: TỰ ĐỘNG NHẬN DIỆN MÔI TRƯỜNG ---
+        const isAndroid = process.platform === 'android';
+        const termuxCert = '/data/data/com.termux/files/usr/etc/tls/cert.pem';
+
+        // Lệnh và tham số mặc định
+        let spawnCmd = cfBin;
+        let spawnArgs = [
+            'tunnel',
+            '--edge-ip-version', '4',
+            '--url', `http://127.0.0.1:${port}`,
+            '--no-autoupdate',
+            '--protocol', 'http2',
+            '--logfile', '/dev/null', // Thêm cái này cho sạch log hệ thống
+            '--loglevel', 'info'
+        ];
+
+        // Nếu là Android -> Tự động ép chạy qua termux-chroot
+        if (isAndroid) {
+            console.log('[Remote] Kích hoạt giả lập Termux-Chroot cho Cloudflared...');
+            spawnCmd = 'termux-chroot';
+            spawnArgs.unshift(cfBin); // Đưa đường dẫn cfBin vào làm tham số đầu tiên của termux-chroot
+        }
+        // --- KẾT THÚC MAGIC ---
+
         // 3. Khởi tạo Process mới
-        // Lưu ý: Đường dẫn 'cfBin' sẽ được xử lý ở phần Postinstall bên dưới
         try {
-            tunnelProcess = cfSpawn(cfBin, [
-                'tunnel',
-                '--edge-ip-version', '4',
-                '--url', `http://127.0.0.1:${port}`,
-                '--no-autoupdate',
-                '--protocol', 'http2',
-                '--logfile', '/dev/null',
-                '--loglevel', 'info'
-            ] );
+            tunnelProcess = cfSpawn(spawnCmd, spawnArgs, {
+                env: {
+                    ...process.env,
+                    // Chỉ nạp chứng chỉ SSL Termux nếu đang thực sự chạy trên Android
+                    ...(isAndroid ? { SSL_CERT_FILE: termuxCert } : {})
+                }
+            });
         } catch (err) {
             console.error('[Remote] Lỗi khi khởi động cloudflared:', err);
             return res.json({ status: 'error', message: 'Lỗi khi khởi động cloudflared' });
@@ -224,7 +243,7 @@ app.post('/api/remote/toggle', async (req, res) => {
         // 4. Lắng nghe log để bắt URL
         tunnelProcess.stderr.on('data', (data) => {
             const str = data.toString();
-            console.log('[Cloudflared Log]:', str);
+            // console.log('[Cloudflared]', str); // Bỏ comment dòng này nếu muốn xem log chi tiết
 
             // Regex bắt link trycloudflare
             const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
@@ -240,7 +259,7 @@ app.post('/api/remote/toggle', async (req, res) => {
             publicUrl = "";
         });
 
-        // 5. [TỐI ƯU] Chờ URL tối đa 15s, nhưng có là trả về NGAY
+        // 5. [TỐI ƯU] Chờ URL tối đa 15s
         const maxRetries = 30; // 30 lần thử
         const intervalTime = 500; // Mỗi lần 0.5s => Tổng 15s
         let attempt = 0;
@@ -257,45 +276,36 @@ app.post('/api/remote/toggle', async (req, res) => {
             // B. Thất bại: Quá thời gian chờ (Timeout)
             if (attempt >= maxRetries) {
                 clearInterval(checkUrlInterval);
-                // Kill process treo
                 if(tunnelProcess) {
                     tunnelProcess.kill();
                     tunnelProcess = null;
                 }
-                return res.json({ status: 'error', message: "Hết thời gian chờ (Timeout). Mạng quá chậm hoặc Cloudflare bị chặn." });
+                return res.json({ status: 'error', message: "Hết thời gian chờ. Mạng chậm hoặc chứng chỉ lỗi." });
             }
 
-            // C. Thất bại: Process bị chết đột ngột khi đang chờ
+            // C. Thất bại: Process bị chết đột ngột
             if (!tunnelProcess) {
                 clearInterval(checkUrlInterval);
-                return res.json({ status: 'error', message: "Tunnel process bị đóng đột ngột." });
+                return res.json({ status: 'error', message: "Tunnel process bị đóng đột ngột. Hãy kiểm tra lại log." });
             }
-
-            // Nếu chưa có, lặp lại sau 500ms...
         }, intervalTime);
 
     } else {
         // --- TẮT (STOP) ---
         if (tunnelProcess) {
-            tunnelProcess.kill(); // Kill process chính
+            tunnelProcess.kill();
             tunnelProcess = null;
             publicUrl = "";
 
-            // [FIX LỖI CỦA BẠN TẠI ĐÂY]
-            // Kiểm tra hệ điều hành để dùng lệnh Kill phù hợp
             try {
                 if (process.platform === 'win32') {
-                    // Nếu là Windows -> Dùng taskkill
                     const cleanup = cfSpawn('taskkill', ['/F', '/IM', 'cloudflared.exe']);
-                    cleanup.on('error', () => {}); // Bỏ qua lỗi nếu không tìm thấy
+                    cleanup.on('error', () => {});
                 } else {
-                    // Nếu là Linux/Termux -> Dùng pkill
                     const cleanup = cfSpawn('pkill', ['-f', 'cloudflared']);
                     cleanup.on('error', () => {});
                 }
-            } catch(e) {
-                // Không làm gì cả, chỉ là dọn dẹp thôi
-            }
+            } catch(e) {}
         }
         res.json({ status: 'stopped' });
     }
