@@ -104,9 +104,13 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '500mb' }));
 // ================= [MOD START] TÍNH NĂNG REMOTE TUNNEL ProxyVN.top =================
 
 import cookieParser from 'cookie-parser';
-import { bin as cfBin } from 'cloudflared';
 import { spawn as cfSpawn } from 'node:child_process';
 import fs from 'node:fs';
+
+// Tự động nhận diện tên file (Windows cần đuôi .exe)
+const binaryName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
+// Trỏ vào thư mục 'bin' nằm ngay trong project của bạn
+const cfBin = path.join(process.cwd(), 'bin', binaryName);
 
 // --- Cấu hình ---
 // Lưu file auth ngay tại thư mục chạy tool (thường là root) thay vì __dirname
@@ -180,32 +184,46 @@ app.post('/api/remote/status', (req, res) => {
 app.post('/api/remote/toggle', async (req, res) => {
     const { action, user, pass } = req.body;
 
+    // --- BẬT (START) ---
     if (action === 'start') {
-        // Nếu đang chạy thì trả về luôn
-        if (tunnelProcess) return res.json({ status: 'running', url: publicUrl });
+        // 1. Nếu đang chạy và đã có URL -> Trả về ngay lập tức
+        if (tunnelProcess && publicUrl) {
+            return res.json({ status: 'running', url: publicUrl });
+        }
 
-        saveAuth(user, pass);
-        const port = cliArgs.port || 8000;
+        // 2. Nếu đang chạy mà chưa có URL (đang khởi động dở) -> Kill để chạy lại cho chắc
+        if (tunnelProcess) {
+            try { tunnelProcess.kill(); } catch(e) {}
+            tunnelProcess = null;
+        }
 
-        console.log('[Remote] Đang khởi động Tunnel (HTTP2 Mode)...');
+        const port =  String(getConfigValue('port'));
+        console.log(`[Remote] Đang khởi động Tunnel trên port ${port}...`);
 
-        // --- KHỞI ĐỘNG CLOUDFLARED VỚI HTTP2 ---
-        tunnelProcess = cfSpawn(cfBin, [
-            'tunnel',
-            '--url', `http://localhost:${port}`,
-            '--no-autoupdate',
-            '--protocol', 'http2' // <--- FIX LỖI QUAN TRỌNG
-        ]);
+        // 3. Khởi tạo Process mới
+        // Lưu ý: Đường dẫn 'cfBin' sẽ được xử lý ở phần Postinstall bên dưới
+        try {
+            tunnelProcess = cfSpawn(cfBin, [
+                'tunnel',
+                '--url', `http://localhost:${port}`,
+                '--no-autoupdate',
+                '--protocol', 'http2'
+            ]);
+        } catch (err) {
+            console.error('[Remote] Lỗi khi khởi động cloudflared:', err);
+            return res.json({ status: 'error', message: 'Lỗi khi khởi động cloudflared' });
+        }
 
+        publicUrl = ""; // Reset URL
+
+        // 4. Lắng nghe log để bắt URL
         tunnelProcess.stderr.on('data', (data) => {
             const str = data.toString();
-            // console.log(str); // Bỏ comment để debug nếu cần
-
-            // Tìm URL trong log
+            // Regex bắt link trycloudflare
             const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
             if (match) {
                 publicUrl = match[0];
-                console.log('[Remote] Link tìm thấy:', publicUrl);
+                console.log('[Remote] Link mới:', publicUrl);
             }
         });
 
@@ -215,17 +233,39 @@ app.post('/api/remote/toggle', async (req, res) => {
             publicUrl = "";
         });
 
-        // Đợi 5 giây để đảm bảo tunnel đã ổn định
-        setTimeout(() => {
-            if(publicUrl) {
-                res.json({ status: 'started', url: publicUrl });
-            } else {
-                // Nếu sau 5s vẫn chưa có link -> Kill process để thử lại
-                if(tunnelProcess) tunnelProcess.kill();
-                tunnelProcess = null;
-                res.json({ status: 'error', message: "Mạng chậm hoặc bị chặn. Hãy thử bấm BẬT lại lần nữa!" });
+        // 5. [TỐI ƯU] Chờ URL tối đa 15s, nhưng có là trả về NGAY
+        const maxRetries = 30; // 30 lần thử
+        const intervalTime = 500; // Mỗi lần 0.5s => Tổng 15s
+        let attempt = 0;
+
+        const checkUrlInterval = setInterval(() => {
+            attempt++;
+
+            // A. Thành công: Đã có URL
+            if (publicUrl) {
+                clearInterval(checkUrlInterval);
+                return res.json({ status: 'started', url: publicUrl });
             }
-        }, 5000);
+
+            // B. Thất bại: Quá thời gian chờ (Timeout)
+            if (attempt >= maxRetries) {
+                clearInterval(checkUrlInterval);
+                // Kill process treo
+                if(tunnelProcess) {
+                    tunnelProcess.kill();
+                    tunnelProcess = null;
+                }
+                return res.json({ status: 'error', message: "Hết thời gian chờ (Timeout). Mạng quá chậm hoặc Cloudflare bị chặn." });
+            }
+
+            // C. Thất bại: Process bị chết đột ngột khi đang chờ
+            if (!tunnelProcess) {
+                clearInterval(checkUrlInterval);
+                return res.json({ status: 'error', message: "Tunnel process bị đóng đột ngột." });
+            }
+
+            // Nếu chưa có, lặp lại sau 500ms...
+        }, intervalTime);
 
     } else {
         // --- TẮT (STOP) ---

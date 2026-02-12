@@ -4,6 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { execSync } from 'node:child_process';
+import https from 'node:https';
 import yaml from 'yaml';
 import chalk from 'chalk';
 import { createRequire } from 'node:module';
@@ -13,6 +15,131 @@ import { addMissingConfigValues } from './src/config-init.js';
  * Colorizes console output.
  */
 const color = chalk;
+
+/**
+ * Hàm tải file hỗ trợ tự động Follow Redirect (301, 302)
+ */
+function downloadFile(url, dest) {
+    return new Promise((resolve, reject) => {
+        const request = https.get(url, (response) => {
+            // 1. Xử lý chuyển hướng (301, 302) - GitHub Releases luôn dùng cái này
+            if (response.statusCode === 301 || response.statusCode === 302) {
+                if (response.headers.location) {
+                    console.log(color.gray(`  -> Redirecting to: ${response.headers.location.substring(0, 50)}...`));
+                    // Đệ quy: Gọi lại hàm với URL mới
+                    return downloadFile(response.headers.location, dest)
+                        .then(resolve)
+                        .catch(reject);
+                } else {
+                    reject(new Error('Redirect detected but no location header found.'));
+                    return;
+                }
+            }
+
+            // 2. Nếu thành công (200)
+            if (response.statusCode === 200) {
+                const file = fs.createWriteStream(dest);
+                response.pipe(file);
+
+                file.on('finish', () => {
+                    file.close(() => resolve());
+                });
+
+                file.on('error', (err) => {
+                    fs.unlink(dest, () => {});
+                    reject(err);
+                });
+            } else {
+                // 3. Lỗi khác
+                reject(new Error(`Download failed with status code: ${response.statusCode}`));
+            }
+        });
+
+        request.on('error', (err) => {
+            fs.unlink(dest, () => {});
+            reject(err);
+        });
+    });
+}
+
+/**
+ * Tải Cloudflared tự động nhận diện Windows/Linux/Termux/Mac
+ */
+async function setupCloudflared() {
+    const binDir = path.join(process.cwd(), 'bin');
+
+    // 1. Xác định tên file dựa trên hệ điều hành
+    const isWindows = process.platform === 'win32';
+    const fileName = isWindows ? 'cloudflared.exe' : 'cloudflared';
+    const binPath = path.join(binDir, fileName);
+
+    // Nếu đã có file rồi thì bỏ qua
+    if (fs.existsSync(binPath)) {
+        console.log(color.green(`Cloudflared binary already exists at ./bin/${fileName}. Skipping download.`));
+        return;
+    }
+
+    // 2. Xác định link tải phù hợp với Chip và OS
+    const platform = process.platform;
+    const arch = process.arch;
+
+    let downloadUrl = '';
+    const baseUrl = 'https://github.com/cloudflare/cloudflared/releases/latest/download/';
+
+    console.log(color.blue(`Detected System: ${platform} (${arch})`));
+
+    if (isWindows) {
+        // Windows (x64 hoặc x86)
+        downloadUrl = baseUrl + (arch === 'x64' ? 'cloudflared-windows-amd64.exe' : 'cloudflared-windows-386.exe');
+    } else if (platform === 'darwin') {
+        // MacOS
+        downloadUrl = baseUrl + 'cloudflared-darwin-amd64.tgz';
+        // Lưu ý: Mac có thể cần giải nén tgz, nhưng code này tạm tải file gốc
+        // Nếu muốn binary trực tiếp (nếu GitHub có):
+        // downloadUrl = baseUrl + 'cloudflared-darwin-amd64';
+    } else {
+        // Linux & Android (Termux)
+        if (arch === 'arm64') {
+            downloadUrl = baseUrl + 'cloudflared-linux-arm64';
+        } else if (arch === 'arm') {
+            downloadUrl = baseUrl + 'cloudflared-linux-arm';
+        } else if (arch === 'x64') {
+            downloadUrl = baseUrl + 'cloudflared-linux-amd64';
+        } else {
+            downloadUrl = baseUrl + 'cloudflared-linux-386';
+        }
+    }
+
+    if (!downloadUrl) {
+        console.error(color.red('FATAL: Unsupported architecture/platform.'));
+        return;
+    }
+
+    console.log(color.blue(`Downloading Cloudflared from GitHub...`));
+
+    // 3. Tạo thư mục bin
+    if (!fs.existsSync(binDir)) {
+        fs.mkdirSync(binDir, { recursive: true });
+    }
+
+    // 4. Thực hiện tải file (Có hỗ trợ Redirect)
+    try {
+        await downloadFile(downloadUrl, binPath);
+        console.log(color.green('Download completed successfully.'));
+
+        // 5. Cấp quyền thực thi (Chỉ chạy trên Linux/Mac/Android)
+        if (!isWindows) {
+            try {
+                execSync(`chmod +x "${binPath}"`);
+                console.log(color.green('Permissions set (+x).'));
+            } catch (e) {
+                console.warn(color.yellow('Could not set permissions. You may need to run "chmod +x" manually.'));
+            }
+        }
+    } catch (error) {
+        console.error(color.red(`FATAL: Download error: ${error.message}`));
+    }
+}
 
 /**
  * Converts the old config.conf file to the new config.yaml format.
@@ -102,13 +229,22 @@ function createDefaultFiles() {
     }
 }
 
-try {
-    // 0. Convert config.conf to config.yaml
-    convertConfig();
-    // 1. Create default config files
-    createDefaultFiles();
-    // 2. Add missing config values
-    addMissingConfigValues(path.join(process.cwd(), './config.yaml'));
-} catch (error) {
-    console.error(error);
-}
+// Hàm Main bọc trong async để dùng await
+(async () => {
+    try {
+        // 0. Setup Cloudflared (MỚI - Đã fix logic)
+        await setupCloudflared();
+
+        // 1. Convert config.conf to config.yaml
+        convertConfig();
+
+        // 2. Create default config files
+        createDefaultFiles();
+
+        // 3. Add missing config values
+        addMissingConfigValues(path.join(process.cwd(), './config.yaml'));
+
+    } catch (error) {
+        console.error(error);
+    }
+})();

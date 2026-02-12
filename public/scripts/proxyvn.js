@@ -145,15 +145,24 @@ async function pvnToggleRemote() {
             });
             const data = await res.json();
 
-            if (data.url) {
+            // [FIX QUAN TRỌNG] Kiểm tra xem Backend có báo lỗi không
+            if (data.status === 'error') {
+                // Nếu server báo lỗi (timeout, ko lấy được link...)
+                showNotification(data.message || "Lỗi không xác định từ Server", "error");
+                pvnShowStopped(); // Quay về trạng thái tắt ngay lập tức
+            }
+            else if (data.url) {
+                // Nếu thành công có Link
                 pvnShowRunning(data.url);
                 showNotification("Đã bật Online thành công! Hãy copy link và truy cập từ các thiết bị mà bạn muốn.", "success");
-            } else {
-                // Retry sau 2s
+            }
+            else {
+                // Trường hợp link chưa có ngay nhưng không lỗi (rất hiếm khi xảy ra với code backend mới)
+                // Vẫn giữ retry để chắc chắn
                 setTimeout(checkRemoteStatus, 2000);
             }
         } catch(e) {
-            showNotification("Lỗi kết nối: " + e.message, "error");
+            showNotification("Lỗi kết nối API: " + e.message, "error");
             pvnShowStopped();
         }
     } else {
