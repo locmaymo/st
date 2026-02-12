@@ -205,9 +205,11 @@ app.post('/api/remote/toggle', async (req, res) => {
         try {
             tunnelProcess = cfSpawn(cfBin, [
                 'tunnel',
-                '--url', `http://localhost:${port}`,
+                '--url', `http://127.0.0.1:${port}`,
                 '--no-autoupdate',
-                '--protocol', 'http2'
+                '--protocol', 'http2',
+                '--logfile', '/dev/null',
+                '--loglevel', 'info'
             ]);
         } catch (err) {
             console.error('[Remote] Lỗi khi khởi động cloudflared:', err);
@@ -219,6 +221,8 @@ app.post('/api/remote/toggle', async (req, res) => {
         // 4. Lắng nghe log để bắt URL
         tunnelProcess.stderr.on('data', (data) => {
             const str = data.toString();
+            console.log('[Cloudflared Log]:', str);
+            
             // Regex bắt link trycloudflare
             const match = str.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
             if (match) {
