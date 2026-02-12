@@ -213,13 +213,7 @@ app.post('/api/remote/toggle', async (req, res) => {
                 '--protocol', 'http2',
                 '--logfile', '/dev/null',
                 '--loglevel', 'info'
-            ], {
-                // [QUAN TRỌNG NHẤT] Thêm dòng này để nạp biến môi trường
-                env: {
-                    ...process.env, // Giữ lại các biến cũ của hệ thống
-                    SSL_CERT_FILE: termuxCert // Ép trỏ vào file chứng chỉ vừa cài
-                }
-            });
+            ] );
         } catch (err) {
             console.error('[Remote] Lỗi khi khởi động cloudflared:', err);
             return res.json({ status: 'error', message: 'Lỗi khi khởi động cloudflared' });
