@@ -58,3 +58,5 @@ src/middleware/validator.txt
 yarn.lock
 remote-auth.json
 /bin
+*.code-workspace
+test-results/

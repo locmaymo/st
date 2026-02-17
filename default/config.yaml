@@ -37,7 +37,7 @@ browserLaunch:
   # Use if you don't have 'localhost' in your hosts file
   avoidLocalhost: false
 # Server port
-port: 8080
+port: 8000
 # -- SSL options --
 ssl:
   # Enable SSL/TLS encryption
@@ -67,7 +67,7 @@ basicAuthUser:
   username: "user"
   password: "password"
 # Enables CORS proxy middleware
-enableCorsProxy: true
+enableCorsProxy: false
 # -- REQUEST PROXY CONFIGURATION --
 requestProxy:
   # If a proxy is enabled, all outgoing HTTP/HTTPS requests will be routed through it.
@@ -82,18 +82,30 @@ requestProxy:
 enableUserAccounts: false
 # Enable discreet login mode: hides user list on the login screen
 enableDiscreetLogin: false
-# Enable's authlia based auto login. Only enable this if you
-# have setup and installed Authelia as a middle-ware on your
-# reverse proxy
-# https://www.authelia.com/
-# This will use auto login to an account with the same username
-# as that used for authlia. (Ensure the username in authlia
-# is an exact match in lowercase with that in sillytavern)
-autheliaAuth: false
 # If `basicAuthMode` and this are enabled then
 # the username and passwords for basic auth are the same as those
 # for the individual accounts
 perUserBasicAuth: false
+
+# -- SSO LOGIN CONFIGURATION --
+sso:
+  # Enable's authlia based auto login. Only enable this if you
+  # have setup and installed Authelia as a middle-ware on your
+  # reverse proxy
+  # https://www.authelia.com/
+  # This will use auto login to an account with the same username
+  # as that used for authlia. (Ensure the username in authlia
+  # is an exact match in lowercase with that in sillytavern)
+  autheliaAuth: false
+  # Enable's authentik based auto login. Only enable this if you
+  # have setup and installed Authentik as a middle-ware on your
+  # reverse proxy.
+  # https://goauthentik.io/
+  # This will use auto login to an account with the same username
+  # as that used for authentik. (Ensure the username in authentik
+  # is an exact match in lowercase with that in sillytavern).
+  authentikAuth: false
+
 # Host whitelist configuration. Recommended if you're using a listen mode
 hostWhitelist:
   # Enable or disable host whitelisting
@@ -189,7 +201,6 @@ whitelistImportDomains:
   - files.catbox.moe
   - raw.githubusercontent.com
   - char-archive.evulid.cc
-  - proxyvn.top
 # API request overrides (for KoboldAI and Text Completion APIs)
 ## Note: host includes the port number if it's not the default (80 or 443)
 ## Format is an array of objects:
@@ -254,7 +265,7 @@ ollama:
 # -- ANTHROPIC CLAUDE API CONFIGURATION --
 claude:
   # Enables caching of the system prompt (if supported).
-  # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+  # https://platform.claude.com/docs/en/build-with-claude/prompt-caching
   # -- IMPORTANT! --
   # Use only when the prompt before the chat history is static and doesn't change between requests
   # (e.g {{random}} macro or lorebooks not as in-chat injections).
@@ -276,6 +287,18 @@ claude:
 gemini:
   # API endpoint version ("v1beta" or "v1alpha")
   apiVersion: 'v1beta'
+  # Adds thought signatures to requests (if available). Only for Gemini 3 and above.
+  thoughtSignatures: true
+  # Enables caching of the system prompt (if supported). Only for OpenRouter.
+  # -- IMPORTANT! --
+  # Use only when the prompt before the chat history is static and doesn't change between requests
+  # (e.g {{random}} macro or lorebooks not as in-chat injections).
+  # Otherwise, you'll just waste money on cache misses.
+  enableSystemPromptCache: false
+  # https://ai.google.dev/gemini-api/docs/imagen#imagen-configuration
+  image:
+    # Leave empty to use the API-default value.
+    personGeneration: 'allow_adult'
 # -- SERVER PLUGIN CONFIGURATION --
 enableServerPlugins: false
 # Attempt to automatically update server plugins on startup

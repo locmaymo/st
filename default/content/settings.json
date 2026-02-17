@@ -33,7 +33,6 @@
     },
     "textgenerationwebui_settings": {
         "temp": 0.5,
-        "temperature_last": true,
         "top_p": 0.9,
         "top_k": 0,
         "top_a": 0,
@@ -41,7 +40,6 @@
         "epsilon_cutoff": 0,
         "eta_cutoff": 0,
         "typical_p": 1,
-        "min_p": 0,
         "rep_pen": 1.1,
         "rep_pen_range": 0,
         "rep_pen_decay": 0,
@@ -351,11 +349,10 @@
         "custom_stopping_strings_macro": true,
         "fuzzy_search": true,
         "encode_tags": false,
-        "servers": [],
-        "bogus_folders": false,
-        "zoomed_avatar_magnification": false,
-        "show_tag_filters": false,
-        "aux_field": "character_version",
+        "enableLabMode": false,
+        "enableZenSliders": false,
+        "ui_mode": 1,
+        "forbid_external_media": true,
         "stscript": {
             "parser": {
                 "flags": {
@@ -800,7 +797,6 @@
         "rep_pen": 1.1,
         "rep_pen_range": 600,
         "top_p": 0.95,
-        "min_p": 0,
         "top_a": 0,
         "top_k": 0,
         "typical": 1,
@@ -837,8 +833,8 @@
         "top_a_openai": 0,
         "repetition_penalty_openai": 1,
         "stream_openai": true,
-        "openai_max_context": 60000,
-        "openai_max_tokens": 8192,
+        "openai_max_context": 4095,
+        "openai_max_tokens": 300,
         "wrap_in_quotes": false,
         "prompts": [
             {
@@ -4459,13 +4455,8 @@
             ]
         },
         "wi_format": "{0}",
-        "group_nudge_prompt": "[Write the next reply only as {{char}}.]",
-        "scenario_format": "{{scenario}}",
-        "personality_format": "[{{char}}'s personality: {{personality}}]",
-        "openai_model": "gemini-2.5-pro",
-        "claude_model": "claude-3-opus-20240229",
-        "google_model": "gemini-1.5-pro-latest",
-        "vertexai_model": "gemini-2.0-flash-001",
+        "openai_model": "gpt-4-turbo",
+        "claude_model": "claude-3-5-sonnet-20240620",
         "ai21_model": "jamba-large",
         "mistralai_model": "mistral-medium",
         "cohere_model": "command-r",
@@ -4495,52 +4486,6 @@
         "show_external_models": true,
         "proxy_password": "Nhap API Key ProxyVN.top cua ban",
         "assistant_prefill": "",
-        "assistant_impersonation": "",
-        "claude_use_sysprompt": false,
-        "use_makersuite_sysprompt": true,
-        "vertexai_auth_mode": "express",
-        "vertexai_region": "us-central1",
-        "vertexai_express_project_id": "",
-        "squash_system_messages": true,
-        "image_inlining": true,
-        "inline_image_quality": "high",
-        "video_inlining": true,
-        "bypass_status_check": true,
-        "continue_prefill": true,
-        "function_calling": false,
-        "names_behavior": 0,
-        "continue_postfix": " ",
-        "custom_prompt_post_processing": "",
-        "show_thoughts": true,
-        "reasoning_effort": "max",
-        "enable_web_search": false,
-        "request_images": false,
-        "seed": -1,
-        "n": 1,
-        "bind_preset_to_connection": true,
-        "extensions": {}
-    },
-    "background": {
-        "name": "__transparent.png",
-        "url": "url(\"backgrounds/__transparent.png\")",
-        "fitting": "classic",
-        "animation": false
-    },
-    "proxies": [
-        {
-            "name": "None",
-            "url": "https://ProxyVN.top",
-            "password": "Nhap API Key ProxyVN.top cua ban"
-        },
-        {
-            "name": "Proxy của ProxyVN.top",
-            "url": "https://ProxyVN.top",
-            "password": "Nhap API Key ProxyVN.top cua ban"
-        }
-    ],
-    "selected_proxy": {
-        "name": "Proxy của ProxyVN.top",
-        "url": "https://ProxyVN.top",
-        "password": "Nhap API Key ProxyVN.top cua ban"
+        "assistant_impersonation": ""
     }
 }

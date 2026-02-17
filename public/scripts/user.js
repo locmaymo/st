@@ -83,7 +83,7 @@ async function getUsers() {
     try {
         const response = await fetch('/api/users/get', {
             method: 'POST',
-            headers: getRequestHeaders(),
+            headers: getRequestHeaders({ omitContentType: true }),
         });
 
         if (!response.ok) {
@@ -588,7 +588,7 @@ async function getSnapshots() {
     try {
         const response = await fetch('/api/settings/get-snapshots', {
             method: 'POST',
-            headers: getRequestHeaders(),
+            headers: getRequestHeaders({ omitContentType: true }),
         });
 
         if (!response.ok) {
@@ -614,7 +614,7 @@ async function makeSnapshot(callback) {
     try {
         const response = await fetch('/api/settings/make-snapshot', {
             method: 'POST',
-            headers: getRequestHeaders(),
+            headers: getRequestHeaders({ omitContentType: true }),
         });
 
         if (!response.ok) {
@@ -673,7 +673,7 @@ async function resetEverything(callback) {
     try {
         const step1Response = await fetch('/api/users/reset-step1', {
             method: 'POST',
-            headers: getRequestHeaders(),
+            headers: getRequestHeaders({ omitContentType: true }),
         });
 
         if (!step1Response.ok) {
@@ -926,7 +926,7 @@ async function openAdminPanel() {
 async function logout() {
     await fetch('/api/users/logout', {
         method: 'POST',
-        headers: getRequestHeaders(),
+        headers: getRequestHeaders({ omitContentType: true }),
     });
 
     // On an explicit logout stop auto login
@@ -970,7 +970,7 @@ async function extendUserSession() {
     try {
         const response = await fetch('/api/ping?extend=1', {
             method: 'POST',
-            headers: getRequestHeaders(),
+            headers: getRequestHeaders({ omitContentType: true }),
         });
 
         if (!response.ok) {

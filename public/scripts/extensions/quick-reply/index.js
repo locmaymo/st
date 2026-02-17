@@ -152,7 +152,7 @@ const handleCharChange = () => {
     lastCharId = this_chid;
 
     // If no character is loaded, there's nothing more to do.
-    /** @type {import('../../char-data.js').v1CharData} */
+    /** @type {Character} */
     const character = characters[this_chid];
     if (!character || selected_group) {
         return;
@@ -185,7 +185,7 @@ const init = async () => {
     buttons.show();
     settings.onSave = ()=>buttons.refresh();
 
-    window['executeQuickReplyByName'] = async(name, args = {}, options = {}) => {
+    globalThis.executeQuickReplyByName = async(name, args = {}, options = {}) => {
         let qr = [
             ...settings.config.setList,
             ...(settings.chatConfig?.setList ?? []),
@@ -308,6 +308,7 @@ const onNewChat = async () => {
     await autoExec.handleNewChat();
 };
 eventSource.on(event_types.CHAT_CREATED, (...args) => executeIfReadyElseQueue(onNewChat, args));
+eventSource.on(event_types.GROUP_CHAT_CREATED, (...args) => executeIfReadyElseQueue(onNewChat, args));
 
 const onBeforeGeneration = async (_generationType, _options = {}, isDryRun = false) => {
     if (isDryRun) {
