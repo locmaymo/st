@@ -107,7 +107,6 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '500mb' }));
 
 import cookieParser from 'cookie-parser';
 import { spawn as cfSpawn } from 'node:child_process';
-import fs from 'node:fs';
 
 // Tự động nhận diện tên file (Windows cần đuôi .exe)
 const binaryName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
